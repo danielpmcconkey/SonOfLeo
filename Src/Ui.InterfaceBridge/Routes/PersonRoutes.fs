@@ -20,7 +20,7 @@ let private create payload _ =
         result {
             let! input = Json.fromJson<PersonCreateInput> payload
             let! personName = input.personName |> PersonName.create
-            let! person = PersonOrchestration.createPerson context personName input.birthdate
+            let! person = PersonOrchestration.constructNewAndPersist context personName input.birthdate
             return! person |> ``convert [Person] to [PersonReturn]`` |> Json.toJson<PersonReturn>
         })
 
@@ -28,9 +28,12 @@ let private update payload _ =
     runCommandRouteAndAutoCompleteTransaction PersonUpdate (fun context ->
         result {
             let! input = Json.fromJson<PersonUpdateInput> payload
-            let! currentName = input.personName |> PersonName.create
+            let! personId = input.personName |> ``convert [PersonNameString] to [PersonId]`` context
             let! nameUpdate = input.personNameUpdate |> convertFieldUpdateToNewTypeFallible PersonName.create
-            let! person = PersonOrchestration.updatePerson context currentName nameUpdate input.birthdateUpdate
+            let! person =
+                PersonOrchestration.updatePerson
+                    context
+                    { personIdToUpdate = personId; personNameUpdate = nameUpdate; birthdateUpdate = input.birthdateUpdate }
             return! person |> ``convert [Person] to [PersonReturn]`` |> Json.toJson<PersonReturn>
         })
 

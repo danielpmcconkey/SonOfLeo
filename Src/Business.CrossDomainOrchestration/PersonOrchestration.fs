@@ -27,16 +27,7 @@ let private confirmNameFree
         | _ -> return ()
     }
 
-/// The Person with this exact name, or the typed not-found error naming it.
-let fetchPersonByName (context: Context.Context) (personName: PersonName) : Result<Person, IAppError> =
-    result {
-        let! existing = personName |> fetchByName context
-        match existing with
-        | Some person -> return person
-        | None -> return! Error(PersonNameDoesntMatchId(personName |> PersonName.value))
-    }
-
-let createPerson (context: Context.Context) (personName: PersonName) (birthdate: LocalDate) : Result<Person, IAppError> =
+let constructNewAndPersist (context: Context.Context) (personName: PersonName) (birthdate: LocalDate) : Result<Person, IAppError> =
     let instant = context |> Context.getInitiationInstant
     let person = create (PersonId.create ()) personName birthdate instant instant
     result {
@@ -46,28 +37,19 @@ let createPerson (context: Context.Context) (personName: PersonName) (birthdate:
         return person
     }
 
-let updatePerson
-    (context: Context.Context)
-    (currentName: PersonName)
-    (personNameUpdate: FieldUpdate<PersonName>)
-    (birthdateUpdate: FieldUpdate<LocalDate>)
-    : Result<Person, IAppError> =
+let updatePerson (context: Context.Context) (fieldUpdates: PersonFieldUpdates) : Result<Person, IAppError> =
     result {
-        let! person = currentName |> fetchPersonByName context
+        let self = fieldUpdates.personIdToUpdate
+        let! _ = self |> fetchById context
         do!
-            match personNameUpdate with
-            | SetTo newName -> confirmNameFree context newName (Some(person |> personId))
+            match fieldUpdates.personNameUpdate with
+            | SetTo newName -> confirmNameFree context newName (Some self)
             | NoChange -> Ok()
         do!
-            match birthdateUpdate with
+            match fieldUpdates.birthdateUpdate with
             | SetTo newBirthdate -> confirmBirthdateNotInFuture context newBirthdate
             | NoChange -> Ok()
-        return!
-            update
-                context
-                { personIdToUpdate = person |> personId
-                  personNameUpdate = personNameUpdate
-                  birthdateUpdate = birthdateUpdate }
+        return! update context fieldUpdates
     }
 
 let listPersons (context: Context.Context) : Result<Person list, IAppError> =

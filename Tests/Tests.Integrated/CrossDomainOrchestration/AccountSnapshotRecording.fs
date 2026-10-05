@@ -15,6 +15,8 @@ open Business.FinancialServices.Positions.PositionsComponent
 open Business.FinancialServices.Positions.PositionsError
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.AccountSnapshotOrchestration
+open Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
+open Ui.InterfaceBridge.BoundaryConverters.PositionsFieldConverters
 open Ui.InterfaceBridge.CommandRoute
 open Tests.Helpers
 open Tests.Helpers.PositionsValues
@@ -43,22 +45,38 @@ let private summary (view: SnapshotView) : SnapshotSummary =
     view.header |> AccountSnapshotHeader.contributionBasis |> Option.map (ContributionBasis.value >> Money.amount),
     view.lines |> List.map lineSummary
 
-let private line security (q: decimal) (p: decimal) (mv: decimal) (cb: decimal option) =
-    { securityName = toSecurityName security
-      quantity = toQuantity q
-      price = toPrice p
-      marketValue = toMoney mv
-      reportedCostBasis = cb |> Option.map toMoney }
+let private line security (q: decimal) (p: decimal) (mv: decimal) (cb: decimal option) : AccountSnapshotLineInput =
+    { securityName = security; quantity = q; price = p; marketValue = mv; reportedCostBasis = cb }
 
-let private snapshot account date provenance (contribution: decimal option) lines =
-    { investmentAccountName = toAccountName account
+let private snapshot account date provenance (contribution: decimal option) lines : AccountSnapshotInput =
+    { accountName = account
       snapshotDate = date
-      provenance = provenance
-      contributionBasis = contribution |> Option.map toContributionBasis
+      provenance = provenance |> Provenance.toString
+      contributionBasis = contribution
       lines = lines }
 
+// the route path: snapshots arrive as input contracts and go through the route's converter, which resolves the account
+// and Security names to IDs
+let private recordSnapshots context (inputs: AccountSnapshotInput list) =
+    inputs
+    |> List.map (``convert [AccountSnapshotInput] to [Snapshot]`` context)
+    |> convertListOfResultsToResultsList
+    |> Result.bind (AccountSnapshotOrchestration.recordSnapshots context)
+
+let private fetchSnapshot context account date =
+    PositionsLookups.investmentAccountIdOf context account
+    |> Result.bind (fun accountId -> AccountSnapshotOrchestration.fetchSnapshot context accountId date)
+
+let private deleteSnapshot context account date =
+    PositionsLookups.investmentAccountIdOf context account
+    |> Result.bind (fun accountId -> AccountSnapshotOrchestration.deleteSnapshot context accountId date)
+
+let private listSnapshotDates context account beginDate endDate =
+    PositionsLookups.investmentAccountIdOf context account
+    |> Result.bind (fun accountId -> AccountSnapshotOrchestration.listSnapshotDates context accountId beginDate endDate)
+
 let private fetched context account date =
-    fetchSnapshot context (toAccountName account) date |> Result.map summary
+    fetchSnapshot context account date |> Result.map summary
 
 let private today (context: Context.Context) = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
 
@@ -200,7 +218,7 @@ type AccountSnapshotRecordingTests(fixture: TestDataFixture) =
                     recordSnapshots context
                         [ snapshot PF.oldBrokerage p.accountsActiveBegin Reported None []
                           snapshot PF.oldBrokerage p.monthEnd4 Reported None [] ]
-                let! dates = listSnapshotDates context (toAccountName PF.oldBrokerage) p.accountsActiveBegin p.monthEnd4
+                let! dates = listSnapshotDates context PF.oldBrokerage p.accountsActiveBegin p.monthEnd4
                 Assert.Equal<(LocalDate * Provenance) list>(
                     [ p.accountsActiveBegin, Reported; p.d1, Reported; p.monthEnd4, Reported ], dates)
             })
@@ -243,7 +261,8 @@ type AccountSnapshotRecordingTests(fixture: TestDataFixture) =
             result {
                 recordSnapshots context [ snapshot PF.samHsa p.d2 Reported None [ line PF.totalMarket 1M 10.00M 10.00M None ] ]
                 |> expectError notHeld (fun found -> Assert.Equal((PF.samHsa, PF.totalMarket), found))
-                let! holdings = InvestmentOrchestration.listHoldings context (Some(toAccountName PF.samHsa))
+                let! samHsaId = PositionsLookups.investmentAccountIdOf context PF.samHsa
+                let! holdings = HoldingOrchestration.listHoldings context (Some samHsaId)
                 Assert.Equal<string list>([ PF.stableValue ], holdings |> List.map (fun h -> h.securityName))
             })
         |> railroadWrapper
@@ -282,13 +301,13 @@ type AccountSnapshotRecordingTests(fixture: TestDataFixture) =
     member _.``REQ-POS-7.4 deleting the snapshot for an account and date removes it and its lines, and leaves the account's other snapshots`` () =
         runCommandRouteAndAutoRollback PositionsDeleteAccountSnapshot (fun context ->
             result {
-                let! deleted = deleteSnapshot context (toAccountName PF.alexBrokerage) p.d2
+                let! deleted = deleteSnapshot context PF.alexBrokerage p.d2
                 let! remainingLines =
                     deleted.header |> AccountSnapshotHeader.accountSnapshotId |> AccountSnapshotLine.fetchByAccountSnapshot context
                 Assert.Empty(remainingLines)
-                fetchSnapshot context (toAccountName PF.alexBrokerage) p.d2
+                fetchSnapshot context PF.alexBrokerage p.d2
                 |> expectError notFound (fun found -> Assert.Equal((PF.alexBrokerage, p.d2), found))
-                let! dates = listSnapshotDates context (toAccountName PF.alexBrokerage) p.d1 p.d4
+                let! dates = listSnapshotDates context PF.alexBrokerage p.d1 p.d4
                 Assert.Equal<LocalDate list>([ p.d1; p.d3; p.d4 ], dates |> List.map fst)
             })
         |> railroadWrapper
@@ -296,7 +315,7 @@ type AccountSnapshotRecordingTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-POS-7.4 deleting for an account and date with no snapshot fails with a typed not-found error naming the account and the date`` () =
         runCommandRouteAndAutoRollback PositionsDeleteAccountSnapshot (fun context ->
-            deleteSnapshot context (toAccountName PF.alexBrokerage) (p.d2.PlusDays(1))
+            deleteSnapshot context PF.alexBrokerage (p.d2.PlusDays(1))
             |> expectError notFound (fun found -> Assert.Equal((PF.alexBrokerage, p.d2.PlusDays(1)), found))
             |> Ok)
         |> railroadWrapper
@@ -316,9 +335,9 @@ type AccountSnapshotRecordingTests(fixture: TestDataFixture) =
     member _.``REQ-POS-7.5 listing an account's snapshot dates between two dates returns every snapshot date of that account in the range, both ends included, in date order with its provenance, and no date outside the range or of another account`` () =
         let context = Context.create NoTransaction FetchOnly
         result {
-            let! brokerage = listSnapshotDates context (toAccountName PF.alexBrokerage) p.d2 p.d3
+            let! brokerage = listSnapshotDates context PF.alexBrokerage p.d2 p.d3
             Assert.Equal<(LocalDate * Provenance) list>([ p.d2, Reported; p.d3, Reported ], brokerage)
-            let! retirement = listSnapshotDates context (toAccountName PF.sam401k) p.d1 p.d3
+            let! retirement = listSnapshotDates context PF.sam401k p.d1 p.d3
             Assert.Equal<(LocalDate * Provenance) list>([ p.d1, Imported; p.d3, Reported ], retirement)
         }
         |> railroadWrapper

@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 
 realEstate='Property Valuation RealEstateOrchestration'
 investment='DimensionValue Security InvestmentAccount Holding AccountSnapshotHeader AccountSnapshotLine
-InvestmentOrchestration DimensionValueOrchestration SecurityOrchestration InvestmentAccountOrchestration
+DimensionValueOrchestration SecurityOrchestration InvestmentAccountOrchestration
 HoldingOrchestration AccountSnapshotOrchestration HoldingsAsOf InvestmentWealthHistory'
 
 dirs='Src/Business.FinancialServices.Positions Src/Business.CrossDomainOrchestration'

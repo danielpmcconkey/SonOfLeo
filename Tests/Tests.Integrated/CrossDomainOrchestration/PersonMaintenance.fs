@@ -28,6 +28,16 @@ let private alreadyExists = function AsError (PersonNameAlreadyExists name) -> S
 let private notFound = function AsError (PersonNameDoesntMatchId name) -> Some name | _ -> None
 let private birthdateInFuture = function AsError (PersonBirthdateLaterThanCurrentDate (given, current)) -> Some(given, current) | _ -> None
 
+// the route path: the Person is addressed by name, resolved to its ID as the route's converter resolves it
+let private fetchPersonByName context name = PositionsLookups.personIdOf context name |> Result.bind (fetchById context)
+
+let private updatePerson context currentName nameUpdate birthdateUpdate =
+    PositionsLookups.personIdOf context currentName
+    |> Result.bind (fun personId ->
+        PersonOrchestration.updatePerson
+            context
+            { personIdToUpdate = personId; personNameUpdate = nameUpdate; birthdateUpdate = birthdateUpdate })
+
 let private storedAs context name =
     PersonOrchestration.listPersons context
     |> Result.map (List.map summary >> List.filter (fun (n, _) -> n = name))
@@ -40,7 +50,7 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback PersonCreate (fun context ->
             result {
                 let birth = LocalDate(1975, 2, 28)
-                let! created = PersonOrchestration.createPerson context (toPersonName "Casey Example") birth
+                let! created = PersonOrchestration.constructNewAndPersist context (toPersonName "Casey Example") birth
                 Assert.Equal(("Casey Example", birth), created |> summary)
                 let! listed = storedAs context "Casey Example"
                 Assert.Equal<(string * LocalDate) list>([ "Casey Example", birth ], listed)
@@ -51,7 +61,7 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
     member _.``REQ-PER-1.3 creating a Person whose name exactly matches an existing Person's is rejected with a typed error naming the name, and no second Person is stored`` () =
         runCommandRouteAndAutoRollback PersonCreate (fun context ->
             result {
-                PersonOrchestration.createPerson context (toPersonName PositionsFixture.alex) (LocalDate(1990, 1, 1))
+                PersonOrchestration.constructNewAndPersist context (toPersonName PositionsFixture.alex) (LocalDate(1990, 1, 1))
                 |> expectError alreadyExists (fun name -> Assert.Equal(PositionsFixture.alex, name))
                 let! listed = storedAs context PositionsFixture.alex
                 Assert.Equal<(string * LocalDate) list>([ PositionsFixture.alex, PositionsFixture.alexBirthdate ], listed)
@@ -61,7 +71,7 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-PER-1.3 REQ-SYS-1.1 creating a Person whose name is an existing Person's name wrapped in whitespace is rejected as a duplicate naming the trimmed name`` () =
         runCommandRouteAndAutoRollback PersonCreate (fun context ->
-            PersonOrchestration.createPerson context (toPersonName $"  {PositionsFixture.sam}\t") (LocalDate(1990, 1, 1))
+            PersonOrchestration.constructNewAndPersist context (toPersonName $"  {PositionsFixture.sam}\t") (LocalDate(1990, 1, 1))
             |> expectError alreadyExists (fun name -> Assert.Equal(PositionsFixture.sam, name))
             |> Ok)
         |> railroadWrapper
@@ -70,7 +80,7 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
     member _.``REQ-PER-1.3 a Person whose name differs from an existing Person's only by letter case is created alongside it`` () =
         runCommandRouteAndAutoRollback PersonCreate (fun context ->
             result {
-                let! _ = PersonOrchestration.createPerson context (toPersonName "ALEX EXAMPLE") (LocalDate(1990, 1, 1))
+                let! _ = PersonOrchestration.constructNewAndPersist context (toPersonName "ALEX EXAMPLE") (LocalDate(1990, 1, 1))
                 let! listed = PersonOrchestration.listPersons context
                 let names = listed |> List.map (personName >> PersonName.value)
                 Assert.Contains("ALEX EXAMPLE", names)
@@ -83,9 +93,9 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback PersonCreate (fun context ->
             result {
                 let currentDate = today context
-                let! created = PersonOrchestration.createPerson context (toPersonName "Newborn Example") currentDate
+                let! created = PersonOrchestration.constructNewAndPersist context (toPersonName "Newborn Example") currentDate
                 Assert.Equal(currentDate, created |> birthdate)
-                PersonOrchestration.createPerson context (toPersonName "Unborn Example") (currentDate.PlusDays(1))
+                PersonOrchestration.constructNewAndPersist context (toPersonName "Unborn Example") (currentDate.PlusDays(1))
                 |> expectError birthdateInFuture (fun (given, current) ->
                     Assert.Equal(currentDate.PlusDays(1), given)
                     Assert.Equal(currentDate, current))
@@ -98,12 +108,12 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
             result {
                 let newBirth = LocalDate(1981, 5, 6)
                 let! updated =
-                    PersonOrchestration.updatePerson
-                        context (toPersonName PositionsFixture.jordan) (SetTo(toPersonName "Jordan Renamed")) (SetTo newBirth)
+                    updatePerson
+                        context PositionsFixture.jordan (SetTo(toPersonName "Jordan Renamed")) (SetTo newBirth)
                 Assert.Equal(("Jordan Renamed", newBirth), updated |> summary)
-                let! fetched = PersonOrchestration.fetchPersonByName context (toPersonName "Jordan Renamed")
+                let! fetched = fetchPersonByName context "Jordan Renamed"
                 Assert.Equal(("Jordan Renamed", newBirth), fetched |> summary)
-                PersonOrchestration.fetchPersonByName context (toPersonName PositionsFixture.jordan)
+                fetchPersonByName context PositionsFixture.jordan
                 |> expectError notFound (fun name -> Assert.Equal(PositionsFixture.jordan, name))
             })
         |> railroadWrapper
@@ -112,11 +122,11 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
     member _.``REQ-PER-2.2 REQ-PER-1.3 renaming a Person to another Person's name is rejected with a typed error naming the name, and neither Person changes`` () =
         runCommandRouteAndAutoRollback PersonUpdate (fun context ->
             result {
-                PersonOrchestration.updatePerson
-                    context (toPersonName PositionsFixture.jordan) (SetTo(toPersonName PositionsFixture.sam)) NoChange
+                updatePerson
+                    context PositionsFixture.jordan (SetTo(toPersonName PositionsFixture.sam)) NoChange
                 |> expectError alreadyExists (fun name -> Assert.Equal(PositionsFixture.sam, name))
-                let! jordan = PersonOrchestration.fetchPersonByName context (toPersonName PositionsFixture.jordan)
-                let! sam = PersonOrchestration.fetchPersonByName context (toPersonName PositionsFixture.sam)
+                let! jordan = fetchPersonByName context PositionsFixture.jordan
+                let! sam = fetchPersonByName context PositionsFixture.sam
                 Assert.Equal((PositionsFixture.jordan, PositionsFixture.jordanBirthdate), jordan |> summary)
                 Assert.Equal((PositionsFixture.sam, PositionsFixture.samBirthdate), sam |> summary)
             })
@@ -127,9 +137,9 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback PersonUpdate (fun context ->
             result {
                 let tomorrow = (today context).PlusDays(1)
-                PersonOrchestration.updatePerson context (toPersonName PositionsFixture.sam) NoChange (SetTo tomorrow)
+                updatePerson context PositionsFixture.sam NoChange (SetTo tomorrow)
                 |> expectError birthdateInFuture (fun (given, _) -> Assert.Equal(tomorrow, given))
-                let! sam = PersonOrchestration.fetchPersonByName context (toPersonName PositionsFixture.sam)
+                let! sam = fetchPersonByName context PositionsFixture.sam
                 Assert.Equal(PositionsFixture.samBirthdate, sam |> birthdate)
             })
         |> railroadWrapper
@@ -148,7 +158,7 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-PER-2.4 updating a Person by a name that matches no Person fails with a typed error naming that name`` () =
         runCommandRouteAndAutoRollback PersonUpdate (fun context ->
-            PersonOrchestration.updatePerson context (toPersonName "Nobody Example") NoChange (SetTo(LocalDate(1990, 1, 1)))
+            updatePerson context "Nobody Example" NoChange (SetTo(LocalDate(1990, 1, 1)))
             |> expectError notFound (fun name -> Assert.Equal("Nobody Example", name))
             |> Ok)
         |> railroadWrapper

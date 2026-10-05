@@ -13,7 +13,6 @@ open Business.FinancialServices.Positions.PositionsComponent
 open Business.FinancialServices.Positions.PositionsError
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.AccountSnapshotOrchestration
-open Business.CrossDomainOrchestration.InvestmentOrchestration
 open Business.CrossDomainOrchestration.InvestmentWealthHistory
 open Ui.InterfaceBridge.CommandRoute
 open Tests.Helpers
@@ -118,29 +117,23 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback PositionsCreateInvestmentAccount (fun context ->
             result {
                 let period = toActivityPeriod p.accountsActiveBegin None
-                let! _ =
-                    createInvestmentAccount
+                let! sam = PositionsLookups.personIdOf context PF.sam
+                let! account =
+                    InvestmentAccountOrchestration.constructNewAndPersist
                         context
-                        { name = toAccountName "Lowercase Brokerage"
-                          institution = toInstitution "Example Brokerage"
-                          accountGroup = toAccountGroup "brokerage"
-                          taxTreatment = TaxTreatment.Taxable
-                          owners = [ toPersonName PF.sam ]
-                          activityPeriod = period
-                          ledgerAccountId = None }
-                let! _ = createHolding context (toAccountName "Lowercase Brokerage") (toSecurityName PF.totalMarket) (Some AverageCost)
+                        (toAccountName "Lowercase Brokerage")
+                        (toInstitution "Example Brokerage")
+                        (toAccountGroup "brokerage")
+                        TaxTreatment.Taxable
+                        [ sam ]
+                        period
+                        None
+                let accountId = account |> Business.FinancialServices.Positions.InvestmentAccount.investmentAccountId
+                let! totalMarketId = PositionsLookups.securityIdOf context PF.totalMarket
+                let! _ = HoldingOrchestration.constructNewAndPersist context accountId totalMarketId (Some AverageCost)
                 let! _ =
                     recordSnapshots context
-                        [ { investmentAccountName = toAccountName "Lowercase Brokerage"
-                            snapshotDate = p.d2
-                            provenance = Reported
-                            contributionBasis = None
-                            lines =
-                              [ { securityName = toSecurityName PF.totalMarket
-                                  quantity = toQuantity 1M
-                                  price = toPrice 110.00M
-                                  marketValue = toMoney 110.00M
-                                  reportedCostBasis = None } ] } ]
+                        [ accountId, p.d2, Reported, None, [ totalMarketId, toQuantity 1M, toPrice 110.00M, toMoney 110.00M, None ] ]
                 let! point = pointAt context p.monthEnd3 ByAccountGroup
                 // Brokerage: Alex Brokerage 1,620.00 + Joint Brokerage 5,500.00; Retirement: 1,500.00 + 4,000.00
                 Assert.Equal<Map<WealthGroup, decimal>>(

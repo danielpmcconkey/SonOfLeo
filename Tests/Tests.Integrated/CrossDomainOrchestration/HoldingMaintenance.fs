@@ -9,7 +9,7 @@ open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsAuditableAction
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.FinancialServices.Positions.PositionsError
-open Business.CrossDomainOrchestration.InvestmentOrchestration
+open Business.CrossDomainOrchestration.HoldingOrchestration
 open Ui.InterfaceBridge.CommandRoute
 open Tests.Helpers
 open Tests.Helpers.PositionsValues
@@ -24,11 +24,26 @@ type private HoldingSummary = string * string * BasisMethod option
 let private summary (view: HoldingView) : HoldingSummary =
     view.investmentAccountName, view.securityName, view.holding |> Holding.basisMethod
 
+// the route path: accounts and Securities are addressed by name, resolved to IDs as the routes' converters resolve them
 let private holdingsOf context account =
-    listHoldings context (Some(toAccountName account)) |> Result.map (List.map summary)
+    PositionsLookups.investmentAccountIdOf context account
+    |> Result.bind (Some >> listHoldings context)
+    |> Result.map (List.map summary)
+
+let private withIds context account security =
+    result {
+        let! accountId = PositionsLookups.investmentAccountIdOf context account
+        let! securityId = PositionsLookups.securityIdOf context security
+        return accountId, securityId
+    }
 
 let private create context account security basisMethod =
-    createHolding context (toAccountName account) (toSecurityName security) basisMethod
+    withIds context account security
+    |> Result.bind (fun (accountId, securityId) -> constructNewAndPersist context accountId securityId basisMethod)
+
+let private changeBasisMethod context account security basisMethod =
+    withIds context account security
+    |> Result.bind (fun (accountId, securityId) -> changeHoldingBasisMethod context accountId securityId basisMethod)
 
 let private basisNotAllowed = function AsError (PositionsBasisMethodNotAllowed (a, s, t)) -> Some(a, s, t) | _ -> None
 
@@ -109,7 +124,7 @@ type HoldingMaintenanceTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback PositionsUpdateHoldingBasisMethod (fun context ->
             result {
                 let! _ =
-                    changeHoldingBasisMethod context (toAccountName PF.alexBrokerage) (toSecurityName PF.totalMarket) (Some SpecificLot)
+                    changeBasisMethod context PF.alexBrokerage PF.totalMarket (Some SpecificLot)
                 let! holdings = holdingsOf context PF.alexBrokerage
                 Assert.Contains((PF.alexBrokerage, PF.totalMarket, Some SpecificLot), holdings)
             })
@@ -119,7 +134,7 @@ type HoldingMaintenanceTests(fixture: TestDataFixture) =
     member _.``REQ-POS-11.5 REQ-POS-5.2 removing the basis method of a Taxable account's Holding is rejected with a typed error naming the account, the Security and Taxable, and the basis method is unchanged`` () =
         runCommandRouteAndAutoRollback PositionsUpdateHoldingBasisMethod (fun context ->
             result {
-                changeHoldingBasisMethod context (toAccountName PF.alexBrokerage) (toSecurityName PF.totalMarket) None
+                changeBasisMethod context PF.alexBrokerage PF.totalMarket None
                 |> expectError basisNotAllowed (fun found -> Assert.Equal((PF.alexBrokerage, PF.totalMarket, "Taxable"), found))
                 let! holdings = holdingsOf context PF.alexBrokerage
                 Assert.Contains((PF.alexBrokerage, PF.totalMarket, Some AverageCost), holdings)

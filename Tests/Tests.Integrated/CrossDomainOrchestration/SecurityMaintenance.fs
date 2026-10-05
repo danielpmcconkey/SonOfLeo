@@ -11,7 +11,8 @@ open Business.FinancialServices.Positions.PositionsAuditableAction
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.FinancialServices.Positions.PositionsError
 open Business.CrossDomainOrchestration
-open Business.CrossDomainOrchestration.InvestmentOrchestration
+open Business.CrossDomainOrchestration.DimensionValueOrchestration
+open Business.CrossDomainOrchestration.SecurityOrchestration
 open Ui.InterfaceBridge.CommandRoute
 open Tests.Helpers
 open Tests.Helpers.PositionsValues
@@ -40,10 +41,51 @@ let private dimensionValueNotFound = function AsError (PositionsDimensionValueNa
 let private securityNameExists = function AsError (PositionsSecurityNameAlreadyExists n) -> Some n | _ -> None
 let private securityNotFound = function AsError (PositionsSecurityNameDoesntMatch n) -> Some n | _ -> None
 
+// the route path: Dimension Values and Securities are addressed by name, resolved to IDs as the routes' converters
+// resolve them
+let private createDimensionValue context dimension name =
+    DimensionValueOrchestration.constructNewAndPersist context dimension name
+
+let private renameDimensionValue context dimension (currentName: DimensionValueName) newName =
+    PositionsLookups.dimensionValueIdOf context dimension (currentName |> DimensionValueName.value)
+    |> Result.bind (fun dimensionValueId ->
+        DimensionValueOrchestration.renameDimensionValue
+            context
+            { dimensionValueIdToUpdate = dimensionValueId; dimensionValueNameUpdate = SetTo newName })
+
+let private dimensionValueIdsOf context (values: (Dimension * string) list) =
+    values
+    |> List.map (fun (d, n) -> PositionsLookups.dimensionValueIdOf context d n |> Result.map (fun id -> d, id))
+    |> convertListOfResultsToResultsList
+
 let private createSecurity context name ticker (values: (Dimension * string) list) =
-    InvestmentOrchestration.createSecurity
-        context (toSecurityName name) (ticker |> Option.map toTicker)
-        (values |> List.map (fun (d, n) -> d, toDimensionValueName n))
+    result {
+        let! valueIds = dimensionValueIdsOf context values
+        return!
+            SecurityOrchestration.constructNewAndPersist
+                context (toSecurityName name) (ticker |> Option.map toTicker) valueIds
+    }
+
+let private updateSecurity
+    context
+    (currentName: SecurityName)
+    nameUpdate
+    tickerUpdate
+    (dimensionUpdates: (Dimension * DimensionValueName option) list)
+    =
+    result {
+        let! securityId = PositionsLookups.securityIdOf context (currentName |> SecurityName.value)
+        let! updates =
+            dimensionUpdates
+            |> List.map (fun (d, name) ->
+                name
+                |> convertOptionToDesiredTypeWithFallibleConverter (
+                    DimensionValueName.value >> PositionsLookups.dimensionValueIdOf context d
+                )
+                |> Result.map (fun id -> d, id))
+            |> convertListOfResultsToResultsList
+        return! SecurityOrchestration.updateSecurity context securityId nameUpdate tickerUpdate updates
+    }
 
 let private allSevenOfTotalMarket =
     [ InvestmentType, "Equity Fund"; MarketCap, "Large Cap"; IndexType, "Total Market"; Sector, "Diversified"

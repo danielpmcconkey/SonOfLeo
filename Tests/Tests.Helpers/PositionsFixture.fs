@@ -14,8 +14,8 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.JournalEntryOrchestration
-open Business.CrossDomainOrchestration.AccountSnapshotOrchestration
-open Business.CrossDomainOrchestration.RealEstateOrchestration
+open Ui.InterfaceBridge.BoundaryConverters.PersonFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.PositionsFieldConverters
 open NodaTime
 open Tests.Helpers.EntityFunctions
 
@@ -95,6 +95,16 @@ type PositionsFixtureData =
       rentalMortgage2320Id: AccountId
       positionsEquity3040Id: AccountId }
 
+/// Name-to-ID lookups for tests that address Persons and Positions entities by name, as the routes' converters do.
+module PositionsLookups =
+    let personIdOf context name = name |> ``convert [PersonNameString] to [PersonId]`` context
+    let personIdsOf context names = names |> ``convert [PersonNameString list] to [PersonId list]`` context
+    let dimensionValueIdOf context dimension name =
+        name |> ``convert [DimensionValueNameString] to [DimensionValueId]`` context dimension
+    let securityIdOf context name = name |> ``convert [SecurityNameString] to [SecurityId]`` context
+    let investmentAccountIdOf context name = name |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
+    let propertyIdOf context name = name |> ``convert [PropertyNameString] to [PropertyId]`` context
+
 module PositionsFixture =
     let alex = "Alex Example"
     let sam = "Sam Example"
@@ -135,22 +145,7 @@ module PositionsFixture =
     let private mustBe (r: Result<'a, IAppError>) = r |> Result.defaultWith (fun e -> failwith (e.ToMessage()))
     let private personName raw = PersonName.create raw |> mustBe
     let private securityName raw = SecurityName.create raw |> mustBe
-    let private accountName raw = InvestmentAccountName.create raw |> mustBe
     let private money d = Money.fromDecimal d |> mustBe
-
-    let private line security (quantity: decimal) (price: decimal) (marketValue: decimal) (costBasis: decimal option) =
-        { securityName = securityName security
-          quantity = Quantity.fromDecimal quantity |> mustBe
-          price = Price.fromDecimal price |> mustBe
-          marketValue = money marketValue
-          reportedCostBasis = costBasis |> Option.map money }
-
-    let private snapshot account date provenance contributionBasis lines =
-        { investmentAccountName = accountName account
-          snapshotDate = date
-          provenance = provenance
-          contributionBasis = contributionBasis |> Option.map (money >> ContributionBasis.create >> mustBe)
-          lines = lines }
 
     /// Stages the Positions archetypes. Returns their data, the ledger accounts it created and the journal entries it
     /// posted, so the caller can count them with the rest of its fixture.
@@ -205,25 +200,25 @@ module PositionsFixture =
                     [ (residenceMortgageId, 1000.00M, "Debit", None); (positionsCashId, 1000.00M, "Credit", None) ]
 
             // Persons
-            let! _ = PersonOrchestration.createPerson context (personName alex) alexBirthdate
-            let! _ = PersonOrchestration.createPerson context (personName sam) samBirthdate
-            let! _ = PersonOrchestration.createPerson context (personName jordan) jordanBirthdate
+            let! _ = PersonOrchestration.constructNewAndPersist context (personName alex) alexBirthdate
+            let! _ = PersonOrchestration.constructNewAndPersist context (personName sam) samBirthdate
+            let! _ = PersonOrchestration.constructNewAndPersist context (personName jordan) jordanBirthdate
 
             // Dimension values and Securities
             let! _ =
                 dimensionValues
                 |> List.map (fun (dimension, name) ->
                     DimensionValueName.create name
-                    |> Result.bind (InvestmentOrchestration.createDimensionValue context dimension))
+                    |> Result.bind (DimensionValueOrchestration.constructNewAndPersist context dimension))
                 |> convertListOfResultsToResultsList
             let security name ticker values =
                 result {
                     let! ticker = ticker |> convertOptionToDesiredTypeWithFallibleConverter Ticker.create
                     let! values =
                         values
-                        |> List.map (fun (d, n) -> DimensionValueName.create n |> Result.map (fun v -> d, v))
+                        |> List.map (fun (d, n) -> PositionsLookups.dimensionValueIdOf context d n |> Result.map (fun v -> d, v))
                         |> convertListOfResultsToResultsList
-                    return! InvestmentOrchestration.createSecurity context (securityName name) ticker values
+                    return! SecurityOrchestration.constructNewAndPersist context (securityName name) ticker values
                 }
             let! _ =
                 security totalMarket (Some "EXTMX")
@@ -241,16 +236,11 @@ module PositionsFixture =
                     let! group = AccountGroup.create group
                     let! period =
                         ActivityPeriod.create lastYear activeEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate
+                    let! name = InvestmentAccountName.create name
+                    let! owners = PositionsLookups.personIdsOf context owners
                     return!
-                        InvestmentOrchestration.createInvestmentAccount
-                            context
-                            { name = accountName name
-                              institution = institution
-                              accountGroup = group
-                              taxTreatment = treatment
-                              owners = owners |> List.map personName
-                              activityPeriod = period
-                              ledgerAccountId = ledgerAccountId }
+                        InvestmentAccountOrchestration.constructNewAndPersist
+                            context name institution group treatment owners period ledgerAccountId
                 }
             let! _ = investmentAccount alexBrokerage "Example Brokerage" "Brokerage" Taxable [ alex ] None (Some brokerageAtCostId)
             let! _ = investmentAccount alexRoth "Example Brokerage" "Retirement" Roth [ alex ] None None
@@ -261,7 +251,11 @@ module PositionsFixture =
             let! _ = investmentAccount jordanCustodial "Example Brokerage" "Custodial" Taxable [ jordan ] None None
 
             let holding account security basisMethod =
-                InvestmentOrchestration.createHolding context (accountName account) (securityName security) basisMethod
+                result {
+                    let! accountId = PositionsLookups.investmentAccountIdOf context account
+                    let! securityId = PositionsLookups.securityIdOf context security
+                    return! HoldingOrchestration.constructNewAndPersist context accountId securityId basisMethod
+                }
             let! _ = holding alexBrokerage totalMarket (Some AverageCost)
             let! _ = holding alexBrokerage international (Some SpecificLot)
             let! _ = holding alexRoth totalMarket None
@@ -273,6 +267,21 @@ module PositionsFixture =
             let! _ = holding oldBrokerage international (Some AverageCost)
 
             // Snapshots
+            let line security (quantity: decimal) (price: decimal) (marketValue: decimal) (costBasis: decimal option) =
+                PositionsLookups.securityIdOf context security
+                |> mustBe
+                |> fun securityId ->
+                    securityId,
+                    (Quantity.fromDecimal quantity |> mustBe),
+                    (Price.fromDecimal price |> mustBe),
+                    money marketValue,
+                    (costBasis |> Option.map money)
+            let snapshot account date provenance contributionBasis lines =
+                (PositionsLookups.investmentAccountIdOf context account |> mustBe),
+                date,
+                provenance,
+                (contributionBasis |> Option.map (money >> ContributionBasis.create >> mustBe)),
+                lines
             let! _ =
                 AccountSnapshotOrchestration.recordSnapshots context
                     [ snapshot alexBrokerage d1 Reported None
@@ -304,16 +313,10 @@ module PositionsFixture =
                     let! name = PropertyName.create name
                     let! period = OwnedPeriod.create acquired disposed
                     let! basis = Money.fromDecimal basis |> Result.bind PurchaseBasis.create
+                    let! owners = PositionsLookups.personIdsOf context owners
                     return!
-                        RealEstateOrchestration.createProperty
-                            context
-                            { name = name
-                              propertyUse = propertyUse
-                              owners = owners |> List.map personName
-                              ownedPeriod = period
-                              purchaseBasis = basis
-                              assetAccountIds = assetAccountIds
-                              mortgageAccountIds = mortgageIds }
+                        RealEstateOrchestration.constructNewAndPersist
+                            context name propertyUse owners period basis assetAccountIds mortgageIds
                 }
             let formerResidenceAcquired = today.PlusYears(-6)
             let! _ =
@@ -325,10 +328,10 @@ module PositionsFixture =
             let! _ = property rental Rental [ sam ] lastYear None 250000.00M [] [ rentalMortgageId ]
             let valuation date value basis =
                 result {
-                    let! name = PropertyName.create residence
+                    let! propertyId = PositionsLookups.propertyIdOf context residence
                     let! value = Money.fromDecimal value |> Result.bind ValuationValue.create
                     let! basis = ValuationBasis.create basis
-                    return! RealEstateOrchestration.recordValuation context name date value basis
+                    return! RealEstateOrchestration.recordValuation context propertyId date value basis
                 }
             let! _ = valuation valuation1 420000.00M "Appraisal"
             let! _ = valuation valuation2 430000.00M "Comparable sales"

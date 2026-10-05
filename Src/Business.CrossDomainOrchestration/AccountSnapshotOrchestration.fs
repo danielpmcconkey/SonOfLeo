@@ -11,23 +11,12 @@ open Business.FinancialServices
 open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
-open Business.CrossDomainOrchestration.InvestmentOrchestration
 
-type SnapshotLineInput = {
-    securityName: SecurityName
-    quantity: Quantity.Quantity
-    price: Price.Price
-    marketValue: Money.Money
-    reportedCostBasis: Money.Money option
-}
+/// One line of a snapshot to record: the Security, quantity, price, market value and reported cost basis.
+type SnapshotLine = SecurityId * Quantity.Quantity * Price.Price * Money.Money * Money.Money option
 
-type SnapshotInput = {
-    investmentAccountName: InvestmentAccountName
-    snapshotDate: LocalDate
-    provenance: Provenance
-    contributionBasis: ContributionBasis option
-    lines: SnapshotLineInput list
-}
+/// One snapshot to record: the account, the date, provenance, contribution basis and lines.
+type Snapshot = InvestmentAccountId * LocalDate * Provenance * ContributionBasis option * SnapshotLine list
 
 type SnapshotLineView = {
     line: AccountSnapshotLine.AccountSnapshotLine
@@ -46,12 +35,17 @@ type RecordedSnapshot = {
     replacedExisting: bool
 }
 
-let private confirmNoRepeatedSnapshot (inputs: SnapshotInput list) : Result<unit, IAppError> =
+let private accountNameOf account = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
+
+let private confirmNoRepeatedSnapshot (context: Context.Context) (inputs: Snapshot list) : Result<unit, IAppError> =
     inputs
-    |> List.countBy (fun i -> i.investmentAccountName |> InvestmentAccountName.value, i.snapshotDate)
+    |> List.countBy (fun (accountId, date, _, _, _) -> accountId, date)
     |> List.tryFind (fun (_, count) -> count > 1)
     |> function
-        | Some((accountName, date), _) -> error (PositionsSnapshotRepeatedInRequest(accountName, date))
+        | Some((accountId, date), _) ->
+            accountId
+            |> InvestmentAccount.fetchById context
+            |> Result.bind (fun account -> error (PositionsSnapshotRepeatedInRequest(accountNameOf account, date)))
         | None -> Ok()
 
 let private confirmSnapshotDate
@@ -84,15 +78,26 @@ let private confirmContributionBasisAllowed
         )
 
 let private confirmEachSecurityOnce
+    (context: Context.Context)
     (accountName: string)
     (snapshotDate: LocalDate)
-    (lines: SnapshotLineInput list)
+    (lines: SnapshotLine list)
     : Result<unit, IAppError> =
     lines
-    |> List.countBy (fun l -> l.securityName |> SecurityName.value)
+    |> List.countBy (fun (securityId, _, _, _, _) -> securityId)
     |> List.tryFind (fun (_, count) -> count > 1)
     |> function
-        | Some(securityName, _) -> error (PositionsSnapshotSecurityRepeated(accountName, snapshotDate, securityName))
+        | Some(securityId, _) ->
+            securityId
+            |> Security.fetchById context
+            |> Result.bind (fun security ->
+                error (
+                    PositionsSnapshotSecurityRepeated(
+                        accountName,
+                        snapshotDate,
+                        security |> Security.securityName |> SecurityName.value
+                    )
+                ))
         | None -> Ok()
 
 // The Holding must already exist; a Security the account doesn't hold is something for the operator to look at.
@@ -101,39 +106,31 @@ let private buildLine
     (account: InvestmentAccount.InvestmentAccount)
     (snapshotDate: LocalDate)
     (accountSnapshotId: AccountSnapshotId)
-    (input: SnapshotLineInput)
+    (input: SnapshotLine)
     : Result<AccountSnapshotLine.AccountSnapshotLine, IAppError> =
-    let accountName = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
-    let securityName = input.securityName |> SecurityName.value
+    let securityId, quantity, price, marketValue, reportedCostBasis = input
+    let accountName = accountNameOf account
     result {
-        let! security = fetchSecurityByName context input.securityName
+        let! security = securityId |> Security.fetchById context
+        let securityName = security |> Security.securityName |> SecurityName.value
         let! holding =
-            Holding.fetchByInvestmentAccountAndSecurity
-                context
-                (account |> InvestmentAccount.investmentAccountId)
-                (security |> Security.securityId)
+            Holding.fetchByInvestmentAccountAndSecurity context (account |> InvestmentAccount.investmentAccountId) securityId
         let! holding =
             match holding with
             | Some h -> Ok h
             | None -> error (PositionsSnapshotSecurityNotHeld(accountName, securityName))
         do!
             AccountSnapshotLine.confirmFigures
-                accountName
-                snapshotDate
-                securityName
-                input.quantity
-                input.price
-                input.marketValue
-                input.reportedCostBasis
+                accountName snapshotDate securityName quantity price marketValue reportedCostBasis
         return
             AccountSnapshotLine.create
                 (AccountSnapshotLineId.create ())
                 accountSnapshotId
                 (holding |> Holding.holdingId)
-                input.quantity
-                input.price
-                input.marketValue
-                input.reportedCostBasis
+                quantity
+                price
+                marketValue
+                reportedCostBasis
     }
 
 let private viewSnapshot
@@ -159,23 +156,23 @@ let private viewSnapshot
               lines = lineViews |> List.sortBy (fun l -> l.securityName) }
     }
 
-let private recordOne (context: Context.Context) (input: SnapshotInput) : Result<RecordedSnapshot, IAppError> =
+let private recordOne (context: Context.Context) (input: Snapshot) : Result<RecordedSnapshot, IAppError> =
+    let accountId, snapshotDate, provenance, contributionBasis, lineInputs = input
     let instant = context |> Context.getInitiationInstant
-    let accountName = input.investmentAccountName |> InvestmentAccountName.value
     result {
-        let! account = fetchInvestmentAccountByName context input.investmentAccountName
-        let accountId = account |> InvestmentAccount.investmentAccountId
-        do! confirmSnapshotDate context account input.snapshotDate
-        do! confirmContributionBasisAllowed account input.contributionBasis
-        do! confirmEachSecurityOnce accountName input.snapshotDate input.lines
-        let! existing = AccountSnapshotHeader.fetchByInvestmentAccountAndDate context accountId input.snapshotDate
+        let! account = accountId |> InvestmentAccount.fetchById context
+        let accountName = accountNameOf account
+        do! confirmSnapshotDate context account snapshotDate
+        do! confirmContributionBasisAllowed account contributionBasis
+        do! confirmEachSecurityOnce context accountName snapshotDate lineInputs
+        let! existing = AccountSnapshotHeader.fetchByInvestmentAccountAndDate context accountId snapshotDate
         let accountSnapshotId =
             existing
             |> Option.map AccountSnapshotHeader.accountSnapshotId
             |> Option.defaultWith AccountSnapshotId.create
         let! lines =
-            input.lines
-            |> List.map (buildLine context account input.snapshotDate accountSnapshotId)
+            lineInputs
+            |> List.map (buildLine context account snapshotDate accountSnapshotId)
             |> convertListOfResultsToResultsList
         let! header =
             match existing with
@@ -185,12 +182,12 @@ let private recordOne (context: Context.Context) (input: SnapshotInput) : Result
                     AccountSnapshotHeader.update
                         context
                         { accountSnapshotIdToUpdate = accountSnapshotId
-                          provenanceUpdate = SetTo input.provenance
-                          contributionBasisUpdate = SetTo input.contributionBasis })
+                          provenanceUpdate = SetTo provenance
+                          contributionBasisUpdate = SetTo contributionBasis })
             | None ->
                 let header =
                     AccountSnapshotHeader.create
-                        accountSnapshotId accountId input.snapshotDate input.provenance input.contributionBasis instant instant
+                        accountSnapshotId accountId snapshotDate provenance contributionBasis instant instant
                 header |> AccountSnapshotHeader.persist context |> Result.map (fun () -> header)
         do! lines |> List.map (AccountSnapshotLine.persist context) |> convertListOfResultsToResultsList |> Result.map ignore
         let! view = viewSnapshot context accountName header
@@ -198,39 +195,36 @@ let private recordOne (context: Context.Context) (input: SnapshotInput) : Result
     }
 
 /// Records every snapshot or, on the first failure, returns its error; the caller's transaction makes that all or none.
-let recordSnapshots (context: Context.Context) (inputs: SnapshotInput list) : Result<RecordedSnapshot list, IAppError> =
+let recordSnapshots (context: Context.Context) (inputs: Snapshot list) : Result<RecordedSnapshot list, IAppError> =
     result {
         do! if inputs |> List.isEmpty then error PositionsSnapshotListIsEmpty else Ok()
-        do! confirmNoRepeatedSnapshot inputs
+        do! confirmNoRepeatedSnapshot context inputs
         return! inputs |> List.map (recordOne context) |> convertListOfResultsToResultsList
     }
 
 let private fetchHeader
     (context: Context.Context)
-    (accountName: InvestmentAccountName)
+    (investmentAccountId: InvestmentAccountId)
     (snapshotDate: LocalDate)
-    : Result<AccountSnapshotHeader.AccountSnapshotHeader, IAppError> =
+    : Result<string * AccountSnapshotHeader.AccountSnapshotHeader, IAppError> =
     result {
-        let! account = fetchInvestmentAccountByName context accountName
-        let! header =
-            AccountSnapshotHeader.fetchByInvestmentAccountAndDate
-                context
-                (account |> InvestmentAccount.investmentAccountId)
-                snapshotDate
+        let! account = investmentAccountId |> InvestmentAccount.fetchById context
+        let accountName = accountNameOf account
+        let! header = AccountSnapshotHeader.fetchByInvestmentAccountAndDate context investmentAccountId snapshotDate
         match header with
-        | Some h -> return h
-        | None -> return! error (PositionsSnapshotDoesntExist(accountName |> InvestmentAccountName.value, snapshotDate))
+        | Some h -> return accountName, h
+        | None -> return! error (PositionsSnapshotDoesntExist(accountName, snapshotDate))
     }
 
 /// Deletes the snapshot and its lines, and returns it as it stood before deletion.
 let deleteSnapshot
     (context: Context.Context)
-    (accountName: InvestmentAccountName)
+    (investmentAccountId: InvestmentAccountId)
     (snapshotDate: LocalDate)
     : Result<SnapshotView, IAppError> =
     result {
-        let! header = fetchHeader context accountName snapshotDate
-        let! view = viewSnapshot context (accountName |> InvestmentAccountName.value) header
+        let! accountName, header = fetchHeader context investmentAccountId snapshotDate
+        let! view = viewSnapshot context accountName header
         let accountSnapshotId = header |> AccountSnapshotHeader.accountSnapshotId
         do! AccountSnapshotLine.deleteByAccountSnapshot context accountSnapshotId
         do! AccountSnapshotHeader.delete context accountSnapshotId
@@ -239,29 +233,24 @@ let deleteSnapshot
 
 let fetchSnapshot
     (context: Context.Context)
-    (accountName: InvestmentAccountName)
+    (investmentAccountId: InvestmentAccountId)
     (snapshotDate: LocalDate)
     : Result<SnapshotView, IAppError> =
     result {
-        let! header = fetchHeader context accountName snapshotDate
-        return! viewSnapshot context (accountName |> InvestmentAccountName.value) header
+        let! accountName, header = fetchHeader context investmentAccountId snapshotDate
+        return! viewSnapshot context accountName header
     }
 
 /// Each snapshot date in the range, both ends included, with its provenance, in date order.
 let listSnapshotDates
     (context: Context.Context)
-    (accountName: InvestmentAccountName)
+    (investmentAccountId: InvestmentAccountId)
     (beginDate: LocalDate)
     (endDate: LocalDate)
     : Result<(LocalDate * Provenance) list, IAppError> =
     result {
         do! if endDate < beginDate then error (PositionsSnapshotDatesEndBeforeBegin(beginDate, endDate)) else Ok()
-        let! account = fetchInvestmentAccountByName context accountName
-        let! headers =
-            AccountSnapshotHeader.fetchByInvestmentAccountBetween
-                context
-                (account |> InvestmentAccount.investmentAccountId)
-                beginDate
-                endDate
+        let! _ = investmentAccountId |> InvestmentAccount.fetchById context
+        let! headers = AccountSnapshotHeader.fetchByInvestmentAccountBetween context investmentAccountId beginDate endDate
         return headers |> List.map (fun h -> h |> AccountSnapshotHeader.snapshotDate, h |> AccountSnapshotHeader.provenance)
     }

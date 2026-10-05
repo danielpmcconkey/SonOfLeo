@@ -16,7 +16,10 @@ open Business.FinancialServices.Positions.PositionsAuditableAction
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.FinancialServices.Positions.PositionsError
 open Business.CrossDomainOrchestration
-open Business.CrossDomainOrchestration.InvestmentOrchestration
+open Business.CrossDomainOrchestration.InvestmentAccountOrchestration
+open Business.CrossDomainOrchestration.HoldingOrchestration
+open Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
+open Ui.InterfaceBridge.BoundaryConverters.PositionsFieldConverters
 open Ui.InterfaceBridge.CommandRoute
 open Tests.Helpers
 open Tests.Helpers.PositionsValues
@@ -48,6 +51,28 @@ let private listed context name =
 let private ownersOf context name =
     listed context name |> Result.map (List.exactlyOne >> fun (_, _, _, _, owners, _, _, _) -> owners)
 
+type private NewAccount = {
+    name: InvestmentAccountName
+    institution: Institution
+    accountGroup: AccountGroup
+    taxTreatment: TaxTreatment
+    owners: PersonComponent.PersonName list
+    activityPeriod: ActivityPeriod.ActivityPeriod
+    ledgerAccountId: AccountId option
+}
+
+type private AccountUpdate = {
+    currentName: InvestmentAccountName
+    nameUpdate: FieldUpdate<InvestmentAccountName>
+    institutionUpdate: FieldUpdate<Institution>
+    accountGroupUpdate: FieldUpdate<AccountGroup>
+    taxTreatmentUpdate: FieldUpdate<TaxTreatment>
+    ownersUpdate: FieldUpdate<PersonComponent.PersonName list>
+    activeBeginUpdate: FieldUpdate<LocalDate>
+    activeEndUpdate: FieldUpdate<LocalDate option>
+    ledgerAccountIdUpdate: FieldUpdate<AccountId option>
+}
+
 let private newAccount name treatment (owners: string list) ledgerAccountId (activeBegin: LocalDate) activeEnd =
     { name = toAccountName name
       institution = toInstitution "Example Brokerage"
@@ -67,6 +92,36 @@ let private noChange name =
       activeBeginUpdate = NoChange
       activeEndUpdate = NoChange
       ledgerAccountIdUpdate = NoChange }
+
+// the route path: owners are addressed by name and resolved to IDs as the route's converter resolves them
+let private createInvestmentAccount context (a: NewAccount) =
+    result {
+        let! owners = a.owners |> List.map PersonComponent.PersonName.value |> PositionsLookups.personIdsOf context
+        return!
+            InvestmentAccountOrchestration.constructNewAndPersist
+                context a.name a.institution a.accountGroup a.taxTreatment owners a.activityPeriod a.ledgerAccountId
+    }
+
+// the route path: the update goes through the route's converter as an input contract, then to the orchestrator. The
+// ledger link is given as an ID, not a code, because the codes' route-lifetime cache would outlive this test's rollback.
+let private updateInvestmentAccount context (u: AccountUpdate) =
+    result {
+        let input: InvestmentAccountUpdateInput =
+            { accountName = u.currentName |> InvestmentAccountName.value
+              accountNameUpdate = u.nameUpdate |> map InvestmentAccountName.value
+              institutionUpdate = u.institutionUpdate |> map Institution.value
+              accountGroupUpdate = u.accountGroupUpdate |> map AccountGroup.value
+              taxTreatmentUpdate = u.taxTreatmentUpdate |> map TaxTreatment.toString
+              ownersUpdate = u.ownersUpdate |> map (List.map PersonComponent.PersonName.value)
+              activeBeginUpdate = u.activeBeginUpdate
+              activeEndUpdate = u.activeEndUpdate
+              ledgerAccountCodeUpdate = NoChange }
+        let! fieldUpdates = input |> ``convert [InvestmentAccountUpdateInput] to [InvestmentAccountFieldUpdates]`` context
+        return!
+            InvestmentAccountOrchestration.updateInvestmentAccount
+                context
+                { fieldUpdates with ledgerAccountIdUpdate = u.ledgerAccountIdUpdate }
+    }
 
 let private ownersNotAllowed = function AsError (PositionsInvestmentAccountOwnersNotAllowed (a, t, n)) -> Some(a, t, n) | _ -> None
 let private breaksHoldings = function AsError (PositionsTaxTreatmentChangeBreaksHoldings (a, t, s)) -> Some(a, t, s) | _ -> None
@@ -350,7 +405,8 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
             result {
                 let! updated = updateInvestmentAccount context { noChange PF.sam401k with taxTreatmentUpdate = SetTo TaxTreatment.Roth }
                 Assert.Equal(TaxTreatment.Roth, updated |> InvestmentAccount.taxTreatment)
-                let! holdings = listHoldings context (Some(toAccountName PF.sam401k))
+                let! sam401kId = PositionsLookups.investmentAccountIdOf context PF.sam401k
+                let! holdings = listHoldings context (Some sam401kId)
                 Assert.Equal(2, holdings.Length)
             })
         |> railroadWrapper

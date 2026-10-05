@@ -17,6 +17,8 @@ open Business.FinancialServices.Positions.PositionsAuditableAction
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.FinancialServices.Positions.PositionsError
 open Business.CrossDomainOrchestration.RealEstateOrchestration
+open Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
+open Ui.InterfaceBridge.BoundaryConverters.PositionsFieldConverters
 open Ui.InterfaceBridge.CommandRoute
 open Tests.Helpers
 open Tests.Helpers.EntityFunctions
@@ -47,6 +49,28 @@ let private listed context name =
 
 let private listedOne context name = listed context name |> Result.map List.exactlyOne
 
+type private NewProperty = {
+    name: PropertyName
+    propertyUse: PropertyUse
+    owners: Business.General.PersonComponent.PersonName list
+    ownedPeriod: OwnedPeriod
+    purchaseBasis: PurchaseBasis
+    assetAccountIds: AccountId list
+    mortgageAccountIds: AccountId list
+}
+
+type private PropertyUpdate = {
+    currentName: PropertyName
+    nameUpdate: FieldUpdate<PropertyName>
+    propertyUseUpdate: FieldUpdate<PropertyUse>
+    ownersUpdate: FieldUpdate<Business.General.PersonComponent.PersonName list>
+    acquisitionDateUpdate: FieldUpdate<LocalDate>
+    disposalDateUpdate: FieldUpdate<LocalDate option>
+    purchaseBasisUpdate: FieldUpdate<PurchaseBasis>
+    assetAccountIdsUpdate: FieldUpdate<AccountId list>
+    mortgageAccountIdsUpdate: FieldUpdate<AccountId list>
+}
+
 let private newProperty name propertyUse (owners: string list) acquired disposed basis asset mortgages =
     { name = toPropertyName name
       propertyUse = propertyUse
@@ -67,6 +91,46 @@ let private noChange name =
       assetAccountIdsUpdate = NoChange
       mortgageAccountIdsUpdate = NoChange }
 
+// the route path: owners are addressed by name and resolved to IDs as the route's converter resolves them
+let private createProperty context (n: NewProperty) =
+    result {
+        let! owners =
+            n.owners |> List.map Business.General.PersonComponent.PersonName.value |> PositionsLookups.personIdsOf context
+        return!
+            constructNewAndPersist
+                context n.name n.propertyUse owners n.ownedPeriod n.purchaseBasis n.assetAccountIds n.mortgageAccountIds
+    }
+
+// the route path: the update goes through the route's converter as an input contract, then to the orchestrator. The
+// ledger links are given as IDs, not codes, because the codes' route-lifetime cache would outlive this test's rollback.
+let private updateProperty context (u: PropertyUpdate) =
+    result {
+        let input: PropertyUpdateInput =
+            { propertyName = u.currentName |> PropertyName.value
+              propertyNameUpdate = u.nameUpdate |> map PropertyName.value
+              propertyUseUpdate = u.propertyUseUpdate |> map PropertyUse.toString
+              ownersUpdate = u.ownersUpdate |> map (List.map Business.General.PersonComponent.PersonName.value)
+              acquisitionDateUpdate = u.acquisitionDateUpdate
+              disposalDateUpdate = u.disposalDateUpdate
+              purchaseBasisUpdate = u.purchaseBasisUpdate |> map (PurchaseBasis.value >> Money.amount)
+              assetAccountCodesUpdate = NoChange
+              mortgageAccountCodesUpdate = NoChange }
+        let! fieldUpdates = input |> ``convert [PropertyUpdateInput] to [PropertyFieldUpdates]`` context
+        let resultingName = u.nameUpdate |> valueOrCurrent u.currentName
+        let! assetAccountIdsUpdate =
+            u.assetAccountIdsUpdate |> convertFieldUpdateToNewTypeFallible (assetAccountSetOf context resultingName)
+        let! mortgageAccountIdsUpdate =
+            u.mortgageAccountIdsUpdate |> convertFieldUpdateToNewTypeFallible (mortgageAccountSetOf context resultingName)
+        return!
+            Business.CrossDomainOrchestration.RealEstateOrchestration.updateProperty
+                context
+                { fieldUpdates with
+                    assetAccountIdsUpdate = assetAccountIdsUpdate
+                    mortgageAccountIdsUpdate = mortgageAccountIdsUpdate }
+    }
+
+let private withPropertyId context name f = PositionsLookups.propertyIdOf context name |> Result.bind f
+
 /// A FixedAsset account of the test's own, unlinked, inside the test's transaction.
 let private fixedAssetAccount context (fixture: TestDataFixture) code name =
     createTestAccountFromPrimitives
@@ -74,7 +138,7 @@ let private fixedAssetAccount context (fixture: TestDataFixture) code name =
     |> Result.map snd
 
 let private valuationsOf context name =
-    listValuations context (toPropertyName name)
+    withPropertyId context name (listValuations context)
     |> Result.map (
         List.map (fun v ->
             v |> Valuation.valuationDate,
@@ -83,7 +147,8 @@ let private valuationsOf context name =
     )
 
 let private record context name date value basis =
-    recordValuation context (toPropertyName name) date (toValuationValue value) (toValuationBasis basis)
+    withPropertyId context name (fun propertyId ->
+        recordValuation context propertyId date (toValuationValue value) (toValuationBasis basis))
 
 let private today (context: Context.Context) = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
 
@@ -462,7 +527,7 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
     member _.``REQ-POS-11.8 deleting a Property's Valuation for a date removes it and leaves the Property's other Valuations`` () =
         runCommandRouteAndAutoRollback PositionsDeleteValuation (fun context ->
             result {
-                let! _ = deleteValuation context (toPropertyName PF.residence) p.valuation1
+                let! _ = withPropertyId context PF.residence (fun propertyId -> deleteValuation context propertyId p.valuation1)
                 let! valuations = valuationsOf context PF.residence
                 Assert.Equal<(LocalDate * decimal * string) list>([ p.valuation2, 430000.00M, "Comparable sales" ], valuations)
             })
@@ -471,7 +536,7 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-POS-11.8 REQ-SYS-6.1 deleting a Valuation for a date on which the Property has none fails with a typed error naming the Property and the date`` () =
         runCommandRouteAndAutoRollback PositionsDeleteValuation (fun context ->
-            deleteValuation context (toPropertyName PF.residence) (p.valuation1.PlusDays(1))
+            withPropertyId context PF.residence (fun propertyId -> deleteValuation context propertyId (p.valuation1.PlusDays(1)))
             |> expectError
                 (function AsError (PositionsValuationDoesntExist (n, d)) -> Some(n, d) | _ -> None)
                 (fun found -> Assert.Equal((PF.residence, p.valuation1.PlusDays(1)), found))

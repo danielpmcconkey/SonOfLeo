@@ -6,16 +6,20 @@ open App.Utility.FieldUpdate
 open App.Session
 open Business.General
 open Business.FinancialServices
+open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Positions
+open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration
-open Business.CrossDomainOrchestration.InvestmentOrchestration
+open Business.CrossDomainOrchestration.SecurityOrchestration
+open Business.CrossDomainOrchestration.InvestmentAccountOrchestration
+open Business.CrossDomainOrchestration.HoldingOrchestration
 open Business.CrossDomainOrchestration.AccountSnapshotOrchestration
 open Business.CrossDomainOrchestration.RealEstateOrchestration
 open Business.CrossDomainOrchestration.HoldingsAsOf
 open Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
-open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.PersonFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
 let ``convert [string * string] to [LedgerAccountReturn]`` (codeAndName: string * string) : LedgerAccountReturn =
     let code, name = codeAndName
@@ -27,6 +31,55 @@ let private ``convert [Map<Dimension, string>] to [DimensionValueReturn list]``
     Dimension.all
     |> List.choose (fun d ->
         valueNames |> Map.tryFind d |> Option.map (fun name -> { dimension = d |> Dimension.toString; valueName = name }))
+
+// ---- Name lookups ----
+
+let ``convert [DimensionValueNameString] to [DimensionValueId]``
+    (context: Context.Context)
+    (dimension: Dimension)
+    (nameString: string)
+    : Result<DimensionValueId, IAppError> =
+    result {
+        let! name = nameString |> DimensionValueName.create
+        let! found = DimensionValue.fetchByDimensionAndName context dimension name
+        match found with
+        | Some dimensionValue -> return dimensionValue |> DimensionValue.dimensionValueId
+        | None ->
+            return!
+                error (
+                    PositionsDimensionValueNameDoesntMatch(dimension |> Dimension.toString, name |> DimensionValueName.value)
+                )
+    }
+
+let ``convert [SecurityNameString] to [SecurityId]`` (context: Context.Context) (nameString: string) : Result<SecurityId, IAppError> =
+    result {
+        let! name = nameString |> SecurityName.create
+        let! found = Security.fetchByName context name
+        match found with
+        | Some security -> return security |> Security.securityId
+        | None -> return! error (PositionsSecurityNameDoesntMatch(name |> SecurityName.value))
+    }
+
+let ``convert [InvestmentAccountNameString] to [InvestmentAccountId]``
+    (context: Context.Context)
+    (nameString: string)
+    : Result<InvestmentAccountId, IAppError> =
+    result {
+        let! name = nameString |> InvestmentAccountName.create
+        let! found = InvestmentAccount.fetchByName context name
+        match found with
+        | Some account -> return account |> InvestmentAccount.investmentAccountId
+        | None -> return! error (PositionsInvestmentAccountNameDoesntMatch(name |> InvestmentAccountName.value))
+    }
+
+let ``convert [PropertyNameString] to [PropertyId]`` (context: Context.Context) (nameString: string) : Result<PropertyId, IAppError> =
+    result {
+        let! name = nameString |> PropertyName.create
+        let! found = Property.fetchByName context name
+        match found with
+        | Some property -> return property |> Property.propertyId
+        | None -> return! error (PositionsPropertyNameDoesntMatch(name |> PropertyName.value))
+    }
 
 // ---- Dimension Values ----
 
@@ -43,27 +96,33 @@ let ``convert [SecurityView] to [SecurityReturn]`` (view: SecurityView) : Securi
       createdAt = view.security |> Security.createdAt
       modifiedAt = view.security |> Security.modifiedAt }
 
-let ``convert [SecurityDimensionValueInput list] to [(Dimension * DimensionValueName) list]``
+let ``convert [SecurityDimensionValueInput list] to [(Dimension * DimensionValueId) list]``
+    (context: Context.Context)
     (values: SecurityDimensionValueInput list)
-    : Result<(Dimension * DimensionValueName) list, IAppError> =
+    : Result<(Dimension * DimensionValueId) list, IAppError> =
     values
     |> List.map (fun v ->
         result {
             let! dimension = v.dimension |> Dimension.fromString
-            let! name = v.valueName |> DimensionValueName.create
-            return dimension, name
+            let! valueId = v.valueName |> ``convert [DimensionValueNameString] to [DimensionValueId]`` context dimension
+            return dimension, valueId
         })
     |> convertListOfResultsToResultsList
 
-let ``convert [DimensionValueUpdateInput list] to [(Dimension * DimensionValueName option) list]``
+let ``convert [DimensionValueUpdateInput list] to [(Dimension * DimensionValueId option) list]``
+    (context: Context.Context)
     (updates: DimensionValueUpdateInput list)
-    : Result<(Dimension * DimensionValueName option) list, IAppError> =
+    : Result<(Dimension * DimensionValueId option) list, IAppError> =
     updates
     |> List.map (fun u ->
         result {
             let! dimension = u.dimension |> Dimension.fromString
-            let! name = u.valueName |> convertOptionToDesiredTypeWithFallibleConverter DimensionValueName.create
-            return dimension, name
+            let! valueId =
+                u.valueName
+                |> convertOptionToDesiredTypeWithFallibleConverter (
+                    ``convert [DimensionValueNameString] to [DimensionValueId]`` context dimension
+                )
+            return dimension, valueId
         })
     |> convertListOfResultsToResultsList
 
@@ -83,54 +142,46 @@ let ``convert [InvestmentAccountView] to [InvestmentAccountReturn]`` (view: Inve
       createdAt = account |> InvestmentAccount.createdAt
       modifiedAt = account |> InvestmentAccount.modifiedAt }
 
-let ``convert [InvestmentAccountCreateInput] to [NewInvestmentAccount]``
-    (context: Context.Context)
-    (input: InvestmentAccountCreateInput)
-    : Result<NewInvestmentAccount, IAppError> =
-    result {
-        let! name = input.accountName |> InvestmentAccountName.create
-        let! institution = input.institution |> Institution.create
-        let! accountGroup = input.accountGroup |> AccountGroup.create
-        let! taxTreatment = input.taxTreatment |> TaxTreatment.fromString
-        let! owners = input.owners |> ``convert [string list] to [PersonName list]``
-        let! activityPeriod =
-            ActivityPeriod.create input.activeBegin input.activeEnd ActivityPeriod.NotConsideredAvailableBeforeBeginDate
-        let! ledgerAccountId =
-            input.ledgerAccountCode
-            |> convertOptionToDesiredTypeWithFallibleConverter (fallibleConverterAccountCodeToAccountId context)
-        return
-            { name = name
-              institution = institution
-              accountGroup = accountGroup
-              taxTreatment = taxTreatment
-              owners = owners
-              activityPeriod = activityPeriod
-              ledgerAccountId = ledgerAccountId }
-    }
-
-let ``convert [InvestmentAccountUpdateInput] to [InvestmentAccountUpdate]``
+let ``convert [InvestmentAccountUpdateInput] to [InvestmentAccountFieldUpdates]``
     (context: Context.Context)
     (input: InvestmentAccountUpdateInput)
-    : Result<InvestmentAccountUpdate, IAppError> =
+    : Result<InvestmentAccount.InvestmentAccountFieldUpdates, IAppError> =
     result {
-        let! currentName = input.accountName |> InvestmentAccountName.create
+        let! accountId = input.accountName |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
+        let! account = accountId |> InvestmentAccount.fetchById context
         let! nameUpdate = input.accountNameUpdate |> convertFieldUpdateToNewTypeFallible InvestmentAccountName.create
+        let resultingName = nameUpdate |> valueOrCurrent (account |> InvestmentAccount.investmentAccountName)
         let! institutionUpdate = input.institutionUpdate |> convertFieldUpdateToNewTypeFallible Institution.create
         let! accountGroupUpdate = input.accountGroupUpdate |> convertFieldUpdateToNewTypeFallible AccountGroup.create
         let! taxTreatmentUpdate = input.taxTreatmentUpdate |> convertFieldUpdateToNewTypeFallible TaxTreatment.fromString
-        let! ownersUpdate = input.ownersUpdate |> convertFieldUpdateToNewTypeFallible ``convert [string list] to [PersonName list]``
+        let! ownersUpdate =
+            input.ownersUpdate
+            |> convertFieldUpdateToNewTypeFallible (
+                ``convert [PersonNameString list] to [PersonId list]`` context
+                >> Result.bind (InvestmentAccountOrchestration.ownerSetOf context resultingName)
+            )
+        // the begin and end dates arrive separately; the account keeps whichever one isn't given
+        let! activityPeriodUpdate =
+            match input.activeBeginUpdate, input.activeEndUpdate with
+            | NoChange, NoChange -> Ok NoChange
+            | beginUpdate, endUpdate ->
+                let current = account |> InvestmentAccount.activityPeriod
+                ActivityPeriod.create
+                    (beginUpdate |> valueOrCurrent (current |> ActivityPeriod.activeBegin))
+                    (endUpdate |> valueOrCurrent (current |> ActivityPeriod.activeEnd))
+                    ActivityPeriod.NotConsideredAvailableBeforeBeginDate
+                |> Result.map SetTo
         let! ledgerAccountIdUpdate =
             input.ledgerAccountCodeUpdate
             |> convertFieldUpdateOptionToNewTypeOptionFallible (fallibleConverterAccountCodeToAccountId context)
         return
-            { currentName = currentName
-              nameUpdate = nameUpdate
+            { investmentAccountIdToUpdate = accountId
+              investmentAccountNameUpdate = nameUpdate
               institutionUpdate = institutionUpdate
               accountGroupUpdate = accountGroupUpdate
               taxTreatmentUpdate = taxTreatmentUpdate
               ownersUpdate = ownersUpdate
-              activeBeginUpdate = input.activeBeginUpdate
-              activeEndUpdate = input.activeEndUpdate
+              activityPeriodUpdate = activityPeriodUpdate
               ledgerAccountIdUpdate = ledgerAccountIdUpdate }
     }
 
@@ -167,9 +218,9 @@ let ``convert [HoldingsAsOfAccount] to [HoldingsAsOfAccountReturn]`` (account: H
 
 // ---- Account Snapshots ----
 
-let ``convert [AccountSnapshotInput] to [SnapshotInput]`` (input: AccountSnapshotInput) : Result<SnapshotInput, IAppError> =
+let ``convert [AccountSnapshotInput] to [Snapshot]`` (context: Context.Context) (input: AccountSnapshotInput) : Result<Snapshot, IAppError> =
     result {
-        let! accountName = input.accountName |> InvestmentAccountName.create
+        let! accountId = input.accountName |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
         let! provenance = input.provenance |> Provenance.fromString
         let! contributionBasis =
             input.contributionBasis
@@ -178,26 +229,15 @@ let ``convert [AccountSnapshotInput] to [SnapshotInput]`` (input: AccountSnapsho
             input.lines
             |> List.map (fun line ->
                 result {
-                    let! securityName = line.securityName |> SecurityName.create
+                    let! securityId = line.securityName |> ``convert [SecurityNameString] to [SecurityId]`` context
                     let! quantity = line.quantity |> Quantity.fromDecimal
                     let! price = line.price |> Price.fromDecimal
                     let! marketValue = line.marketValue |> Money.fromDecimal
                     let! costBasis = line.reportedCostBasis |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
-                    let line: SnapshotLineInput =
-                        { securityName = securityName
-                          quantity = quantity
-                          price = price
-                          marketValue = marketValue
-                          reportedCostBasis = costBasis }
-                    return line
+                    return (securityId, quantity, price, marketValue, costBasis): SnapshotLine
                 })
             |> convertListOfResultsToResultsList
-        return
-            ({ investmentAccountName = accountName
-               snapshotDate = input.snapshotDate
-               provenance = provenance
-               contributionBasis = contributionBasis
-               lines = lines }: SnapshotInput)
+        return (accountId, input.snapshotDate, provenance, contributionBasis, lines): Snapshot
     }
 
 let ``convert [SnapshotView] to [AccountSnapshotReturn]`` (view: SnapshotView) : AccountSnapshotReturn =
@@ -234,61 +274,63 @@ let ``convert [PropertyView] to [PropertyReturn]`` (view: PropertyView) : Proper
       createdAt = property |> Property.createdAt
       modifiedAt = property |> Property.modifiedAt }
 
-let private ``convert [decimal] to [PurchaseBasis]`` (raw: decimal) : Result<PurchaseBasis, IAppError> =
+let ``convert [decimal] to [PurchaseBasis]`` (raw: decimal) : Result<PurchaseBasis, IAppError> =
     raw |> Money.fromDecimal |> Result.bind PurchaseBasis.create
 
-let ``convert [PropertyCreateInput] to [NewProperty]``
+let ``convert [AccountCodeString list] to [AccountId list]``
     (context: Context.Context)
-    (input: PropertyCreateInput)
-    : Result<NewProperty, IAppError> =
-    result {
-        let! name = input.propertyName |> PropertyName.create
-        let! propertyUse = input.propertyUse |> PropertyUse.fromString
-        let! owners = input.owners |> ``convert [string list] to [PersonName list]``
-        let! ownedPeriod = OwnedPeriod.create input.acquisitionDate input.disposalDate
-        let! purchaseBasis = input.purchaseBasis |> ``convert [decimal] to [PurchaseBasis]``
-        let! assetAccountIds =
-            input.assetAccountCodes
-            |> List.map (fallibleConverterAccountCodeToAccountId context)
-            |> convertListOfResultsToResultsList
-        let! mortgageAccountIds =
-            input.mortgageAccountCodes
-            |> List.map (fallibleConverterAccountCodeToAccountId context)
-            |> convertListOfResultsToResultsList
-        return
-            { name = name
-              propertyUse = propertyUse
-              owners = owners
-              ownedPeriod = ownedPeriod
-              purchaseBasis = purchaseBasis
-              assetAccountIds = assetAccountIds
-              mortgageAccountIds = mortgageAccountIds }
-    }
+    (codes: string list)
+    : Result<AccountId list, IAppError> =
+    codes |> List.map (fallibleConverterAccountCodeToAccountId context) |> convertListOfResultsToResultsList
 
-let ``convert [PropertyUpdateInput] to [PropertyUpdate]``
+let ``convert [PropertyUpdateInput] to [PropertyFieldUpdates]``
     (context: Context.Context)
     (input: PropertyUpdateInput)
-    : Result<PropertyUpdate, IAppError> =
-    let accountIdsOf codes =
-        codes |> List.map (fallibleConverterAccountCodeToAccountId context) |> convertListOfResultsToResultsList
+    : Result<Property.PropertyFieldUpdates, IAppError> =
     result {
-        let! currentName = input.propertyName |> PropertyName.create
+        let! propertyId = input.propertyName |> ``convert [PropertyNameString] to [PropertyId]`` context
+        let! property = propertyId |> Property.fetchById context
         let! nameUpdate = input.propertyNameUpdate |> convertFieldUpdateToNewTypeFallible PropertyName.create
+        let resultingName = nameUpdate |> valueOrCurrent (property |> Property.propertyName)
         let! useUpdate = input.propertyUseUpdate |> convertFieldUpdateToNewTypeFallible PropertyUse.fromString
-        let! ownersUpdate = input.ownersUpdate |> convertFieldUpdateToNewTypeFallible ``convert [string list] to [PersonName list]``
+        let! ownersUpdate =
+            input.ownersUpdate
+            |> convertFieldUpdateToNewTypeFallible (
+                ``convert [PersonNameString list] to [PersonId list]`` context
+                >> Result.bind (RealEstateOrchestration.ownerSetOf context resultingName)
+            )
+        // the acquisition and disposal dates arrive separately; the Property keeps whichever one isn't given
+        let! ownedPeriodUpdate =
+            match input.acquisitionDateUpdate, input.disposalDateUpdate with
+            | NoChange, NoChange -> Ok NoChange
+            | acquisitionUpdate, disposalUpdate ->
+                let current = property |> Property.ownedPeriod
+                OwnedPeriod.create
+                    (acquisitionUpdate |> valueOrCurrent (current |> OwnedPeriod.acquisitionDate))
+                    (disposalUpdate |> valueOrCurrent (current |> OwnedPeriod.disposalDate))
+                |> Result.map SetTo
         let! purchaseBasisUpdate =
             input.purchaseBasisUpdate |> convertFieldUpdateToNewTypeFallible ``convert [decimal] to [PurchaseBasis]``
-        let! assetAccountIdsUpdate = input.assetAccountCodesUpdate |> convertFieldUpdateToNewTypeFallible accountIdsOf
-        let! mortgageAccountIdsUpdate = input.mortgageAccountCodesUpdate |> convertFieldUpdateToNewTypeFallible accountIdsOf
+        let! assetAccountIdsUpdate =
+            input.assetAccountCodesUpdate
+            |> convertFieldUpdateToNewTypeFallible (
+                ``convert [AccountCodeString list] to [AccountId list]`` context
+                >> Result.bind (assetAccountSetOf context resultingName)
+            )
+        let! mortgageAccountIdsUpdate =
+            input.mortgageAccountCodesUpdate
+            |> convertFieldUpdateToNewTypeFallible (
+                ``convert [AccountCodeString list] to [AccountId list]`` context
+                >> Result.bind (mortgageAccountSetOf context resultingName)
+            )
         return
-            { currentName = currentName
-              nameUpdate = nameUpdate
+            { propertyIdToUpdate = propertyId
+              propertyNameUpdate = nameUpdate
               propertyUseUpdate = useUpdate
-              ownersUpdate = ownersUpdate
-              acquisitionDateUpdate = input.acquisitionDateUpdate
-              disposalDateUpdate = input.disposalDateUpdate
+              ownedPeriodUpdate = ownedPeriodUpdate
               purchaseBasisUpdate = purchaseBasisUpdate
               assetAccountIdsUpdate = assetAccountIdsUpdate
+              ownersUpdate = ownersUpdate
               mortgageAccountIdsUpdate = mortgageAccountIdsUpdate }
     }
 

@@ -44,7 +44,10 @@
     <Compile Include="AgreementOrchestration.fs" />
     <Compile Include="CashFlowOps.fs" />
     <Compile Include="PositionsLedgerLinks.fs" />
-    <Compile Include="InvestmentOrchestration.fs" />
+    <Compile Include="DimensionValueOrchestration.fs" />
+    <Compile Include="SecurityOrchestration.fs" />
+    <Compile Include="InvestmentAccountOrchestration.fs" />
+    <Compile Include="HoldingOrchestration.fs" />
     <Compile Include="AccountSnapshotOrchestration.fs" />
     <Compile Include="RealEstateOrchestration.fs" />
     <Compile Include="HoldingsAsOf.fs" />
