@@ -3,6 +3,7 @@ module Business.FinancialServices.Positions.Holding
 open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
+open App.Utility.FieldUpdate
 open App.DataAccessLayer.DalError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
@@ -18,6 +19,11 @@ type Holding = private {
     basisMethod: BasisMethod option
     createdAt: Instant
     modifiedAt: Instant
+}
+
+type HoldingFieldUpdates = {
+    holdingIdToUpdate: HoldingId
+    basisMethodUpdate: FieldUpdate<BasisMethod option>
 }
 
 let holdingId h = h.holdingId
@@ -137,26 +143,30 @@ let fetchByInvestmentAccountAndSecurity
         AnyQuantityIsAcceptable
     |> Result.map List.tryHead
 
-let updateBasisMethod
-    (context: Context.Context)
-    (basisMethod: BasisMethod option)
-    (holdingId: HoldingId)
-    : Result<Holding, IAppError> =
-    let uuid = holdingId |> HoldingId.value
-    let queryStatement =
-        """
-        update positions.holding
-        set basis_method = @basis_method, modified_at = @modified
-        where unique_id = @unique_id;"""
+let update (context: Context.Context) (fieldUpdates: HoldingFieldUpdates) : Result<Holding, IAppError> =
+    let uuid = fieldUpdates.holdingIdToUpdate |> HoldingId.value
+    let updates =
+        [
+           fieldUpdates.basisMethodUpdate
+           |> mapNoChangeToOptionWithConversion (fun v ->
+               ("basis_method = @basis_method", { name = "@basis_method"; value = NullableCharString(v |> Option.map BasisMethod.toString) })) ]
+        |> List.choose id
+    let setClauses = updates |> List.map fst |> String.concat ", "
     let parameters =
         [ { name = "@unique_id"; value = UniqueId uuid }
-          { name = "@basis_method"; value = NullableCharString(basisMethod |> Option.map BasisMethod.toString) }
           { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) } ]
+        @ (updates |> List.map snd)
+    let queryStatement =
+        $"""
+        update positions.holding
+        set {setClauses}, modified_at = @modified
+        where unique_id = @unique_id;"""
     result {
+        do! if updates |> List.isEmpty then error PositionsHoldingUpdateNoOp else Ok()
         do!
             executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
             |> whenNoRows (PositionsHoldingIdDoesntExist uuid)
-        return! holdingId |> fetchById context
+        return! fieldUpdates.holdingIdToUpdate |> fetchById context
     }
 
 let delete (context: Context.Context) (holdingId: HoldingId) : Result<unit, IAppError> =

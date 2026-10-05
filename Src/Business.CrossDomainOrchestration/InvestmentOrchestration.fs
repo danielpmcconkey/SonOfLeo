@@ -72,7 +72,11 @@ let renameDimensionValue
     result {
         let! dimensionValue = dimensionValueByName context dimension currentName
         do! confirmDimensionValueNameFree context dimension newName (Some(dimensionValue |> DimensionValue.dimensionValueId))
-        return! dimensionValue |> DimensionValue.dimensionValueId |> DimensionValue.rename context newName
+        return!
+            DimensionValue.update
+                context
+                { dimensionValueIdToUpdate = dimensionValue |> DimensionValue.dimensionValueId
+                  dimensionValueNameUpdate = SetTo newName }
     }
 
 let listDimensionValues (context: Context.Context) (dimension: Dimension) : Result<DimensionValue.DimensionValue list, IAppError> =
@@ -589,7 +593,8 @@ let changeHoldingBasisMethod
                     PositionsHoldingDoesntExist(accountName |> InvestmentAccountName.value, securityName |> SecurityName.value)
                 )
         do! confirmBasisMethodAllowed account security basisMethod
-        return! holding |> Holding.holdingId |> Holding.updateBasisMethod context basisMethod
+        return!
+            Holding.update context { holdingIdToUpdate = holding |> Holding.holdingId; basisMethodUpdate = SetTo basisMethod }
     }
 
 /// Deletes the Holding and returns it as it stood before deletion.

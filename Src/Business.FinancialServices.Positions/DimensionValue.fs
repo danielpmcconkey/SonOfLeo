@@ -3,6 +3,7 @@ module Business.FinancialServices.Positions.DimensionValue
 open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
+open App.Utility.FieldUpdate
 open App.DataAccessLayer.DalError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
@@ -17,6 +18,11 @@ type DimensionValue = private {
     dimensionValueName: DimensionValueName
     createdAt: Instant
     modifiedAt: Instant
+}
+
+type DimensionValueFieldUpdates = {
+    dimensionValueIdToUpdate: DimensionValueId
+    dimensionValueNameUpdate: FieldUpdate<DimensionValueName>
 }
 
 let dimensionValueId d = d.dimensionValueId
@@ -116,24 +122,28 @@ let fetchByDimensionAndName
     fetchAny context (Some "dv.dimension = @dimension and dv.value_name = @value_name") parameters AnyQuantityIsAcceptable
     |> Result.map List.tryHead
 
-let rename
-    (context: Context.Context)
-    (newName: DimensionValueName)
-    (dimensionValueId: DimensionValueId)
-    : Result<DimensionValue, IAppError> =
-    let uuid = dimensionValueId |> DimensionValueId.value
-    let queryStatement =
-        """
-        update positions.dimension_value
-        set value_name = @value_name, modified_at = @modified
-        where unique_id = @unique_id;"""
+let update (context: Context.Context) (fieldUpdates: DimensionValueFieldUpdates) : Result<DimensionValue, IAppError> =
+    let uuid = fieldUpdates.dimensionValueIdToUpdate |> DimensionValueId.value
+    let updates =
+        [
+           fieldUpdates.dimensionValueNameUpdate
+           |> mapNoChangeToOptionWithConversion (fun v ->
+               ("value_name = @value_name", { name = "@value_name"; value = CharString(DimensionValueName.value v) })) ]
+        |> List.choose id
+    let setClauses = updates |> List.map fst |> String.concat ", "
     let parameters =
         [ { name = "@unique_id"; value = UniqueId uuid }
-          { name = "@value_name"; value = CharString(newName |> DimensionValueName.value) }
           { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) } ]
+        @ (updates |> List.map snd)
+    let queryStatement =
+        $"""
+        update positions.dimension_value
+        set {setClauses}, modified_at = @modified
+        where unique_id = @unique_id;"""
     result {
+        do! if updates |> List.isEmpty then error PositionsDimensionValueUpdateNoOp else Ok()
         do!
             executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
             |> whenNoRows (PositionsDimensionValueIdDoesntExist uuid)
-        return! dimensionValueId |> fetchById context
+        return! fieldUpdates.dimensionValueIdToUpdate |> fetchById context
     }

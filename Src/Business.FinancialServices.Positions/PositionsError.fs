@@ -7,6 +7,8 @@ open App.Utility.IAppError
 type PositionsError =
     | PositionsAccountGroupIsEmpty of string
     | PositionsAccountGroupTooLong of string * int
+    | PositionsAccountSnapshotIdDoesntExist of Guid
+    | PositionsAccountSnapshotUpdateNoOp
     | PositionsActivePeriodExcludesSnapshots of string * LocalDate * LocalDate
     | PositionsAssetAccountAlreadyLinked of string * string
     | PositionsBasisMethodNotAllowed of string * string * string
@@ -17,11 +19,13 @@ type PositionsError =
     | PositionsDimensionValueNameDoesntMatch of string * string
     | PositionsDimensionValueNameIsEmpty of string
     | PositionsDimensionValueNameTooLong of string * int
+    | PositionsDimensionValueUpdateNoOp
     | PositionsDisposalDateBeforeAcquisitionDate of LocalDate * LocalDate
     | PositionsHoldingAlreadyExists of string * string
     | PositionsHoldingDoesntExist of string * string
     | PositionsHoldingIdDoesntExist of Guid
     | PositionsHoldingReferencedBySnapshots of string * string
+    | PositionsHoldingUpdateNoOp
     | PositionsInstitutionIsEmpty of string
     | PositionsInstitutionTooLong of string * int
     | PositionsInvalidBasisMethod of string
@@ -88,6 +92,8 @@ type PositionsError =
     | PositionsValuationDateLaterThanCurrentDate of string * LocalDate
     | PositionsValuationDateOutsideOwnership of string * LocalDate
     | PositionsValuationDoesntExist of string * LocalDate
+    | PositionsValuationIdDoesntExist of Guid
+    | PositionsValuationUpdateNoOp
     | PositionsValuationValueNotPositive of decimal
     | PositionsWealthHistoryEndBeforeBegin of LocalDate * LocalDate
 
@@ -98,6 +104,8 @@ type PositionsError =
             match this with
             | PositionsAccountGroupIsEmpty raw -> $"Account group cannot be empty. Provided account group is \"{raw}\"."
             | PositionsAccountGroupTooLong(raw, max) -> $"Account group cannot exceed {max} characters. Provided account group is \"{raw}\"."
+            | PositionsAccountSnapshotIdDoesntExist uuid -> $"No Account Snapshot exists with ID {uuid}."
+            | PositionsAccountSnapshotUpdateNoOp -> "Updating the Account Snapshot record failed because at least one updatable parameter must be set."
             | PositionsActivePeriodExcludesSnapshots(account, earliest, latest) -> $"Investment Account \"{account}\" would no longer be active on the dates of some of its snapshots, the earliest {earliest} and the latest {latest}."
             | PositionsAssetAccountAlreadyLinked(code, property) -> $"Ledger account {code} is already an asset account of Property \"{property}\"."
             | PositionsBasisMethodNotAllowed(account, security, taxTreatment) -> $"The Holding of \"{security}\" in Investment Account \"{account}\" breaks the basis method rule for a {taxTreatment} account: a Taxable account's Holding has a basis method, and any other account's Holding has none."
@@ -108,11 +116,13 @@ type PositionsError =
             | PositionsDimensionValueNameDoesntMatch(dimension, name) -> $"No Dimension Value is named \"{name}\" in dimension {dimension}."
             | PositionsDimensionValueNameIsEmpty raw -> $"Dimension Value name cannot be empty. Provided name is \"{raw}\"."
             | PositionsDimensionValueNameTooLong(raw, max) -> $"Dimension Value name cannot exceed {max} characters. Provided name is \"{raw}\"."
+            | PositionsDimensionValueUpdateNoOp -> "Updating the Dimension Value record failed because at least one updatable parameter must be set."
             | PositionsDisposalDateBeforeAcquisitionDate(acquisition, disposal) -> $"A Property's disposal date ({disposal}) cannot be before its acquisition date ({acquisition})."
             | PositionsHoldingAlreadyExists(account, security) -> $"Investment Account \"{account}\" already has a Holding of \"{security}\"."
             | PositionsHoldingDoesntExist(account, security) -> $"Investment Account \"{account}\" has no Holding of \"{security}\"."
             | PositionsHoldingIdDoesntExist uuid -> $"No Holding exists with ID {uuid}."
             | PositionsHoldingReferencedBySnapshots(account, security) -> $"The Holding of \"{security}\" in Investment Account \"{account}\" cannot be deleted: an Account Snapshot line references it."
+            | PositionsHoldingUpdateNoOp -> "Updating the Holding record failed because at least one updatable parameter must be set."
             | PositionsInstitutionIsEmpty raw -> $"Institution cannot be empty. Provided institution is \"{raw}\"."
             | PositionsInstitutionTooLong(raw, max) -> $"Institution cannot exceed {max} characters. Provided institution is \"{raw}\"."
             | PositionsInvalidBasisMethod raw -> $"Invalid basis method of \"{raw}\"."
@@ -183,6 +193,8 @@ type PositionsError =
             | PositionsValuationDateLaterThanCurrentDate(property, date) -> $"A Valuation of Property \"{property}\" cannot be dated {date}, later than the current date."
             | PositionsValuationDateOutsideOwnership(property, date) -> $"A Valuation of Property \"{property}\" cannot be dated {date}, outside the dates it was owned."
             | PositionsValuationDoesntExist(property, date) -> $"Property \"{property}\" has no Valuation dated {date}."
+            | PositionsValuationIdDoesntExist uuid -> $"No Valuation exists with ID {uuid}."
+            | PositionsValuationUpdateNoOp -> "Updating the Valuation record failed because at least one updatable parameter must be set."
             | PositionsValuationValueNotPositive raw -> $"A valuation must be greater than zero. Provided value is {raw}."
             | PositionsWealthHistoryEndBeforeBegin(beginDate, endDate) -> $"The end date ({endDate}) cannot be earlier than the begin date ({beginDate})."
 

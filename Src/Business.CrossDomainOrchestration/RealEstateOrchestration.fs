@@ -352,17 +352,12 @@ let recordValuation
         let! existing = Valuation.fetchByPropertyAndDate context propertyId valuationDate
         match existing with
         | Some stored ->
-            let replacement =
-                Valuation.create
-                    (stored |> Valuation.valuationId)
-                    propertyId
-                    valuationDate
-                    valuationValue
-                    valuationBasis
-                    (stored |> Valuation.createdAt)
-                    instant
-            do! replacement |> Valuation.replace context
-            return replacement
+            return!
+                Valuation.update
+                    context
+                    { valuationIdToUpdate = stored |> Valuation.valuationId
+                      valuationValueUpdate = SetTo valuationValue
+                      valuationBasisUpdate = SetTo valuationBasis }
         | None ->
             let valuation =
                 Valuation.create (ValuationId.create ()) propertyId valuationDate valuationValue valuationBasis instant instant

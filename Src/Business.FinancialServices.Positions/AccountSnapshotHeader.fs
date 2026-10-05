@@ -3,11 +3,14 @@ module Business.FinancialServices.Positions.AccountSnapshotHeader
 open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
+open App.Utility.FieldUpdate
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 
 type AccountSnapshotHeader = private {
@@ -18,6 +21,12 @@ type AccountSnapshotHeader = private {
     contributionBasis: ContributionBasis option
     createdAt: Instant
     modifiedAt: Instant
+}
+
+type AccountSnapshotHeaderFieldUpdates = {
+    accountSnapshotIdToUpdate: AccountSnapshotId
+    provenanceUpdate: FieldUpdate<Provenance>
+    contributionBasisUpdate: FieldUpdate<ContributionBasis option>
 }
 
 let accountSnapshotId h = h.accountSnapshotId
@@ -64,21 +73,6 @@ let persist (context: Context.Context) (header: AccountSnapshotHeader) : Result<
           { name = "@provenance"; value = CharString(header.provenance |> Provenance.toString) }
           contributionBasisParameter header.contributionBasis
           { name = "@created_at"; value = DbInstant header.createdAt }
-          { name = "@modified_at"; value = DbInstant header.modifiedAt } ]
-    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
-
-/// Overwrites the provenance and contribution basis of the snapshot already stored under this header's ID. Its lines
-/// are replaced separately.
-let replace (context: Context.Context) (header: AccountSnapshotHeader) : Result<unit, IAppError> =
-    let queryStatement =
-        """
-        update positions.account_snapshot
-        set provenance = @provenance, contribution_basis = @contribution_basis, modified_at = @modified_at
-        where unique_id = @unique_id;"""
-    let parameters =
-        [ { name = "@unique_id"; value = UniqueId(header.accountSnapshotId |> AccountSnapshotId.value) }
-          { name = "@provenance"; value = CharString(header.provenance |> Provenance.toString) }
-          contributionBasisParameter header.contributionBasis
           { name = "@modified_at"; value = DbInstant header.modifiedAt } ]
     executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
@@ -147,6 +141,12 @@ let private fetchAny
         snap.created_at, snap.modified_at"""
     query context None select None predicate None None None parameters expectedRows
 
+let fetchById (context: Context.Context) (accountSnapshotId: AccountSnapshotId) : Result<AccountSnapshotHeader, IAppError> =
+    let uuid = accountSnapshotId |> AccountSnapshotId.value
+    fetchAny context (Some "snap.unique_id = @unique_id") [ { name = "@unique_id"; value = UniqueId uuid } ] ExactlyOne
+    |> whenNoRows (PositionsAccountSnapshotIdDoesntExist uuid)
+    |> Result.map List.head
+
 let private accountParameter (investmentAccountId: InvestmentAccountId) =
     { name = "@investment_account_id"; value = UniqueId(investmentAccountId |> InvestmentAccountId.value) }
 
@@ -188,3 +188,32 @@ let fetchByInvestmentAccountBetween
           { name = "@end_date"; value = DbLocalDate endDate } ]
         AnyQuantityIsAcceptable
     |> Result.map (List.sortBy (fun h -> h.snapshotDate))
+
+let update (context: Context.Context) (fieldUpdates: AccountSnapshotHeaderFieldUpdates) : Result<AccountSnapshotHeader, IAppError> =
+    let uuid = fieldUpdates.accountSnapshotIdToUpdate |> AccountSnapshotId.value
+    let updates =
+        [
+           fieldUpdates.provenanceUpdate
+           |> mapNoChangeToOptionWithConversion (fun v ->
+               ("provenance = @provenance", { name = "@provenance"; value = CharString(Provenance.toString v) }))
+           fieldUpdates.contributionBasisUpdate
+           |> mapNoChangeToOptionWithConversion (fun v ->
+               ("contribution_basis = @contribution_basis", { name = "@contribution_basis"; value = NullableNumeric(v |> Option.map (ContributionBasis.value >> Money.amount)) })) ]
+        |> List.choose id
+    let setClauses = updates |> List.map fst |> String.concat ", "
+    let parameters =
+        [ { name = "@unique_id"; value = UniqueId uuid }
+          { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) } ]
+        @ (updates |> List.map snd)
+    let queryStatement =
+        $"""
+        update positions.account_snapshot
+        set {setClauses}, modified_at = @modified
+        where unique_id = @unique_id;"""
+    result {
+        do! if updates |> List.isEmpty then error PositionsAccountSnapshotUpdateNoOp else Ok()
+        do!
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (PositionsAccountSnapshotIdDoesntExist uuid)
+        return! fieldUpdates.accountSnapshotIdToUpdate |> fetchById context
+    }

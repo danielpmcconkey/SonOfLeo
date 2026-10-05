@@ -3,11 +3,14 @@ module Business.FinancialServices.Positions.Valuation
 open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
+open App.Utility.FieldUpdate
+open App.DataAccessLayer.DalError
 open App.DataAccessLayer.QueryParameter
 open App.DataAccessLayer.ExecuteReader
 open App.DataAccessLayer.ExecuteNonQuery
 open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 
 type Valuation = private {
@@ -18,6 +21,12 @@ type Valuation = private {
     valuationBasis: ValuationBasis
     createdAt: Instant
     modifiedAt: Instant
+}
+
+type ValuationFieldUpdates = {
+    valuationIdToUpdate: ValuationId
+    valuationValueUpdate: FieldUpdate<ValuationValue>
+    valuationBasisUpdate: FieldUpdate<ValuationBasis>
 }
 
 let valuationId v = v.valuationId
@@ -73,20 +82,6 @@ let persist (context: Context.Context) (valuation: Valuation) : Result<unit, IAp
           { name = "@valuation_value"; value = Numeric(valuation.valuationValue |> ValuationValue.value |> Money.amount) }
           { name = "@basis"; value = CharString(valuation.valuationBasis |> ValuationBasis.value) }
           { name = "@created_at"; value = DbInstant valuation.createdAt }
-          { name = "@modified_at"; value = DbInstant valuation.modifiedAt } ]
-    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
-
-/// Overwrites the value and basis of the Valuation already stored under this one's ID.
-let replace (context: Context.Context) (valuation: Valuation) : Result<unit, IAppError> =
-    let queryStatement =
-        """
-        update positions.valuation
-        set valuation_value = @valuation_value, basis = @basis, modified_at = @modified_at
-        where unique_id = @unique_id;"""
-    let parameters =
-        [ { name = "@unique_id"; value = UniqueId(valuation.valuationId |> ValuationId.value) }
-          { name = "@valuation_value"; value = Numeric(valuation.valuationValue |> ValuationValue.value |> Money.amount) }
-          { name = "@basis"; value = CharString(valuation.valuationBasis |> ValuationBasis.value) }
           { name = "@modified_at"; value = DbInstant valuation.modifiedAt } ]
     executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
@@ -151,6 +146,12 @@ let private fetchAny
     query context None select None predicate None None None parameters expectedRows
     |> Result.map (List.sortBy (fun v -> v.valuationDate))
 
+let fetchById (context: Context.Context) (valuationId: ValuationId) : Result<Valuation, IAppError> =
+    let uuid = valuationId |> ValuationId.value
+    fetchAny context (Some "val.unique_id = @unique_id") [ { name = "@unique_id"; value = UniqueId uuid } ] ExactlyOne
+    |> whenNoRows (PositionsValuationIdDoesntExist uuid)
+    |> Result.map List.head
+
 let fetchAll (context: Context.Context) : Result<Valuation list, IAppError> =
     fetchAny context None [] AnyQuantityIsAcceptable
 
@@ -168,3 +169,32 @@ let fetchByPropertyAndDate
           { name = "@valuation_date"; value = DbLocalDate valuationDate } ]
     fetchAny context (Some "val.property_id = @property_id and val.valuation_date = @valuation_date") parameters AnyQuantityIsAcceptable
     |> Result.map List.tryHead
+
+let update (context: Context.Context) (fieldUpdates: ValuationFieldUpdates) : Result<Valuation, IAppError> =
+    let uuid = fieldUpdates.valuationIdToUpdate |> ValuationId.value
+    let updates =
+        [
+           fieldUpdates.valuationValueUpdate
+           |> mapNoChangeToOptionWithConversion (fun v ->
+               ("valuation_value = @valuation_value", { name = "@valuation_value"; value = Numeric(v |> ValuationValue.value |> Money.amount) }))
+           fieldUpdates.valuationBasisUpdate
+           |> mapNoChangeToOptionWithConversion (fun v ->
+               ("basis = @basis", { name = "@basis"; value = CharString(ValuationBasis.value v) })) ]
+        |> List.choose id
+    let setClauses = updates |> List.map fst |> String.concat ", "
+    let parameters =
+        [ { name = "@unique_id"; value = UniqueId uuid }
+          { name = "@modified"; value = DbInstant(context |> Context.getInitiationInstant) } ]
+        @ (updates |> List.map snd)
+    let queryStatement =
+        $"""
+        update positions.valuation
+        set {setClauses}, modified_at = @modified
+        where unique_id = @unique_id;"""
+    result {
+        do! if updates |> List.isEmpty then error PositionsValuationUpdateNoOp else Ok()
+        do!
+            executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
+            |> whenNoRows (PositionsValuationIdDoesntExist uuid)
+        return! fieldUpdates.valuationIdToUpdate |> fetchById context
+    }

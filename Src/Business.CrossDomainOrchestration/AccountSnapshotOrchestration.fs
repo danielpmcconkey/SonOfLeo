@@ -4,6 +4,7 @@ open NodaTime
 open App.Utility
 open App.Utility.IAppError
 open App.Utility.Result
+open App.Utility.FieldUpdate
 open App.Session
 open Business.General
 open Business.FinancialServices
@@ -168,37 +169,29 @@ let private recordOne (context: Context.Context) (input: SnapshotInput) : Result
         do! confirmContributionBasisAllowed account input.contributionBasis
         do! confirmEachSecurityOnce accountName input.snapshotDate input.lines
         let! existing = AccountSnapshotHeader.fetchByInvestmentAccountAndDate context accountId input.snapshotDate
-        let header =
-            match existing with
-            | Some stored ->
-                AccountSnapshotHeader.create
-                    (stored |> AccountSnapshotHeader.accountSnapshotId)
-                    accountId
-                    input.snapshotDate
-                    input.provenance
-                    input.contributionBasis
-                    (stored |> AccountSnapshotHeader.createdAt)
-                    instant
-            | None ->
-                AccountSnapshotHeader.create
-                    (AccountSnapshotId.create ())
-                    accountId
-                    input.snapshotDate
-                    input.provenance
-                    input.contributionBasis
-                    instant
-                    instant
-        let accountSnapshotId = header |> AccountSnapshotHeader.accountSnapshotId
+        let accountSnapshotId =
+            existing
+            |> Option.map AccountSnapshotHeader.accountSnapshotId
+            |> Option.defaultWith AccountSnapshotId.create
         let! lines =
             input.lines
             |> List.map (buildLine context account input.snapshotDate accountSnapshotId)
             |> convertListOfResultsToResultsList
-        do!
+        let! header =
             match existing with
             | Some _ ->
                 AccountSnapshotLine.deleteByAccountSnapshot context accountSnapshotId
-                |> Result.bind (fun () -> header |> AccountSnapshotHeader.replace context)
-            | None -> header |> AccountSnapshotHeader.persist context
+                |> Result.bind (fun () ->
+                    AccountSnapshotHeader.update
+                        context
+                        { accountSnapshotIdToUpdate = accountSnapshotId
+                          provenanceUpdate = SetTo input.provenance
+                          contributionBasisUpdate = SetTo input.contributionBasis })
+            | None ->
+                let header =
+                    AccountSnapshotHeader.create
+                        accountSnapshotId accountId input.snapshotDate input.provenance input.contributionBasis instant instant
+                header |> AccountSnapshotHeader.persist context |> Result.map (fun () -> header)
         do! lines |> List.map (AccountSnapshotLine.persist context) |> convertListOfResultsToResultsList |> Result.map ignore
         let! view = viewSnapshot context accountName header
         return { snapshot = view; replacedExisting = existing |> Option.isSome }
