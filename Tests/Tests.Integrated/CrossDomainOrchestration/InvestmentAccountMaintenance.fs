@@ -527,16 +527,88 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-POS-5.6 for each of TaxDeferred, Roth and Hsa, changing the tax treatment of a Taxable account whose snapshots carry lots on two dates is rejected with a typed error naming the account and the earliest and latest snapshot dates carrying lots, and the account stays Taxable`` () =
-        Assert.Fail "Not yet implemented"
+        let p = fixture.Data.positions
+        let lot acquired q : AccountSnapshotLotInput = { acquiredDate = acquired; quantity = q; reportedCostBasis = None }
+        let line security q price mv cb lots : AccountSnapshotLineInput =
+            { securityName = security; quantity = q; price = price; marketValue = mv; reportedCostBasis = cb; lots = lots }
+        // Alex Brokerage's d1 and d3 snapshots, re-recorded with lots on their Total Market lines; d2 and d4 carry none
+        let withLots date lines : AccountSnapshotInput =
+            { accountName = PF.alexBrokerage; snapshotDate = date; provenance = "Reported"; contributionBasis = None; lines = lines }
+        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
+            result {
+                let! snapshots =
+                    [ withLots p.d1
+                          [ line PF.totalMarket 10M 100.00M 1000.00M (Some 900.00M) [ lot p.accountsActiveBegin 10M ]
+                            line PF.international 20M 25.00M 500.00M (Some 480.00M) [] ]
+                      withLots p.d3
+                          [ line PF.totalMarket 12M 105.00M 1260.00M (Some 1110.00M)
+                                [ lot p.accountsActiveBegin 10M; lot (p.d2.PlusDays 1) 2M ]
+                            line PF.international 20M 27.50M 550.00M (Some 480.00M) [] ] ]
+                    |> List.map (``convert [AccountSnapshotInput] to [Snapshot]`` context)
+                    |> convertListOfResultsToResultsList
+                let! _ = AccountSnapshotOrchestration.recordSnapshots context snapshots
+                [ TaxTreatment.TaxDeferred; TaxTreatment.Roth; TaxTreatment.Hsa ]
+                |> List.iter (fun treatment ->
+                    updateInvestmentAccount context { noChange PF.alexBrokerage with taxTreatmentUpdate = SetTo treatment }
+                    |> expectError
+                        (function AsError (PositionsTaxTreatmentChangeStrandsLots (a, e, l)) -> Some(a, e, l) | _ -> None)
+                        (fun found -> Assert.Equal((PF.alexBrokerage, p.d1, p.d3), found)))
+                let! found = listed context PF.alexBrokerage
+                let _, _, _, stored, _, _, _, _ = found |> List.exactlyOne
+                Assert.Equal(TaxTreatment.Taxable, stored)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-11.4 narrowing an account's active period so that activities fall before the new begin and after the new end is rejected with a typed error naming the earliest and latest offending activity dates, and the active period is unchanged`` () =
-        Assert.Fail "Not yet implemented"
+        // Sam 401k's snapshots are on d1 and d3; its activity runs from the day before d1 to the day after d3
+        let p = fixture.Data.positions
+        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
+            result {
+                updateInvestmentAccount
+                    context { noChange PF.sam401k with activeBeginUpdate = SetTo p.d1; activeEndUpdate = SetTo(Some p.d3) }
+                |> expectError
+                    (function AsError (PositionsActivePeriodExcludesRecords (a, None, Some(earliest, latest))) -> Some(a, earliest, latest) | _ -> None)
+                    (fun found -> Assert.Equal((PF.sam401k, p.d1.PlusDays(-1), p.d3.PlusDays(1)), found))
+                let! found = listed context PF.sam401k
+                let _, _, _, _, _, _, activeBegin, activeEnd = found |> List.exactlyOne
+                Assert.Equal((p.accountsActiveBegin, None), (activeBegin, activeEnd))
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-11.4 narrowing an account's active period so that both snapshots and activities fall outside it is rejected with one typed error naming the earliest and latest offending snapshot dates and the earliest and latest offending activity dates`` () =
-        Assert.Fail "Not yet implemented"
+        // outside d1 + 1 to d3 - 1 fall both snapshots and the activities of d1 - 1, d1, d3 and d3 + 1
+        let p = fixture.Data.positions
+        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
+            updateInvestmentAccount
+                context
+                { noChange PF.sam401k with
+                    activeBeginUpdate = SetTo(p.d1.PlusDays(1))
+                    activeEndUpdate = SetTo(Some(p.d3.PlusDays(-1))) }
+            |> expectError
+                (function AsError (PositionsActivePeriodExcludesRecords (a, snapshots, activities)) -> Some(a, snapshots, activities) | _ -> None)
+                (fun found ->
+                    Assert.Equal(
+                        (PF.sam401k, Some(p.d1, p.d3), Some(p.d1.PlusDays(-1), p.d3.PlusDays(1))),
+                        found))
+            |> Ok)
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-11.4 narrowing an account's active period to exactly its earliest and latest activity dates, which are outside its first and last snapshot dates, succeeds`` () =
-        Assert.Fail "Not yet implemented"
+        let p = fixture.Data.positions
+        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
+            result {
+                let! updated =
+                    updateInvestmentAccount
+                        context
+                        { noChange PF.sam401k with
+                            activeBeginUpdate = SetTo(p.d1.PlusDays(-1))
+                            activeEndUpdate = SetTo(Some(p.d3.PlusDays(1))) }
+                let period = updated |> InvestmentAccount.activityPeriod
+                Assert.Equal(
+                    (p.d1.PlusDays(-1), Some(p.d3.PlusDays(1))),
+                    (period |> ActivityPeriod.activeBegin, period |> ActivityPeriod.activeEnd))
+            })
+        |> railroadWrapper

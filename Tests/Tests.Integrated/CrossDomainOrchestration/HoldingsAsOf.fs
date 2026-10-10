@@ -6,6 +6,7 @@ open App.Operation.CoreAuditableAction
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.HoldingsAsOf
 open Tests.Helpers
@@ -43,6 +44,19 @@ type private AccountSummary =
 let private accountSummary (a: HoldingsAsOfAccount) : AccountSummary =
     a.investmentAccountName, a.institution, a.accountGroup, a.taxTreatment, a.ownerNames, a.ledgerAccountCodeAndName,
     a.snapshotDate, a.provenance, a.contributionBasis |> Option.map Money.amount
+
+/// A lot as returned: acquired date, quantity and reported cost basis.
+type private LotSummary = LocalDate * decimal * decimal option
+
+let private lotsByLine (a: HoldingsAsOfAccount) : (string * LotSummary list) list =
+    a.lines
+    |> List.map (fun l ->
+        l.securityName,
+        l.lots
+        |> List.map (fun lot ->
+            lot |> AccountSnapshotLot.acquiredDate,
+            lot |> AccountSnapshotLot.quantity |> Quantity.amount,
+            lot |> AccountSnapshotLot.reportedCostBasis |> Option.map Money.amount))
 
 let private allSeven = [ Some "Equity Fund"; Some "Large Cap"; Some "Total Market"; Some "Diversified"; Some "Domestic"; Some "Growth"; Some "Example Total Market Index" ]
 let private internationalValues = [ Some "Equity Fund"; None; None; None; Some "International"; None; None ]
@@ -173,8 +187,27 @@ type HoldingsAsOfTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-POS-8.3 holdings as of a date give each line of the account's latest snapshot its lots with acquired date, quantity and reported cost basis in the order supplied, and a line recorded without lots carries none`` () =
-        Assert.Fail "Not yet implemented"
+        // as of the end of month -3 Joint Brokerage's latest snapshot is d2, whose one line carries the fixture's three
+        // lots; Alex Brokerage's is also d2, whose lines carry none
+        let lastYear = p.accountsActiveBegin
+        holdingsAsOf p.monthEnd3
+        |> Result.map (fun accounts ->
+            Assert.Equal<(string * LotSummary list) list>(
+                [ PF.totalMarket,
+                  [ lastYear.PlusDays(60), 19.999998M, Some 2000.00M
+                    lastYear.PlusDays(30), 15.000001M, Some 1500.00M
+                    lastYear.PlusDays(30), 15.000001M, Some 1500.00M ] ],
+                accounts |> find PF.jointBrokerage |> lotsByLine)
+            Assert.Equal<(string * LotSummary list) list>(
+                [ PF.international, []; PF.totalMarket, [] ], accounts |> find PF.alexBrokerage |> lotsByLine))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-8.3 holdings as of a date after a snapshot recorded without lots give that snapshot's lines no lots, not the lots of an earlier snapshot`` () =
-        Assert.Fail "Not yet implemented"
+        // Joint Brokerage's d4 snapshot carries no lots; its d2 snapshot carries three
+        holdingsAsOf p.monthEnd1
+        |> Result.map (fun accounts ->
+            let joint = accounts |> find PF.jointBrokerage
+            Assert.Equal(p.d4, joint.snapshotDate)
+            Assert.Equal<(string * LotSummary list) list>([ PF.totalMarket, [] ], joint |> lotsByLine))
+        |> railroadWrapper

@@ -347,4 +347,24 @@ type NetWorthTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-8.2 net worth counts a Taxable account's line market values exactly once, adding nothing for the lines' lots, and is the hand-derived 207,945.00 at the end of month -3`` () =
-        Assert.Fail "Not yet implemented"
+        // Joint Brokerage's d2 line, 5,500.00, carries three lots whose cost bases sum to 5,000.00. Counting the lots'
+        // cost would make net worth 212,945.00; counting the line twice, 213,445.00.
+        runCommandRouteAndAutoRollback PositionsRecordAccountSnapshots (fun context ->
+            result {
+                let! withLots = computeNetWorth context p.monthEnd3
+                let joint = withLots.investmentAccounts |> List.find (fun a -> a.investmentAccountName = PF.jointBrokerage)
+                Assert.Equal(5500.00M, joint.marketValue |> amount)
+                Assert.Equal(12920.00M, withLots.totalInvestments |> amount)
+                Assert.Equal(207945.00M, withLots.netWorth |> amount)
+                // the same snapshot with its lots removed gives the same net worth
+                let! jointId = PositionsLookups.investmentAccountIdOf context PF.jointBrokerage
+                let! totalMarketId = PositionsLookups.securityIdOf context PF.totalMarket
+                let snapshot =
+                    [ jointId, p.d2, Reported, None,
+                      [ totalMarketId, toQuantity 50M, toPrice 110.00M, toMoney 5500.00M, Some(toMoney 5000.00M), [] ] ]
+                let! _ = AccountSnapshotOrchestration.recordSnapshots context snapshot
+                let! withoutLots = computeNetWorth context p.monthEnd3
+                Assert.Equal(withLots.netWorth, withoutLots.netWorth)
+                Assert.Equal(withLots.totalInvestments, withoutLots.totalInvestments)
+            })
+        |> railroadWrapper

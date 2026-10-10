@@ -9,7 +9,10 @@ open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsAuditableAction
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.FinancialServices.Positions.PositionsError
+open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.HoldingOrchestration
+open Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
+open Ui.InterfaceBridge.BoundaryConverters.PositionsFieldConverters
 open Ui.InterfaceBridge.CommandRoute
 open Tests.Helpers
 open Tests.Helpers.PositionsValues
@@ -221,4 +224,35 @@ type HoldingMaintenanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-POS-11.10 deleting a Holding that no snapshot line references but an Activity names is rejected with a typed error naming the account and the Security, and the Holding remains`` () =
-        Assert.Fail "Not yet implemented"
+        let p = fixture.Data.positions
+        // Sam 401k gains a Holding of the International fund, on no snapshot, named by one Dividend
+        let dividendDate = p.d1.PlusDays(20)
+        runCommandRouteAndAutoRollback PositionsDeleteHolding (fun context ->
+            result {
+                let! _ = create context PF.sam401k PF.international None
+                let! range =
+                    { accountName = PF.sam401k
+                      beginDate = dividendDate
+                      endDate = dividendDate
+                      activities =
+                        [ { activityDate = dividendDate
+                            kind = "Dividend"
+                            description = "Dividend received"
+                            source = None
+                            securityName = Some PF.international
+                            quantity = None
+                            price = None
+                            amount = 3.21M } ] }
+                    |> ``convert [InvestmentActivityRangeInput] to [ActivityRange]`` context
+                let! _ = InvestmentActivityOrchestration.recordActivity context [ range ]
+                let! accountId, securityId = withIds context PF.sam401k PF.international
+                deleteHolding context accountId securityId
+                |> expectError
+                    (function AsError (PositionsHoldingReferencedByActivities (a, s)) -> Some(a, s) | _ -> None)
+                    (fun found -> Assert.Equal((PF.sam401k, PF.international), found))
+                let! holdings = holdingsOf context PF.sam401k
+                Assert.Equal<HoldingSummary list>(
+                    [ PF.sam401k, PF.bondFund, None; PF.sam401k, PF.international, None; PF.sam401k, PF.totalMarket, None ],
+                    holdings)
+            })
+        |> railroadWrapper
