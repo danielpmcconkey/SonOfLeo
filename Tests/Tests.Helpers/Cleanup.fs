@@ -371,6 +371,9 @@ let cleanUpInvestmentAccountByName (name: string) : Result<unit, IAppError> =
     let parameters = [ { name = "@name"; value = CharString name } ]
     let ofAccount = "(select unique_id from positions.investment_account where account_name = @name)"
     [ $"""delete from positions.investment_activity WHERE investment_account_id IN {ofAccount};"""
+      $"""delete from positions.account_snapshot_lot WHERE account_snapshot_line_id IN
+            (select unique_id from positions.account_snapshot_line WHERE account_snapshot_id IN
+                (select unique_id from positions.account_snapshot where investment_account_id IN {ofAccount}));"""
       $"""delete from positions.account_snapshot_line WHERE account_snapshot_id IN
             (select unique_id from positions.account_snapshot where investment_account_id IN {ofAccount});"""
       $"""delete from positions.account_snapshot WHERE investment_account_id IN {ofAccount};"""
@@ -380,11 +383,14 @@ let cleanUpInvestmentAccountByName (name: string) : Result<unit, IAppError> =
     |> List.map (fun query -> query, parameters)
     |> executeCleanUpStatements
 
-/// Deletes a Security by name, with any Holding of it and any snapshot line or activity on such a Holding.
+/// Deletes a Security by name, with any Holding of it and any snapshot line (with its lots) or activity on such a
+/// Holding.
 let cleanUpSecurityByName (name: string) : Result<unit, IAppError> =
     let parameters = [ { name = "@name"; value = CharString name } ]
     let holdingsOf = "(select unique_id from positions.holding where security_id IN (select unique_id from positions.security where security_name = @name))"
     [ $"""delete from positions.investment_activity WHERE holding_id IN {holdingsOf};"""
+      $"""delete from positions.account_snapshot_lot WHERE account_snapshot_line_id IN
+            (select unique_id from positions.account_snapshot_line WHERE holding_id IN {holdingsOf});"""
       $"""delete from positions.account_snapshot_line WHERE holding_id IN {holdingsOf};"""
       $"""delete from positions.holding WHERE unique_id IN {holdingsOf};"""
       """delete from positions.security WHERE security_name = @name;""" ]

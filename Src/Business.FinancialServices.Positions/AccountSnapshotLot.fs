@@ -97,6 +97,17 @@ let persist (context: Context.Context) (lot: AccountSnapshotLot) : Result<unit, 
           { name = "@reported_cost_basis"; value = NullableNumeric(lot.reportedCostBasis |> Option.map Money.amount) } ]
     executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
 
+/// Deletes the lots of every line of one snapshot. Its lines can then be deleted.
+let deleteByAccountSnapshot (context: Context.Context) (accountSnapshotId: AccountSnapshotId) : Result<unit, IAppError> =
+    let queryStatement =
+        """
+        delete from positions.account_snapshot_lot
+        where account_snapshot_line_id in (
+            select unique_id from positions.account_snapshot_line where account_snapshot_id = @account_snapshot_id);"""
+    let parameters =
+        [ { name = "@account_snapshot_id"; value = UniqueId(accountSnapshotId |> AccountSnapshotId.value) } ]
+    executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters AnyQuantityIsAcceptable
+
 let private reconstitute raw =
     result {
         let uuid, lineId, ordinal, acquiredDate, quantityRaw, costBasisRaw, investmentAccountId, snapshotDate, holdingId =

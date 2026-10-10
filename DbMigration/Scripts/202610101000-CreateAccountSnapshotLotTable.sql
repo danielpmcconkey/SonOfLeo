@@ -1,6 +1,7 @@
 -- A snapshot line may carry the open lots its institution reported. A lot is a component of its line, like the line
--- is of its snapshot: no timestamps. Replacing a snapshot deletes its lines, and their lots go with them. The ordinal
--- keeps the order supplied; two lots may agree in every other column, so nothing else is unique.
+-- is of its snapshot: no timestamps. Replacing or deleting a snapshot deletes its lines, and the code deletes their lots
+-- first; like every other foreign key here, this one restricts rather than cascades. The ordinal keeps the order
+-- supplied; two lots may agree in every other column, so nothing else is unique.
 
 -- Table: positions.account_snapshot_lot
 
@@ -17,7 +18,7 @@ CREATE TABLE IF NOT EXISTS positions.account_snapshot_lot
     CONSTRAINT account_snapshot_lot_account_snapshot_line_id_fkey FOREIGN KEY (account_snapshot_line_id)
         REFERENCES positions.account_snapshot_line (unique_id) MATCH SIMPLE
         ON UPDATE NO ACTION
-        ON DELETE CASCADE
+        ON DELETE RESTRICT
 )
 
     TABLESPACE pg_default;

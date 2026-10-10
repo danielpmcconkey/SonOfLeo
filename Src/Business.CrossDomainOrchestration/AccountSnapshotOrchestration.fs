@@ -209,7 +209,8 @@ let private recordOne (context: Context.Context) (input: Snapshot) : Result<Reco
         let! header =
             match existing with
             | Some _ ->
-                AccountSnapshotLine.deleteByAccountSnapshot context accountSnapshotId
+                AccountSnapshotLot.deleteByAccountSnapshot context accountSnapshotId
+                |> Result.bind (fun () -> AccountSnapshotLine.deleteByAccountSnapshot context accountSnapshotId)
                 |> Result.bind (fun () ->
                     AccountSnapshotHeader.update
                         context
@@ -267,6 +268,7 @@ let deleteSnapshot
         let! accountName, header = fetchHeader context investmentAccountId snapshotDate
         let! view = viewSnapshot context accountName header
         let accountSnapshotId = header |> AccountSnapshotHeader.accountSnapshotId
+        do! AccountSnapshotLot.deleteByAccountSnapshot context accountSnapshotId
         do! AccountSnapshotLine.deleteByAccountSnapshot context accountSnapshotId
         do! AccountSnapshotHeader.delete context accountSnapshotId
         return view

@@ -224,6 +224,23 @@ type AccountSnapshotLotsTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
+    member _.``REQ-POS-7.4 deleting the fixture's Taxable snapshot whose line carries lots returns it with those lots, after which neither the snapshot nor any of its lots can be fetched`` () =
+        runCommandRouteAndAutoRollback PositionsDeleteAccountSnapshot (fun context ->
+            result {
+                let! accountId = PositionsLookups.investmentAccountIdOf context PF.jointBrokerage
+                let! deleted = AccountSnapshotOrchestration.deleteSnapshot context accountId p.d2
+                Assert.Equal<LotsSummary>([ PF.totalMarket, fixtureJointLots ], deleted |> lotsOf)
+                fetchSnapshot context PF.jointBrokerage p.d2
+                |> expectError
+                    (function AsError(PositionsSnapshotDoesntExist(a, d)) -> Some(a, d) | _ -> None)
+                    (fun found -> Assert.Equal((PF.jointBrokerage, p.d2), found))
+                let! remainingLots =
+                    deleted.header |> AccountSnapshotHeader.accountSnapshotId |> AccountSnapshotLot.fetchByAccountSnapshot context
+                Assert.Empty(remainingLots)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-POS-7.5 fetching the fixture's Taxable snapshot gives each line's lots exactly as the fixture recorded them, including two identical lots in the order supplied`` () =
         runCommandRouteAndAutoRollback PositionsRecordAccountSnapshots (fun context ->
             result {
