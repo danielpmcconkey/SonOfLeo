@@ -26,3 +26,6 @@ let isLessThanOrEqual (q: Quantity) (r: Quantity) : bool = q.amount <= r.amount
 let isGreaterThanOrEqual (q: Quantity) (r: Quantity) : bool = q.amount >= r.amount
 
 let isPositive (q: Quantity) : bool = q.amount > 0M
+
+/// The exact sum, as a decimal: a sum of Quantities need not be a Quantity.
+let sum (quantities: Quantity list) : decimal = quantities |> List.sumBy (fun q -> q.amount)

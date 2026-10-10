@@ -161,6 +161,22 @@ let fetchByInvestmentAccount
         AnyQuantityIsAcceptable
     |> Result.map (List.sortBy (fun h -> h.snapshotDate))
 
+/// The account's snapshots any of whose lines carries a lot, in date order.
+let fetchByInvestmentAccountCarryingLots
+    (context: Context.Context)
+    (investmentAccountId: InvestmentAccountId)
+    : Result<AccountSnapshotHeader list, IAppError> =
+    let predicate =
+        """
+        snap.investment_account_id = @investment_account_id
+        and exists (
+            select 1
+            from positions.account_snapshot_line snapln
+            join positions.account_snapshot_lot snaplt on snaplt.account_snapshot_line_id = snapln.unique_id
+            where snapln.account_snapshot_id = snap.unique_id)"""
+    fetchAny context (Some predicate) [ accountParameter investmentAccountId ] AnyQuantityIsAcceptable
+    |> Result.map (List.sortBy (fun h -> h.snapshotDate))
+
 let fetchByInvestmentAccountAndDate
     (context: Context.Context)
     (investmentAccountId: InvestmentAccountId)

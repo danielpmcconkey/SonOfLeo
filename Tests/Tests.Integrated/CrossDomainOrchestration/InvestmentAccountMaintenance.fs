@@ -426,7 +426,7 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
                     activeBeginUpdate = SetTo(p.d1.PlusDays(1))
                     activeEndUpdate = SetTo(Some(p.d4.PlusDays(-1))) }
             |> expectError
-                (function AsError (PositionsActivePeriodExcludesSnapshots (a, earliest, latest)) -> Some(a, earliest, latest) | _ -> None)
+                (function AsError (PositionsActivePeriodExcludesRecords (a, Some(earliest, latest), None)) -> Some(a, earliest, latest) | _ -> None)
                 (fun found -> Assert.Equal((PF.alexBrokerage, p.d1, p.d4), found))
             |> Ok)
         |> railroadWrapper

@@ -10,9 +10,12 @@ type PositionsAuditableAction =
     | PositionsCreateSecurity
     | PositionsDeleteAccountSnapshot
     | PositionsDeleteHolding
+    | PositionsDeletePreLedgerBalance
     | PositionsDeleteProperty
     | PositionsDeleteValuation
     | PositionsRecordAccountSnapshots
+    | PositionsRecordInvestmentActivity
+    | PositionsRecordPreLedgerBalances
     | PositionsRecordValuation
     | PositionsRenameDimensionValue
     | PositionsUpdateHoldingBasisMethod

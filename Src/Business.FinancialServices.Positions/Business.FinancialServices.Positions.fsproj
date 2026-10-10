@@ -16,8 +16,11 @@
     <Compile Include="Holding.fs" />
     <Compile Include="AccountSnapshotHeader.fs" />
     <Compile Include="AccountSnapshotLine.fs" />
+    <Compile Include="AccountSnapshotLot.fs" />
+    <Compile Include="InvestmentActivity.fs" />
     <Compile Include="Property.fs" />
     <Compile Include="Valuation.fs" />
+    <Compile Include="PreLedgerBalance.fs" />
   </ItemGroup>
 
   <ItemGroup>

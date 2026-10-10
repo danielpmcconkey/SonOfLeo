@@ -197,10 +197,10 @@ let private confirmPeriodKeepsSnapshots
         if not (offendingDates |> List.isEmpty) then
             return!
                 error (
-                    PositionsActivePeriodExcludesSnapshots(
+                    PositionsActivePeriodExcludesRecords(
                         account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value,
-                        offendingDates |> List.min,
-                        offendingDates |> List.max
+                        Some(offendingDates |> List.min, offendingDates |> List.max),
+                        None
                     )
                 )
     }

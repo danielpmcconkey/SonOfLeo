@@ -53,6 +53,24 @@ module AccountSnapshotLineId =
     let fromGuid g = AccountSnapshotLineId g
     let value (AccountSnapshotLineId g) : Guid = g
 
+type AccountSnapshotLotId = private AccountSnapshotLotId of Guid
+module AccountSnapshotLotId =
+    let create () : AccountSnapshotLotId = AccountSnapshotLotId(Guid.NewGuid())
+    let fromGuid g = AccountSnapshotLotId g
+    let value (AccountSnapshotLotId g) : Guid = g
+
+type InvestmentActivityId = private InvestmentActivityId of Guid
+module InvestmentActivityId =
+    let create () : InvestmentActivityId = InvestmentActivityId(Guid.NewGuid())
+    let fromGuid g = InvestmentActivityId g
+    let value (InvestmentActivityId g) : Guid = g
+
+type PreLedgerBalanceId = private PreLedgerBalanceId of Guid
+module PreLedgerBalanceId =
+    let create () : PreLedgerBalanceId = PreLedgerBalanceId(Guid.NewGuid())
+    let fromGuid g = PreLedgerBalanceId g
+    let value (PreLedgerBalanceId g) : Guid = g
+
 type PropertyId = private PropertyId of Guid
 module PropertyId =
     let create () : PropertyId = PropertyId(Guid.NewGuid())
@@ -208,6 +226,92 @@ module Provenance =
         | "Reported" -> Ok Reported
         | "Imported" -> Ok Imported
         | _ -> error (PositionsInvalidProvenance raw)
+
+/// Which way an Activity moves the units of the Security it names.
+type UnitDirection =
+    | UnitsIn
+    | UnitsOut
+    | NoUnits
+
+type ActivityKind =
+    | Contribution
+    | RolloverIn
+    | TransferIn
+    | Purchase
+    | Reinvestment
+    | AdjustmentIn
+    | Withdrawal
+    | RolloverOut
+    | TransferOut
+    | Sale
+    | Fee
+    | AdjustmentOut
+    | Dividend
+    | Interest
+    | CapitalGainDistribution
+
+module ActivityKind =
+    let all =
+        [ ActivityKind.Contribution; ActivityKind.RolloverIn; ActivityKind.TransferIn; ActivityKind.Purchase
+          ActivityKind.Reinvestment; ActivityKind.AdjustmentIn; ActivityKind.Withdrawal; ActivityKind.RolloverOut
+          ActivityKind.TransferOut; ActivityKind.Sale; ActivityKind.Fee; ActivityKind.AdjustmentOut
+          ActivityKind.Dividend; ActivityKind.Interest; ActivityKind.CapitalGainDistribution ]
+    let toString kind =
+        match kind with
+        | ActivityKind.Contribution -> "Contribution"
+        | ActivityKind.RolloverIn -> "RolloverIn"
+        | ActivityKind.TransferIn -> "TransferIn"
+        | ActivityKind.Purchase -> "Purchase"
+        | ActivityKind.Reinvestment -> "Reinvestment"
+        | ActivityKind.AdjustmentIn -> "AdjustmentIn"
+        | ActivityKind.Withdrawal -> "Withdrawal"
+        | ActivityKind.RolloverOut -> "RolloverOut"
+        | ActivityKind.TransferOut -> "TransferOut"
+        | ActivityKind.Sale -> "Sale"
+        | ActivityKind.Fee -> "Fee"
+        | ActivityKind.AdjustmentOut -> "AdjustmentOut"
+        | ActivityKind.Dividend -> "Dividend"
+        | ActivityKind.Interest -> "Interest"
+        | ActivityKind.CapitalGainDistribution -> "CapitalGainDistribution"
+    let fromString (raw: string) : Result<ActivityKind, IAppError> =
+        match all |> List.tryFind (fun k -> toString k = raw.Trim()) with
+        | Some kind -> Ok kind
+        | None -> error (PositionsInvalidActivityKind raw)
+    let direction kind =
+        match kind with
+        | ActivityKind.Contribution
+        | ActivityKind.RolloverIn
+        | ActivityKind.TransferIn
+        | ActivityKind.Purchase
+        | ActivityKind.Reinvestment
+        | ActivityKind.AdjustmentIn -> UnitsIn
+        | ActivityKind.Withdrawal
+        | ActivityKind.RolloverOut
+        | ActivityKind.TransferOut
+        | ActivityKind.Sale
+        | ActivityKind.Fee
+        | ActivityKind.AdjustmentOut -> UnitsOut
+        | ActivityKind.Dividend
+        | ActivityKind.Interest
+        | ActivityKind.CapitalGainDistribution -> NoUnits
+
+type ActivityDescription = private ActivityDescription of string
+module ActivityDescription =
+    let maxLength = 500
+    let value (ActivityDescription d) = d
+    let create (raw: string) : Result<ActivityDescription, IAppError> =
+        raw
+        |> trimmedAndBounded maxLength PositionsActivityDescriptionIsEmpty PositionsActivityDescriptionTooLong
+        |> Result.map ActivityDescription
+
+type ActivitySource = private ActivitySource of string
+module ActivitySource =
+    let maxLength = 100
+    let value (ActivitySource s) = s
+    let create (raw: string) : Result<ActivitySource, IAppError> =
+        raw
+        |> trimmedAndBounded maxLength PositionsActivitySourceIsEmpty PositionsActivitySourceTooLong
+        |> Result.map ActivitySource
 
 type PropertyName = private PropertyName of string
 module PropertyName =
