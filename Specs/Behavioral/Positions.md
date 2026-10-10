@@ -144,8 +144,7 @@ references a Property.
 - **REQ-POS-5.4** Changing an Investment Account's owners is rejected when the result would break REQ-POS-4.5 or REQ-POS-4.6, including when a tax-treatment change in the same operation would.
 - **REQ-POS-5.5** Changing an Investment Account's tax treatment away from 'Roth' is rejected while any of its Account Snapshots carries a contribution basis. The error names the account and the earliest and latest such snapshot dates. (2026-10-05)
   - *Why not clear the basis instead:* a contribution basis is a figure the institution reported, recorded verbatim (design note above). Clearing it would destroy evidence; keeping it on a non-Roth account would break REQ-POS-6.4. (2026-10-05)
-- **REQ-POS-5.6** Changing an Investment Account's tax treatment away from 'Taxable' is rejected while any line of its Account Snapshots carries a Lot. The error names the account and the earliest and latest such snapshot dates. (2026-10-10)
-  - *Why:* for the reason given at REQ-POS-5.5; keeping the Lots would break REQ-POS-6.9. (2026-10-10)
+- **REQ-POS-5.6** *(Withdrawn 2026-10-10 — see the Withdrawn table.)*
 
 ## 6. Valid and invalid data states — Account Snapshot
 
@@ -253,7 +252,7 @@ from the data consumes.
 - **REQ-POS-12.7** Quantity, when present, is a Quantity greater than zero. Price may be null; when non-null it is a Price, and it may be present only when a quantity is. Amount is a Money value that is not negative. (2026-10-10)
   - *Why unsigned:* the kind says which way units and money moved. Institutions sign their figures inconsistently with one another, and the supplier normalises them. (2026-10-10)
   - *Why quantity times price is not checked against amount:* an activity's amount can include commissions, fees or accrued interest that its quantity and price do not. (2026-10-10)
-- **REQ-POS-12.8** The activity date must fall within the Investment Account's active period (REQ-POS-4.7) and cannot be later than the current date (the calendar date of the operation's initiation instant, REQ-SYS-3.4). Either failure names the account and the date. (2026-10-10)
+- **REQ-POS-12.8** The activity date must fall within the Investment Account's active period (REQ-POS-4.7). A failure names the account and the date. (2026-10-10; amended 2026-10-10 — the clause rejecting a date later than the current date is struck: every Activity is dated within its range (REQ-POS-13.1), whose end may not be later than the current date, so no Activity reaching this rule can be dated in the future.)
 - **REQ-POS-12.9** Two Activities of one account may agree in every field; each is recorded. Activities of one account on one date are kept in the order supplied. (2026-10-10)
   - *Why:* two identical reinvestments on one day are two events. The system never deduplicates Activity; the replacement rule (REQ-POS-13.2) is what keeps a re-supplied period from being counted twice. (2026-10-10)
 
@@ -293,6 +292,10 @@ computed for those dates (Reporting REQ-RPT-8.7).
 - **REQ-POS-15.4** The system must provide a means to record one or more Pre-ledger Balances in a single atomic operation. A ledger Account and balance date may appear at most once in one operation; a repeat is rejected with a typed error naming both. Recording a Pre-ledger Balance for an Account and date that already has one replaces its balance; this is a deliberate exception to REQ-SYS-6.1, made under REQ-SYS-6.1.1, for the reason given at REQ-POS-7.2. Recording returns each Pre-ledger Balance as stored, with whether it replaced an existing one. (2026-10-10)
 - **REQ-POS-15.5** The system must provide a means to delete the Pre-ledger Balance for a given ledger Account and date. A date with no Pre-ledger Balance fails with a typed not-found error naming the account code and date. (2026-10-10)
 - **REQ-POS-15.6** The system must provide a read-only means to list Pre-ledger Balances, optionally limited to one ledger Account, between two Calendar Dates inclusive, ordered by account code and then balance date, each with the account's code and name. The end date may not be earlier than the begin date; otherwise the listing fails with a typed error naming both dates. (2026-10-10)
+- **REQ-POS-15.7** Creating a fiscal period whose start date is on or before the balance date of any Pre-ledger Balance is rejected with a typed error naming the period and the earliest and latest such balance dates. (2026-10-10)
+  - *Why:* REQ-POS-15.2 holds a Pre-ledger Balance to dates before the ledger began. A new, earlier fiscal period would move the ledger's start back over it, and from then on net worth would read that date from the ledger and the balance would silently stop counting (Reporting REQ-RPT-8.7). Deleting or re-dating the balances first is the operator's decision, not something the system does on its own. (2026-10-10)
+- **REQ-POS-15.8** Linking a ledger Account to an Investment Account (REQ-POS-4.8), or adding it to a Property's asset Accounts (REQ-POS-9.7), is rejected while that Account carries any Pre-ledger Balance. The error names the account code and the earliest and latest balance dates. This applies on create and on update. Adding an Account to a Property's mortgage Accounts is not affected. (2026-10-10)
+  - *Why:* REQ-POS-15.3 refuses a balance on a linked Account because net worth would never read it. Linking an Account that already carries balances reaches the same state from the other side, and the balances would silently count for nothing. (2026-10-10)
 
 ## Waived from testing
 
@@ -317,4 +320,4 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 
 | ID | Original Requirement | Reason |
 |---|---|---|
-|  |  |  |
+| REQ-POS-5.6 | Changing an Investment Account's tax treatment away from 'Taxable' is rejected while any line of its Account Snapshots carries a Lot. The error names the account and the earliest and latest such snapshot dates. (2026-10-10) | Withdrawn 2026-10-10 as redundant: only a line of a 'Taxable' account carries a Lot (REQ-POS-6.9), every Holding there has a basis method (REQ-POS-5.2), so any change away from 'Taxable' while a Lot exists is already refused by REQ-POS-5.3. Found by the slice 2 build session. |
