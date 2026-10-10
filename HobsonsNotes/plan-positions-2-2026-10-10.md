@@ -399,3 +399,298 @@ any requirement you believe is wrong. Don't mark anything done that you
 haven't verified.
 
 ## 8. Report
+
+Written by the build session on 2026-10-10. Src and tests were both done in this one
+session, in §0's order: test names first (pushed as failing placeholders before any file
+under `Src/` was opened), then §4 Parts A to E, then the tests. Everything below was
+verified at the head commit named under "Test status".
+
+### What Dan needs to do
+
+1. Apply the four migrations, in this order (written, not applied anywhere but the
+   throwaway `sonofleo_test`):
+   1. `DbMigration/Scripts/202610101000-CreateAccountSnapshotLotTable.sql`
+   2. `DbMigration/Scripts/202610101010-CreateInvestmentActivityTable.sql`
+   3. `DbMigration/Scripts/202610101020-CreatePreLedgerBalanceTable.sql`
+   4. `DbMigration/Scripts/202610101030-TestRoleTruncateLotsActivityPreLedger.sql`
+2. Review and merge `positions-slice-2`. `check-traceability` only runs on main, so run
+   `bash Checks/run-all.sh` again after the merge.
+3. Decide on the two untested empty-request errors and the pre-existing DAL test-order
+   finding (both under "Findings").
+
+### Src report (plan §4)
+
+**A. Schema.**
+- A.1 (lots): `positions.account_snapshot_lot`, a child of the snapshot line, with an
+  ordinal so lots keep their reported order. Two identical lots are allowed.
+- A.2 (activity): `positions.investment_activity`. The unique key on account, date and
+  ordinal also serves lookups by account and date, so there is no separate index.
+- A.3 (pre-ledger balances): `positions.pre_ledger_balance`, unique on ledger account
+  and date.
+- A.4: test-role grants for the three tables, and the fixture truncates them
+  (`Tests.Helpers/TestDataStage.fs`).
+
+**B. Positions domain.**
+- B.5: `AccountSnapshotLot.fs`.
+- B.6: `InvestmentActivity.fs`. The kind, quantity, price, source and description rules
+  are here.
+- B.7: `PreLedgerBalance.fs`.
+- B.8: new `PositionsError` cases, and three auditable actions:
+  - `PositionsRecordInvestmentActivity`
+  - `PositionsRecordPreLedgerBalances`
+  - `PositionsDeletePreLedgerBalance`
+- Shared validation sits in `PositionsComponent.fs`. `Quantity.fs` gained a zero check.
+
+**C. Orchestration.**
+- C.9: snapshots carry lots (`AccountSnapshotOrchestration.fs`). Lots are replaced with
+  their snapshot.
+- C.10: tax treatment changes are refused while any line carries a lot (REQ-POS-5.6), in
+  `InvestmentAccountOrchestration.fs`. That file also holds the 11.4 active-period guard,
+  which now counts activity.
+- C.11: `HoldingsAsOf.fs` returns lots on each line.
+- C.12: `InvestmentActivityOrchestration.fs` records by range (all or nothing, each range
+  replaces what it covers) and lists by range. `HoldingOrchestration.fs` refuses to delete
+  a Holding that activity references (11.10).
+- C.13: `UnitRollForward.fs`. 14.1 reuses `PositionsSnapshotDoesntExist`.
+- C.14: `PreLedgerBalanceOrchestration.fs`. The 15.3 check reads the InvestmentAccount
+  and Property links directly.
+- C.15: `NetWorth.fs` handles pre-ledger dates and absent components. 10.3 reuses
+  `PositionsNetWorthDateOutsideFiscalPeriods`.
+- C.16: `NetWorthHistory.fs` computes each point with `computeNetWorth`. It compiles
+  after `InvestmentWealthHistory.fs` because it reuses `monthEndsBetween`.
+
+**D. Interface.**
+- D.17: the new and changed command routes are:
+  - `InvestmentActivity Record`
+  - `InvestmentActivity List`
+  - `InvestmentAccount RollForward`
+  - `PreLedgerBalance Record`
+  - `PreLedgerBalance Delete`
+  - `PreLedgerBalance List`
+  - snapshot record and fetch now carry lots
+  - `HoldingsAsOf` returns lots
+  - the `NetWorth` route has a new description
+- D.18: `NetWorthHistory` is a report route with a new `NetWorthHistoryWriter.fs`.
+  `NetWorthWriter.fs` marks pre-ledger dates, prints each balance's date and lists the
+  absent components.
+- The open-order check forced one placement: the InvestmentActivityOrchestration and
+  UnitRollForward opens come before RealEstateOrchestration in
+  `PositionsFieldConverters.fs`.
+- Neither CLI `Program.fs` needed a change, because routes register through the route
+  lists.
+
+**E. Architecture.**
+- E.19 added 8 application components with composition and realization edges, and
+  serving edges matching the drift output.
+- It added six functions:
+  - Roll units forward between snapshots
+  - Compute net worth history
+  - Record pre-ledger balances
+  - Record investment activity
+  - Check a snapshot line's lots
+  - Write net worth history report
+- Two existing function descriptions were updated: Record account snapshots now
+  mentions lots, and Compute net worth now mentions pre-ledger balances.
+- Views are untouched.
+
+**Not done.** Nothing in §4 was left undone.
+
+### Test report (the brief's final report)
+
+**Part A, by item.** There are 124 test names. All were committed as failing placeholders
+first, and all are now real tests.
+- A.1 (the business picture): context only. No tests of its own.
+- A.2 (lots, REQ-POS-6.9 to 6.13, 5.6, 7.2, 7.5, 8.3): tests are in
+  - `Tests.Isolated/Model/Positions/LotsAndActivity.fs`
+  - `CrossDomainOrchestration/AccountSnapshotLots.fs` (10 tests)
+  - new tests in `HoldingsAsOf.fs` (2), `NetWorth.fs` (1, lots counted once) and
+    `InvestmentAccountMaintenance.fs` (5.6)
+- A.3 (activity, REQ-POS-12.1 to 13.5, 11.4, 11.10): tests are in
+  - `LotsAndActivity.fs`
+  - `InvestmentActivityRecording.fs` (14 tests)
+  - three 11.4 tests in `InvestmentAccountMaintenance.fs`
+  - one 11.10 test in `HoldingMaintenance.fs`
+- A.4 (roll-forward, REQ-POS-14.1 to 14.3): `UnitRollForward.fs` (13 tests).
+- A.5 (pre-ledger balances, REQ-POS-15.1 to 15.6): `PreLedgerBalances.fs` (13 tests).
+- A.6 (net worth on a pre-ledger date): `NetWorthPreLedger.fs` (14 tests). Every expected
+  figure is derived by hand in the file's header comment.
+- A.7 (net worth history, REQ-RPT-10.1 to 10.4): `NetWorthHistory.fs` (7 tests).
+- A.8 (the interface):
+  - `InterfaceBridge/PositionsSliceTwoRoutes.fs` (13 tests)
+  - `InterfaceBridge/PositionsReportRoutes.fs` (7 tests, covering the rendered net worth
+    and net worth history files)
+- `LotsAndActivity.fs` holds 25 isolated tests in all.
+
+**Part B.**
+- B.1: the three tables are truncated in `TestDataStage.fs`.
+- B.2: the fixture is extended in `PositionsFixture.fs`. It is fictional, and every figure
+  can be derived by hand. It adds:
+  - two identical lots and a third lot on a taxable holding
+  - an attempt to put lots on a non-taxable account
+  - 23 activities covering every kind, with one account whose roll-forward balances and
+    one whose does not
+  - 9 pre-ledger balances, including a zero, a negative and a mortgage account
+  - a pre-ledger date with absent components
+- Placement: the lots are on the Joint Brokerage snapshot on day 2 rather than on Alex
+  Brokerage, and no new accounts were needed.
+- `Tests.Helpers/Cleanup.fs` changed so that the account and security clean-ups delete
+  activity first. It also gained `cleanUpPreLedgerBalance`.
+- The name-quality check was run once, and its dispositions are recorded at the end of
+  this report.
+
+**Not done.** Nothing in Parts A or B was left undone.
+
+**Test status.**
+- Head is `4ef6c64`.
+- Throwaway `sonofleo_test` was rebuilt with `setup-throwaway-test-db.sh` (exit 0).
+- The build and both suites ran locally in this session's container, after a clean build
+  into a fresh artifacts path.
+- Build: `0 Warning(s)  0 Error(s)`.
+- Tests.Isolated: `Passed! - Failed: 0, Passed: 530, Skipped: 0, Total: 530`.
+- Tests.Integrated, first run on the brand-new database:
+  `Failed! - Failed: 1, Passed: 1701, Skipped: 0, Total: 1702`. The one failure is a
+  pre-existing test that the slice did not touch. See "Findings" item 1.
+- Tests.Integrated, second run: `Passed! - Failed: 0, Passed: 1702, Skipped: 0, Total: 1702`.
+- `origin/main` at `4522e82` on a brand-new database, as a control:
+  `Failed: 1, Passed: 1602, Total: 1603`. The same DAL test fails there.
+
+**Fail-then-pass evidence (constraint 3).** Every assertion was seen failing before it
+passed:
+- The 124 placeholders failed first.
+- After each test was written, one targeted perturbation per test was applied to the test
+  body: an expected value changed, an error case swapped, a count shifted, an order
+  reversed or an emptiness check inverted. All 124 tests failed.
+- An extra round on the accepted half of the isolated truth tables failed 11 out of 11.
+- A second round on the integrated tests' secondary assertions ("unchanged", "nothing
+  recorded", "no other account touched") failed 19 out of 19.
+- That makes 154 perturbations in total, and every one failed with an assertion message.
+  Each file was then restored and its tests passed.
+- After all the runs, the database held only the fixture's own rows: 9 pre-ledger balances,
+  23 activities, 3 lots and no route-test accounts.
+
+**Failures, with whether the bug is in Src or the spec.** No slice 2 test is failing. The
+only failure seen is the pre-existing one under "Findings" item 1. Its bug is in the
+tests, not in Src or the spec.
+
+**Slice 1 tests changed, and why.**
+- `InvestmentAccountMaintenance.fs`: the 11.4 error pattern changed.
+  `PositionsActivePeriodExcludesSnapshots` became `PositionsActivePeriodExcludesRecords`,
+  which carries the snapshot range and the activity range, each optional
+  (REQ-POS-11.4 as amended).
+- These helpers gained `lots = []`, because a snapshot line now has lots:
+  - the `line` helper in `AccountSnapshotRecording.fs`
+  - the `line` helper in `InterfaceBridge/PositionsRoutes.fs`
+  - the snapshot tuple in `InvestmentWealthHistory.fs`
+- New tests were added to these slice 1 files, and no existing assertion in them was
+  weakened:
+  - `HoldingsAsOf.fs`
+  - `NetWorth.fs`
+  - `InvestmentAccountMaintenance.fs`
+  - `HoldingMaintenance.fs`
+
+**Proposed waivers.** None. The two untested empty-request errors below could be tested
+instead of waived. Dan's call.
+
+**Findings, and requirements that look wrong.** `Specs/` was not edited.
+1. **Pre-existing, not this slice.** On a brand-new database, `Tests.Integrated`
+   DalTests "REQ-DAL-2.2 an update requiring exactly one row that touches two…" fails
+   with "Expected ExactlyOne. Actual 0".
+   - It runs outside the fixture collection, so `ledger.account` can still be empty when
+     it runs.
+   - It passes on any second run.
+   - It reproduces on `origin/main`.
+   - The bug is in the test (an order dependence), not in Src or the spec.
+2. **REQ-POS-5.6.** The clause "allowed once no line carries a lot" cannot be reached on
+   its own.
+   - Any line carrying a lot references a Holding.
+   - Every Holding in a Taxable account has a basis method.
+   - So REQ-POS-5.3 also rejects the change.
+   - Src checks 5.6 first, so its error is the one returned.
+   - Consider rewording the spec.
+3. **REQ-POS-12.8.** The future-date clause is unreachable, because REQ-POS-13.1 rejects
+   such a range first. The 12.8 citation was dropped from the today-boundary test name.
+   Consider rewording the spec.
+4. **Two new error cases have no test:** `PositionsActivityRangeListIsEmpty` and
+   `PositionsPreLedgerBalanceListIsEmpty`. These are the empty-request guards, which no
+   REQ asks for. The coverage check is report-only, so it does not fail.
+5. **The placeholder commit message says 104 names.** There were 124.
+
+**Traceability audit** (`Skills/SonOfLeoRequirementsAudit/traceability-audit.sh`, on the
+branch):
+```
+=== Invariant 1: phantom references (tests -> nonexistent or withdrawn requirement) ===
+clean
+
+=== Invariant 2: active requirements with no test, no waiver, and not unenforceable ===
+clean
+```
+No active REQ-POS or REQ-RPT requirement is untested.
+
+**`bash Checks/run-all.sh`** (exit 0). The coverage check's "untested" list is
+abbreviated here to the Positions cases; the full list holds 78 cases, most of them from
+earlier slices:
+```
+PASS  check-apperror-coverage
+untested: PositionsAccountSnapshotIdDoesntExist
+untested: PositionsAccountSnapshotUpdateNoOp
+untested: PositionsActivityRangeListIsEmpty
+untested: PositionsDimensionValueIdDoesntExist
+untested: PositionsDimensionValueUpdateNoOp
+untested: PositionsHoldingIdDoesntExist
+untested: PositionsHoldingUpdateNoOp
+untested: PositionsInvestmentAccountIdDoesntExist
+untested: PositionsPreLedgerBalanceListIsEmpty
+untested: PositionsPropertyIdDoesntExist
+untested: PositionsSecurityIdDoesntExist
+untested: PositionsValuationIdDoesntExist
+untested: PositionsValuationUpdateNoOp
+untested: … (65 more from other domains)
+AppError coverage: 311/389 cases referenced in Tests across 11 error types (report-only)
+PASS  check-clock
+PASS  check-compile-order
+PASS  check-confirm-naming
+PASS  check-hardwired-dates
+PASS  check-npgsql
+PASS  check-open-order
+PASS  check-peer-guard
+PASS  check-result-iserror
+PASS  check-test-ddl
+PASS  check-testingerror
+PASS  check-tomessage-wildcard
+SKIP  check-traceability
+on branch 'positions-slice-2', not main: traceability is enforced on main after merge (README step 13)
+----
+12 passed, 0 failed, 1 skipped
+```
+
+**ArchiMate.**
+```
+$ python3 validate.py
+Elements:      669
+Relationships: 2846
+Findings:      0
+
+VALID — no issues found.
+$ python3 model_drift.py
+NO DRIFT — the model and Src agree.
+```
+
+### Name-quality check
+
+Name-quality check (one independent grader pass, spec text + waived tables + names only):
+- Weak names (scored 50-80) all rewritten as proposed: 8.1 boundary both sides; 8.8 fiscal-date zero balances;
+  12.6 truth table now spells out the rule; 6.11/12.7 zero-quantity names gained an accepted 0.000001 half;
+  14.2 ordering now "recorded out of name order"; 14.1 and 10.4 route parity names pinned to non-trivial data;
+  8.2 lots-once wording; 5.6 now "for each of TaxDeferred, Roth and Hsa"; 14.2 dividend/contribution split in two;
+  13.5 "supplied out of date order"; 13.1/13.4 route counts pinned; 12.1 listing adds absent optional fields;
+  14.1 adds "a date on which only another account has a snapshot"; 15.6 all-accounts adds out-of-order and none outside.
+- Uncovered clauses: added names for 11.4 both-offend, 12.1 unknown account (route), 12.4 empty-string source,
+  14.2 positive row inclusion for a Security on neither snapshot, 8.1 no-fiscal-period (isolated), 8.8 liabilities
+  absent while mortgages present, 8.7 no roll-up on a pre-ledger date, 10.2 begin on a month-end, 10.3 gap.
+  12.4/12.7 null source and null price folded into the 12.1 listing name.
+- Not named, with reason: 5.6 "allowed once no line carries a lot" (any line carrying a lot references a Holding,
+  and every Holding in a Taxable account has a basis method, so REQ-POS-5.3 also rejects; the only Taxable account
+  that can leave Taxable has no Holdings and so can never have carried a lot); 12.8 future-date clause (any activity
+  dated after today is either outside its range or in a range ending after today, so REQ-POS-13.1 rejects first and
+  12.8's own error is unreachable; the REQ-POS-12.8 citation was dropped from the today-boundary name); 8.1 "after
+  the last fiscal period" (slice 1's existing REQ-RPT-8.1 test already covers it).
