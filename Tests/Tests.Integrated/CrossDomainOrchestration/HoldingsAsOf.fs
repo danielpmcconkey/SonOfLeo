@@ -170,3 +170,11 @@ type HoldingsAsOfTests(fixture: TestDataFixture) =
                   PF.samHsa, [ PF.stableValue ] ],
                 accounts |> List.map (fun a -> a.investmentAccountName, a.lines |> List.map (fun l -> l.securityName))))
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-8.3 holdings as of a date give each line of the account's latest snapshot its lots with acquired date, quantity and reported cost basis in the order supplied, and a line recorded without lots carries none`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-8.3 holdings as of a date after a snapshot recorded without lots give that snapshot's lines no lots, not the lots of an earlier snapshot`` () =
+        Assert.Fail "Not yet implemented"

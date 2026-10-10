@@ -344,3 +344,7 @@ type NetWorthTests(fixture: TestDataFixture) =
                 - (result.totalOwnedPropertyMortgages |> amount))
             Assert.Equal(207945.00M, result.netWorth |> amount))
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-8.2 net worth counts a Taxable account's line market values exactly once, adding nothing for the lines' lots, and is the hand-derived 207,945.00 at the end of month -3`` () =
+        Assert.Fail "Not yet implemented"

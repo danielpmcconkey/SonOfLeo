@@ -40,6 +40,7 @@
     <Compile Include="Model\Positions\PositionsComponent.fs" />
     <Compile Include="Model\Positions\Investments.fs" />
     <Compile Include="Model\Positions\RealEstate.fs" />
+    <Compile Include="Model\Positions\LotsAndActivity.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -116,9 +116,16 @@
     <Compile Include="CrossDomainOrchestration\PropertyMaintenance.fs" />
     <Compile Include="CrossDomainOrchestration\NetWorth.fs" />
     <Compile Include="CrossDomainOrchestration\InvestmentWealthHistory.fs" />
+    <Compile Include="CrossDomainOrchestration\AccountSnapshotLots.fs" />
+    <Compile Include="CrossDomainOrchestration\InvestmentActivityRecording.fs" />
+    <Compile Include="CrossDomainOrchestration\UnitRollForward.fs" />
+    <Compile Include="CrossDomainOrchestration\PreLedgerBalances.fs" />
+    <Compile Include="CrossDomainOrchestration\NetWorthPreLedger.fs" />
+    <Compile Include="CrossDomainOrchestration\NetWorthHistory.fs" />
     <Compile Include="InterfaceBridge\PersonRoutes.fs" />
     <Compile Include="InterfaceBridge\PositionsRoutes.fs" />
     <Compile Include="InterfaceBridge\PositionsReportRoutes.fs" />
+    <Compile Include="InterfaceBridge\PositionsSliceTwoRoutes.fs" />
     <Compile Include="DataAccessLayer\DalTests.fs" />
   </ItemGroup>
 

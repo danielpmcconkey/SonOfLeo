@@ -524,3 +524,19 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
                 Assert.Equal(TaxTreatment.TaxDeferred, treatment)
             })
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-5.6 for each of TaxDeferred, Roth and Hsa, changing the tax treatment of a Taxable account whose snapshots carry lots on two dates is rejected with a typed error naming the account and the earliest and latest snapshot dates carrying lots, and the account stays Taxable`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-11.4 narrowing an account's active period so that activities fall before the new begin and after the new end is rejected with a typed error naming the earliest and latest offending activity dates, and the active period is unchanged`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-11.4 narrowing an account's active period so that both snapshots and activities fall outside it is rejected with one typed error naming the earliest and latest offending snapshot dates and the earliest and latest offending activity dates`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-11.4 narrowing an account's active period to exactly its earliest and latest activity dates, which are outside its first and last snapshot dates, succeeds`` () =
+        Assert.Fail "Not yet implemented"

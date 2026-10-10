@@ -218,3 +218,7 @@ type HoldingMaintenanceTests(fixture: TestDataFixture) =
                     (fun found -> Assert.Equal((PF.jordanCustodial, PF.totalMarket), found))
             })
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-11.10 deleting a Holding that no snapshot line references but an Activity names is rejected with a typed error naming the account and the Security, and the Holding remains`` () =
+        Assert.Fail "Not yet implemented"

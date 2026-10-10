@@ -332,3 +332,31 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
             Assert.Contains("TaxTreatment", text)
             Assert.DoesNotContain("As of", text))
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-8.6 REQ-RPT-8.5 the NetWorth route in data-only mode on a pre-ledger date with absent components returns the pre-ledger flag, each listed account's balance date and the absent components the computation gives`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-8.6 REQ-RPT-8.5 the rendered net worth on a pre-ledger date marks the date as pre-ledger, shows each listed account's balance date, and names the absent components`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-10.4 the NetWorthHistory route in data-only mode for a range spanning pre-ledger and fiscal-period month-ends returns the same points, totals, pre-ledger flags and absent components as the net worth history computation`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-10.4 REQ-RPT-2.3 the NetWorthHistory route in report mode writes a new HTML file and returns its fully qualified path`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-10.4 REQ-RPT-2.4 the NetWorthHistory report file with date interpolation is the base directory and file name followed by a hyphen, the begin and end dates as yyyy-MM-dd_yyyy-MM-dd, and .html`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-10.4 REQ-RPT-3.1 the rendered net worth history header shows the report title and the begin and end dates and no as-of date`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-10.4 the rendered net worth history has one row per month-end and one column per total, a pre-ledger point is marked as such, and the absent column names a point's absent components and is empty for a point with none absent`` () =
+        Assert.Fail "Not yet implemented"
