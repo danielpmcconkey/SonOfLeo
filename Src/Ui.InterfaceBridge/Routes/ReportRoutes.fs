@@ -14,6 +14,7 @@ open Business.CrossDomainOrchestration.Reconciliation
 open Business.CrossDomainOrchestration.PrePostingReview
 open Business.CrossDomainOrchestration.NetWorth
 open Business.CrossDomainOrchestration.InvestmentWealthHistory
+open Business.CrossDomainOrchestration.NetWorthHistory
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
 open Ui.InterfaceBridge.ReportWriters
@@ -120,6 +121,21 @@ let private investmentWealthHistory payload _ =
         return! historyReturn |> Json.toJson<InvestmentWealthHistoryReturn>
     }
 
+let private netWorthHistory payload _ =
+    let context = Context.create NoTransaction FetchOnly
+    result {
+        let! input = Json.fromJson<NetWorthHistoryInput> payload
+        let! points = computeNetWorthHistory context input.beginDate input.endDate
+        let! (historyReturn: NetWorthHistoryReturn) =
+            match input.reportOutput with
+            | OutputSpecifier.DataOnly ->
+                Ok(NetWorthHistoryReturn.DataOnly(points |> List.map ``convert [NetWorthPoint] to [NetWorthPointReturnRow]``))
+            | OutputSpecifier.Report outputPathInput ->
+                points
+                |> NetWorthHistoryWriter.write outputPathInput (context |> Context.getInitiationInstant) input.beginDate input.endDate
+        return! historyReturn |> Json.toJson<NetWorthHistoryReturn>
+    }
+
 let reportingRoutes: ReportRoute list =
     [
         { name = "TrialBalance"
@@ -148,7 +164,7 @@ let reportingRoutes: ReportRoute list =
           outputContract = typeof<PeriodActivityReturn>.Name
           handler = periodActivity }
         { name = "NetWorth"
-          description = "As of a date inside a fiscal period: every Asset account not linked to an Investment Account or a Property at its own ledger balance, every Investment Account at the market value of its latest snapshot on or before the date, every Property owned on the date at its value with its mortgage accounts and equity, and every other Liability account; then the totals, net worth, investable wealth (net worth less the primary residence's equity), and investments totalled by tax treatment and by account group. If data only, returns those figures; if Report, writes them and returns the full file path."
+          description = "As of a date inside a fiscal period, or a pre-ledger date before the first one: every Asset account not linked to an Investment Account or a Property at its own ledger balance, every Investment Account at the market value of its latest snapshot on or before the date, every Property owned on the date at its value with its mortgage accounts and equity, and every other Liability account; then the totals, net worth, investable wealth (net worth less the primary residence's equity), and investments totalled by tax treatment and by account group. On a pre-ledger date each account's balance is its latest pre-ledger balance on or before the date, with that balance's date, and an account with none is left out. The result says whether the date is pre-ledger and names the components nothing contributes to. If data only, returns those figures; if Report, writes them and returns the full file path."
           inputContract = typeof<NetWorthInput>.Name
           outputContract = typeof<NetWorthReturn>.Name
           handler = netWorth }
@@ -157,4 +173,9 @@ let reportingRoutes: ReportRoute list =
           inputContract = typeof<InvestmentWealthHistoryInput>.Name
           outputContract = typeof<InvestmentWealthHistoryReturn>.Name
           handler = investmentWealthHistory }
+        { name = "NetWorthHistory"
+          description = "For every month-end from begin to end (inclusive), net worth on that date as the NetWorth report computes it, reduced to whether the date is pre-ledger, the seven totals (counted ledger assets, investments, property values, liabilities, mortgages of owned properties, net worth, investable wealth) and the components absent on it. Fails, naming the earliest, when a month-end is neither in a fiscal period nor before the first one. If data only, returns the points; if Report, writes a table of them and returns the full file path; date interpolation appends -begin_end."
+          inputContract = typeof<NetWorthHistoryInput>.Name
+          outputContract = typeof<NetWorthHistoryReturn>.Name
+          handler = netWorthHistory }
     ]

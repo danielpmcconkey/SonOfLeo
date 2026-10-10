@@ -89,6 +89,10 @@ type OutputSpecifier =
     | DataOnly
     | Report of OutputPathInput
     
+// one point per month-end from begin to end, inclusive; with Report and interpolateAsOf, the file name gets
+// -yyyy-MM-dd_yyyy-MM-dd (begin_end). Declared ahead of the period activity input, which has the same fields.
+type NetWorthHistoryInput = { beginDate: LocalDate; endDate: LocalDate; reportOutput: OutputSpecifier }
+
 // begin and end are inclusive; with Report and interpolateAsOf, the file name gets -yyyy-MM-dd_yyyy-MM-dd (begin_end)
 type PeriodActivityInput = { beginDate: LocalDate; endDate: LocalDate; reportOutput: OutputSpecifier }
 
@@ -158,8 +162,9 @@ type PrePostingReviewReturn =
     | Report of OutputPathReturn
 
 
-// every ledger account carries its name beside its code
-type NetWorthLedgerAccountReturnRow = { code: string; name: string; balance: decimal }
+// every ledger account carries its name beside its code; on a pre-ledger date, balanceDate is the date of the
+// Pre-ledger Balance the balance came from, and on a date in a fiscal period it is None
+type NetWorthLedgerAccountReturnRow = { code: string; name: string; balance: decimal; balanceDate: LocalDate option }
 
 type NetWorthInvestmentAccountReturnRow = {
     accountName: string
@@ -186,8 +191,11 @@ type NetWorthPropertyReturnRow = {
 
 type NetWorthGroupTotalReturnRow = { group: string; marketValue: decimal }
 
+// absentComponents names each of CountedLedgerAssets, Investments, PropertyValues, Liabilities and
+// OwnedPropertyMortgages that nothing contributes to on the date
 type NetWorthReturnRow = {
     asOf: LocalDate
+    isPreLedger: bool
     assetAccounts: NetWorthLedgerAccountReturnRow list
     liabilityAccounts: NetWorthLedgerAccountReturnRow list
     investmentAccounts: NetWorthInvestmentAccountReturnRow list
@@ -201,6 +209,7 @@ type NetWorthReturnRow = {
     investableWealth: decimal
     investmentsByTaxTreatment: NetWorthGroupTotalReturnRow list
     investmentsByAccountGroup: NetWorthGroupTotalReturnRow list
+    absentComponents: string list
 }
 
 type NetWorthReturn =
@@ -230,4 +239,21 @@ type WealthPointReturnRow = { monthEnd: LocalDate; totals: WealthGroupTotalRetur
 
 type InvestmentWealthHistoryReturn =
     | DataOnly of WealthPointReturnRow list
+    | Report of OutputPathReturn
+
+type NetWorthPointReturnRow = {
+    monthEnd: LocalDate
+    isPreLedger: bool
+    totalLedgerAssets: decimal
+    totalInvestments: decimal
+    totalPropertyValues: decimal
+    totalLiabilities: decimal
+    totalOwnedPropertyMortgages: decimal
+    netWorth: decimal
+    investableWealth: decimal
+    absentComponents: string list
+}
+
+type NetWorthHistoryReturn =
+    | DataOnly of NetWorthPointReturnRow list
     | Report of OutputPathReturn

@@ -15,7 +15,10 @@ open Business.CrossDomainOrchestration.SecurityOrchestration
 open Business.CrossDomainOrchestration.InvestmentAccountOrchestration
 open Business.CrossDomainOrchestration.HoldingOrchestration
 open Business.CrossDomainOrchestration.AccountSnapshotOrchestration
+open Business.CrossDomainOrchestration.InvestmentActivityOrchestration
+open Business.CrossDomainOrchestration.UnitRollForward
 open Business.CrossDomainOrchestration.RealEstateOrchestration
+open Business.CrossDomainOrchestration.PreLedgerBalanceOrchestration
 open Business.CrossDomainOrchestration.HoldingsAsOf
 open Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
 open Ui.InterfaceBridge.BoundaryConverters.PersonFieldConverters
@@ -276,6 +279,91 @@ let ``convert [SnapshotView] to [AccountSnapshotReturn]`` (view: SnapshotView) :
              : AccountSnapshotLineReturn))
       createdAt = view.header |> AccountSnapshotHeader.createdAt
       modifiedAt = view.header |> AccountSnapshotHeader.modifiedAt }
+
+// ---- Investment Activity ----
+
+let ``convert [InvestmentActivityRangeInput] to [ActivityRange]``
+    (context: Context.Context)
+    (input: InvestmentActivityRangeInput)
+    : Result<ActivityRange, IAppError> =
+    result {
+        let! accountId = input.accountName |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
+        let! activities =
+            input.activities
+            |> List.map (fun activity ->
+                result {
+                    let! kind = activity.kind |> ActivityKind.fromString
+                    let! description = activity.description |> ActivityDescription.create
+                    let! source = activity.source |> convertOptionToDesiredTypeWithFallibleConverter ActivitySource.create
+                    let! securityId =
+                        activity.securityName
+                        |> convertOptionToDesiredTypeWithFallibleConverter (``convert [SecurityNameString] to [SecurityId]`` context)
+                    let! quantity = activity.quantity |> convertOptionToDesiredTypeWithFallibleConverter Quantity.fromDecimal
+                    let! price = activity.price |> convertOptionToDesiredTypeWithFallibleConverter Price.fromDecimal
+                    let! amount = activity.amount |> Money.fromDecimal
+                    return (activity.activityDate, kind, description, source, securityId, quantity, price, amount): ActivityInput
+                })
+            |> convertListOfResultsToResultsList
+        return (accountId, input.beginDate, input.endDate, activities): ActivityRange
+    }
+
+let ``convert [RecordedRange] to [RecordedActivityRangeReturn]`` (recorded: RecordedRange) : RecordedActivityRangeReturn =
+    { accountName = recorded.investmentAccountName
+      beginDate = recorded.beginDate
+      endDate = recorded.endDate
+      removed = recorded.removed
+      recorded = recorded.recorded }
+
+let ``convert [ActivityView] to [InvestmentActivityReturn]`` (view: ActivityView) : InvestmentActivityReturn =
+    let activity = view.activity
+    { accountName = view.investmentAccountName
+      activityDate = activity |> InvestmentActivity.activityDate
+      kind = activity |> InvestmentActivity.kind |> ActivityKind.toString
+      description = activity |> InvestmentActivity.description |> ActivityDescription.value
+      source = activity |> InvestmentActivity.source |> Option.map ActivitySource.value
+      securityName = view.securityName
+      quantity = activity |> InvestmentActivity.quantity |> Option.map Quantity.amount
+      price = activity |> InvestmentActivity.price |> Option.map Price.amount
+      amount = activity |> InvestmentActivity.amount |> Money.amount
+      createdAt = activity |> InvestmentActivity.createdAt
+      modifiedAt = activity |> InvestmentActivity.modifiedAt }
+
+// ---- Unit roll-forward ----
+
+let ``convert [RollForward] to [RollForwardReturn]`` (rollForward: RollForward) : RollForwardReturn =
+    { accountName = rollForward.investmentAccountName
+      firstDate = rollForward.firstDate
+      secondDate = rollForward.secondDate
+      rows =
+        rollForward.rows
+        |> List.map (fun row ->
+            { securityName = row.securityName
+              startQuantity = row.startQuantity
+              unitsIn = row.unitsIn
+              unitsOut = row.unitsOut
+              expected = row.expected
+              endQuantity = row.endQuantity
+              difference = row.difference }) }
+
+// ---- Pre-ledger Balances ----
+
+let ``convert [PreLedgerBalanceEntryInput] to [PreLedgerBalanceInput]``
+    (context: Context.Context)
+    (input: PreLedgerBalanceEntryInput)
+    : Result<PreLedgerBalanceOrchestration.PreLedgerBalanceInput, IAppError> =
+    result {
+        let! accountId = input.accountCode |> fallibleConverterAccountCodeToAccountId context
+        let! balance = input.balance |> Money.fromDecimal
+        return accountId, input.balanceDate, balance
+    }
+
+let ``convert [PreLedgerBalanceView] to [PreLedgerBalanceReturn]`` (view: PreLedgerBalanceView) : PreLedgerBalanceReturn =
+    let preLedgerBalance = view.preLedgerBalance
+    { ledgerAccount = ``convert [string * string] to [LedgerAccountReturn]`` (view.accountCode, view.accountName)
+      balanceDate = preLedgerBalance |> PreLedgerBalance.balanceDate
+      balance = preLedgerBalance |> PreLedgerBalance.balance |> Money.amount
+      createdAt = preLedgerBalance |> PreLedgerBalance.createdAt
+      modifiedAt = preLedgerBalance |> PreLedgerBalance.modifiedAt }
 
 // ---- Properties ----
 

@@ -85,9 +85,30 @@ let private table ordinal (headings: (string * bool) list) (rows: DomElement lis
 let private block ordinal (title: string) contents =
     element ordinal Div (Class "block") (element 1 (H2(encode title)) NoIdentifier [] :: contents)
 
-let private ledgerTable ordinal (rows: LedgerAccountBalance list) =
-    table ordinal [ "Code", false; "Name", false; "Balance", true ]
-        (rows |> List.mapi (fun i r -> row (10 + i) None [ (fun o -> textCell o r.code); (fun o -> textCell o r.name); (fun o -> moneyCell o r.balance) ]))
+/// How a component of net worth is named in a report.
+let componentLabel (netWorthComponent: NetWorthComponent) =
+    match netWorthComponent with
+    | CountedLedgerAssets -> "Counted ledger assets"
+    | Investments -> "Investments"
+    | PropertyValues -> "Property values"
+    | Liabilities -> "Liabilities"
+    | OwnedPropertyMortgages -> "Mortgages of owned properties"
+
+// On a pre-ledger date each balance comes from a Pre-ledger Balance, and its date is shown beside it.
+let private ledgerTable ordinal (isPreLedger: bool) (rows: LedgerAccountBalance list) =
+    let balanceDateText (r: LedgerAccountBalance) = r.balanceDate |> Option.map dateString |> Option.defaultValue ""
+    if isPreLedger then
+        table ordinal [ "Code", false; "Name", false; "Balance date", false; "Balance", true ]
+            (rows
+             |> List.mapi (fun i r ->
+                 row (10 + i) None
+                     [ (fun o -> textCell o r.code)
+                       (fun o -> textCell o r.name)
+                       (fun o -> textCell o (balanceDateText r))
+                       (fun o -> moneyCell o r.balance) ]))
+    else
+        table ordinal [ "Code", false; "Name", false; "Balance", true ]
+            (rows |> List.mapi (fun i r -> row (10 + i) None [ (fun o -> textCell o r.code); (fun o -> textCell o r.name); (fun o -> moneyCell o r.balance) ]))
 
 let private joined (names: string list) = names |> String.concat ", "
 
@@ -112,7 +133,7 @@ let private investmentsBlock ordinal (accounts: NetWorthInvestmentAccount list) 
               "Market value", true; "Contribution basis", true ]
             rows ]
 
-let private propertiesBlock ordinal (properties: NetWorthProperty list) =
+let private propertiesBlock ordinal (isPreLedger: bool) (properties: NetWorthProperty list) =
     let propertyTable i (p: NetWorthProperty) =
         let source =
             match p.valueSource with
@@ -122,7 +143,12 @@ let private propertiesBlock ordinal (properties: NetWorthProperty list) =
             p.mortgageAccounts
             |> List.mapi (fun j m ->
                 row (20 + j) None
-                    [ (fun o -> textCell o $"Mortgage {m.code} · {m.name}"); (fun o -> textCell o ""); (fun o -> moneyCell o m.balance) ])
+                    [ (fun o -> textCell o $"Mortgage {m.code} · {m.name}")
+                      (fun o ->
+                          match isPreLedger, m.balanceDate with
+                          | true, Some d -> textCell o $"pre-ledger balance of {dateString d}"
+                          | _ -> textCell o "")
+                      (fun o -> moneyCell o m.balance) ])
         table (10 + i)
             [ $"{p.propertyName} ({p.propertyUse |> PropertyUse.toString}), owned by {joined p.ownerNames}", false
               "Source", false; "Amount", true ]
@@ -162,12 +188,24 @@ let write
         script = ""
     }
     let header = createAsOfHeader "Net Worth" netWorth.asOf
+    let dateNote =
+        if netWorth.isPreLedger then
+            "This is a pre-ledger date: account balances come from pre-ledger balances, each dated as shown."
+        else
+            "This date is in a fiscal period: account balances come from the ledger."
+    let absentNote =
+        match netWorth.absentComponents with
+        | [] -> "No component is absent."
+        | absent -> $"""Absent on this date, each totalling 0.00: {absent |> List.map componentLabel |> String.concat ", "}."""
     let reportBody =
         createReportBody
-            [ block 1 "Counted ledger assets" [ ledgerTable 10 netWorth.assetAccounts ]
+            [ block 0 "Sources"
+                  [ element 10 Paragraph (Class "pre-ledger-note") [ element 1 (NoTag(encode dateNote)) NoIdentifier [] ]
+                    element 20 Paragraph (Class "absent-note") [ element 1 (NoTag(encode absentNote)) NoIdentifier [] ] ]
+              block 1 "Counted ledger assets" [ ledgerTable 10 netWorth.isPreLedger netWorth.assetAccounts ]
               investmentsBlock 2 netWorth.investmentAccounts
-              propertiesBlock 3 netWorth.properties
-              block 4 "Liabilities" [ ledgerTable 10 netWorth.liabilityAccounts ]
+              propertiesBlock 3 netWorth.isPreLedger netWorth.properties
+              block 4 "Liabilities" [ ledgerTable 10 netWorth.isPreLedger netWorth.liabilityAccounts ]
               totalsBlock 5 netWorth
               subtotalsBlock 6 "Investments by tax treatment"
                   (netWorth.investmentsByTaxTreatment |> List.map (fun (t, m) -> t |> TaxTreatment.toString, m))

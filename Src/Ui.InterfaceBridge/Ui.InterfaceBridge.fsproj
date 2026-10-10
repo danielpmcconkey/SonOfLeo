@@ -40,6 +40,7 @@
     <Compile Include="ReportWriters\PeriodActivityWriter.fs" />
     <Compile Include="ReportWriters\NetWorthWriter.fs" />
     <Compile Include="ReportWriters\InvestmentWealthHistoryWriter.fs" />
+    <Compile Include="ReportWriters\NetWorthHistoryWriter.fs" />
     <Compile Include="CommandRoute.fs" />
     <Compile Include="Routes\PersonRoutes.fs" />
     <Compile Include="Routes\AccountRoutes.fs" />
