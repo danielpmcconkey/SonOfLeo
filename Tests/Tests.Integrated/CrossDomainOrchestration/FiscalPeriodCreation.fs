@@ -24,8 +24,8 @@ open Tests.Helpers
 (* REQ-FP-1.5 singles out February and leap years, so the derivation is exercised across
    all three month-end lengths rather than the one 30-day month it used to use. *)
 [<Theory>]
-[<InlineData("1974-07", 1974, 7, 31)>]
-[<InlineData("1974-06", 1974, 6, 30)>]
+[<InlineData("2074-07", 2074, 7, 31)>]
+[<InlineData("2074-06", 2074, 6, 30)>]
 [<InlineData("2050-02", 2050, 2, 28)>]
 [<InlineData("2048-02", 2048, 2, 29)>]
 let ``REQ-FP-1.4 REQ-FP-1.5 REQ-FP-2.3 fiscal period runs from the first of the keyed month to its last day, February and leap years included``

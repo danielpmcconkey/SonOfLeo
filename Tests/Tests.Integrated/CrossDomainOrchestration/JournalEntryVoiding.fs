@@ -196,9 +196,11 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-4.5 voidJournalEntryOrchestration rejects void when fiscal period is closed``() =
         let today = Calendar.today()
-        let sevenMonthsAgo = today.PlusMonths(-7)
-        let monthF = sevenMonthsAgo.Month.ToString("D2")
-        let periodKeyStr = $"{sevenMonthsAgo.Year}-{monthF}"
+        // the fixture's fiscal periods begin with month -5, and its pre-ledger balances run up to the end of month -7, so
+        // month -6 is the only month before the ledger that a new period may still start in
+        let sixMonthsAgo = today.PlusMonths(-6)
+        let monthF = sixMonthsAgo.Month.ToString("D2")
+        let periodKeyStr = $"{sixMonthsAgo.Year}-{monthF}"
         runCommandRouteAndAutoRollback JournalEntryVoid (fun context ->
             result {
                 // create Fiscal Period as open so you can add an entry into it
@@ -211,7 +213,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                         context
                         "JE create for void 4.5"
                         None
-                        sevenMonthsAgo
+                        sixMonthsAgo
                         [ (fixture.Data.entertainment5650Id, 86.04M, "Debit", None)
                           (fixture.Data.creditCard2220Id, 86.04M, "Credit", None) ]
                         []

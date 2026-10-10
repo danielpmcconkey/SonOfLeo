@@ -64,6 +64,12 @@ let latestOnOrBefore (date: LocalDate) (balances: PreLedgerBalance list) : Map<A
     |> List.map (fun (accountId, own) -> accountId, own |> List.maxBy (fun b -> b.balanceDate))
     |> Map.ofList
 
+/// The earliest and latest balance dates among the balances, when there are any.
+let dateRange (balances: PreLedgerBalance list) : (LocalDate * LocalDate) option =
+    match balances |> List.map (fun b -> b.balanceDate) with
+    | [] -> None
+    | dates -> Some(dates |> List.min, dates |> List.max)
+
 let persist (context: Context.Context) (preLedgerBalance: PreLedgerBalance) : Result<unit, IAppError> =
     let queryStatement =
         """
@@ -148,6 +154,14 @@ let fetchByAccountAndDate
         (Some "plb.ledger_account_id = @ledger_account_id and plb.balance_date = @balance_date")
         [ accountParameter ledgerAccountId; { name = "@balance_date"; value = DbLocalDate balanceDate } ]
     |> Result.map List.tryHead
+
+/// Every balance of the account, in date order.
+let fetchByAccount (context: Context.Context) (ledgerAccountId: AccountId) : Result<PreLedgerBalance list, IAppError> =
+    fetchAny context (Some "plb.ledger_account_id = @ledger_account_id") [ accountParameter ledgerAccountId ]
+
+/// Every balance dated on or after the date, in date order.
+let fetchOnOrAfter (context: Context.Context) (date: LocalDate) : Result<PreLedgerBalance list, IAppError> =
+    fetchAny context (Some "plb.balance_date >= @date") [ { name = "@date"; value = DbLocalDate date } ]
 
 /// Every balance dated on or before the date, in date order.
 let fetchOnOrBefore (context: Context.Context) (date: LocalDate) : Result<PreLedgerBalance list, IAppError> =

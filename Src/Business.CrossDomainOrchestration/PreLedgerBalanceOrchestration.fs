@@ -70,14 +70,6 @@ let private confirmNotLinked (context: Context.Context) (account: Account.Accoun
             | None -> Ok()
     }
 
-/// The start of the earliest fiscal period, when there is one.
-let earliestFiscalPeriodStart (context: Context.Context) : Result<LocalDate option, IAppError> =
-    FiscalPeriod.fetchAll context false
-    |> Result.map (fun periods ->
-        match periods with
-        | [] -> None
-        | _ -> periods |> List.map FiscalPeriod.startDate |> List.min |> Some)
-
 let private recordOne
     (context: Context.Context)
     (ledgerStart: LocalDate option)
@@ -108,7 +100,7 @@ let recordPreLedgerBalances
     result {
         do! if inputs |> List.isEmpty then error PositionsPreLedgerBalanceListIsEmpty else Ok()
         do! confirmNoRepeatedBalance context inputs
-        let! ledgerStart = earliestFiscalPeriodStart context
+        let! ledgerStart = FiscalPeriod.fetchAll context false |> Result.map FiscalPeriod.earliestStart
         return! inputs |> List.map (recordOne context ledgerStart) |> convertListOfResultsToResultsList
     }
 

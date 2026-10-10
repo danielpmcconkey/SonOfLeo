@@ -526,40 +526,6 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-POS-5.6 for each of TaxDeferred, Roth and Hsa, changing the tax treatment of a Taxable account whose snapshots carry lots on two dates is rejected with a typed error naming the account and the earliest and latest snapshot dates carrying lots, and the account stays Taxable`` () =
-        let p = fixture.Data.positions
-        let lot acquired q : AccountSnapshotLotInput = { acquiredDate = acquired; quantity = q; reportedCostBasis = None }
-        let line security q price mv cb lots : AccountSnapshotLineInput =
-            { securityName = security; quantity = q; price = price; marketValue = mv; reportedCostBasis = cb; lots = lots }
-        // Alex Brokerage's d1 and d3 snapshots, re-recorded with lots on their Total Market lines; d2 and d4 carry none
-        let withLots date lines : AccountSnapshotInput =
-            { accountName = PF.alexBrokerage; snapshotDate = date; provenance = "Reported"; contributionBasis = None; lines = lines }
-        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
-            result {
-                let! snapshots =
-                    [ withLots p.d1
-                          [ line PF.totalMarket 10M 100.00M 1000.00M (Some 900.00M) [ lot p.accountsActiveBegin 10M ]
-                            line PF.international 20M 25.00M 500.00M (Some 480.00M) [] ]
-                      withLots p.d3
-                          [ line PF.totalMarket 12M 105.00M 1260.00M (Some 1110.00M)
-                                [ lot p.accountsActiveBegin 10M; lot (p.d2.PlusDays 1) 2M ]
-                            line PF.international 20M 27.50M 550.00M (Some 480.00M) [] ] ]
-                    |> List.map (``convert [AccountSnapshotInput] to [Snapshot]`` context)
-                    |> convertListOfResultsToResultsList
-                let! _ = AccountSnapshotOrchestration.recordSnapshots context snapshots
-                [ TaxTreatment.TaxDeferred; TaxTreatment.Roth; TaxTreatment.Hsa ]
-                |> List.iter (fun treatment ->
-                    updateInvestmentAccount context { noChange PF.alexBrokerage with taxTreatmentUpdate = SetTo treatment }
-                    |> expectError
-                        (function AsError (PositionsTaxTreatmentChangeStrandsLots (a, e, l)) -> Some(a, e, l) | _ -> None)
-                        (fun found -> Assert.Equal((PF.alexBrokerage, p.d1, p.d3), found)))
-                let! found = listed context PF.alexBrokerage
-                let _, _, _, stored, _, _, _, _ = found |> List.exactlyOne
-                Assert.Equal(TaxTreatment.Taxable, stored)
-            })
-        |> railroadWrapper
-
-    [<Fact>]
     member _.``REQ-POS-11.4 narrowing an account's active period so that activities fall before the new begin and after the new end is rejected with a typed error naming the earliest and latest offending activity dates, and the active period is unchanged`` () =
         // Sam 401k's snapshots are on d1 and d3; its activity runs from the day before d1 to the day after d3
         let p = fixture.Data.positions

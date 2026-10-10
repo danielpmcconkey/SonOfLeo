@@ -86,6 +86,8 @@ type PositionsError =
     | PositionsPreLedgerBalanceDoesntExist of string * LocalDate
     | PositionsPreLedgerBalanceListIsEmpty
     | PositionsPreLedgerBalanceRepeatedInRequest of string * LocalDate
+    | PositionsPreLedgerBalancesBlockFiscalPeriod of string * LocalDate * LocalDate
+    | PositionsPreLedgerBalancesBlockLink of string * LocalDate * LocalDate
     | PositionsPreLedgerDateNotBeforeLedger of string * LocalDate
     | PositionsPreLedgerListEndBeforeBegin of LocalDate * LocalDate
     | PositionsPreLedgerNoFiscalPeriod of string * LocalDate
@@ -125,7 +127,6 @@ type PositionsError =
     | PositionsSnapshotSecurityRepeated of string * LocalDate * string
     | PositionsTaxTreatmentChangeBreaksHoldings of string * string * string list
     | PositionsTaxTreatmentChangeStrandsContributionBasis of string * LocalDate * LocalDate
-    | PositionsTaxTreatmentChangeStrandsLots of string * LocalDate * LocalDate
     | PositionsTickerAlreadyExists of string
     | PositionsTickerIsEmpty of string
     | PositionsTickerTooLong of string * int
@@ -231,6 +232,8 @@ type PositionsError =
             | PositionsPreLedgerBalanceDoesntExist(code, date) -> $"Ledger account {code} has no pre-ledger balance dated {date}."
             | PositionsPreLedgerBalanceListIsEmpty -> "At least one pre-ledger balance must be given to record."
             | PositionsPreLedgerBalanceRepeatedInRequest(code, date) -> $"Ledger account {code} and date {date} appear more than once in one request."
+            | PositionsPreLedgerBalancesBlockFiscalPeriod(period, earliest, latest) -> $"Fiscal period {period} cannot be created: it would start on or before pre-ledger balances, the earliest dated {earliest} and the latest {latest}, which must stay before the ledger began."
+            | PositionsPreLedgerBalancesBlockLink(code, earliest, latest) -> $"Ledger account {code} cannot stand for an Investment Account or be a Property's asset account: it carries pre-ledger balances, the earliest dated {earliest} and the latest {latest}."
             | PositionsPreLedgerDateNotBeforeLedger(code, date) -> $"A pre-ledger balance of ledger account {code} cannot be dated {date}: it must be earlier than the start of the earliest fiscal period."
             | PositionsPreLedgerListEndBeforeBegin(beginDate, endDate) -> $"The end date ({endDate}) cannot be earlier than the begin date ({beginDate})."
             | PositionsPreLedgerNoFiscalPeriod(code, date) -> $"A pre-ledger balance of ledger account {code} dated {date} cannot be recorded: no fiscal period exists, so no date is before the ledger."
@@ -272,7 +275,6 @@ type PositionsError =
             | PositionsSnapshotSecurityRepeated(account, date, security) -> $"The {date} snapshot of Investment Account \"{account}\" lists \"{security}\" on more than one line."
             | PositionsTaxTreatmentChangeBreaksHoldings(account, taxTreatment, securities) -> $"""Investment Account "{account}" cannot become {taxTreatment}: its Holdings of {securities |> String.concat ", "} would break the basis method rule."""
             | PositionsTaxTreatmentChangeStrandsContributionBasis(account, earliest, latest) -> $"Investment Account \"{account}\" cannot stop being Roth: its snapshots carry a contribution basis, the earliest dated {earliest} and the latest {latest}."
-            | PositionsTaxTreatmentChangeStrandsLots(account, earliest, latest) -> $"Investment Account \"{account}\" cannot stop being Taxable: its snapshot lines carry lots, the earliest dated {earliest} and the latest {latest}."
             | PositionsTickerAlreadyExists ticker -> $"A Security with ticker \"{ticker}\" already exists."
             | PositionsTickerIsEmpty raw -> $"Ticker cannot be empty. Provided ticker is \"{raw}\"."
             | PositionsTickerTooLong(raw, max) -> $"Ticker cannot exceed {max} characters. Provided ticker is \"{raw}\"."

@@ -90,7 +90,9 @@ let classifyDate (fiscalPeriods: FiscalPeriod.FiscalPeriod list) (date: LocalDat
     let inPeriod =
         fiscalPeriods |> List.exists (fun fp -> FiscalPeriod.startDate fp <= date && date <= FiscalPeriod.endDate fp)
     let beforeLedger =
-        not (fiscalPeriods |> List.isEmpty) && date < (fiscalPeriods |> List.map FiscalPeriod.startDate |> List.min)
+        match fiscalPeriods |> FiscalPeriod.earliestStart with
+        | Some ledgerStart -> date < ledgerStart
+        | None -> false
     if inPeriod then Ok FiscalPeriodDate
     elif beforeLedger then Ok PreLedgerDate
     else error (PositionsNetWorthDateOutsideFiscalPeriods date)

@@ -47,6 +47,7 @@ let private confirmInvestmentAccountLink
             | _ ->
                 let accountType, subtype = describeType account
                 error (PositionsInvestmentLedgerAccountNotAssetInvestment(codeOf account, accountType, subtype))
+        do! confirmCarriesNoPreLedgerBalance context account
         let! linked = ledgerAccountId |> InvestmentAccount.fetchByLedgerAccountId context
         match linked with
         | Some other when other |> InvestmentAccount.investmentAccountId <> self ->
@@ -184,34 +185,6 @@ let private confirmNoContributionBasisStranded
         }
     | _ -> Ok()
 
-// Only a Taxable account's lines carry lots, and recorded lots are never cleared, so an account whose snapshot lines
-// carry them stays Taxable.
-let private confirmNoLotsStranded
-    (context: Context.Context)
-    (account: InvestmentAccount.InvestmentAccount)
-    (taxTreatment: TaxTreatment)
-    : Result<unit, IAppError> =
-    match account |> InvestmentAccount.taxTreatment, taxTreatment with
-    | TaxTreatment.Taxable, TaxTreatment.Taxable -> Ok()
-    | TaxTreatment.Taxable, _ ->
-        result {
-            let! snapshots =
-                account
-                |> InvestmentAccount.investmentAccountId
-                |> AccountSnapshotHeader.fetchByInvestmentAccountCarryingLots context
-            let datesWithLots = snapshots |> List.map AccountSnapshotHeader.snapshotDate
-            if not (datesWithLots |> List.isEmpty) then
-                return!
-                    error (
-                        PositionsTaxTreatmentChangeStrandsLots(
-                            account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value,
-                            datesWithLots |> List.min,
-                            datesWithLots |> List.max
-                        )
-                    )
-        }
-    | _ -> Ok()
-
 let private confirmPeriodKeepsRecords
     (context: Context.Context)
     (account: InvestmentAccount.InvestmentAccount)
@@ -258,12 +231,6 @@ let updateInvestmentAccount
             | SetTo owners -> owners |> Set.toList |> ownerSetOf context resultingName
             | NoChange -> Ok(account |> InvestmentAccount.owners)
         do! confirmJointOwnershipAllowed resultingName resultingTreatment resultingOwners.Count
-        // Lots are checked before Holdings: every Holding that carries a lot has a basis method, so the Holdings rule
-        // would otherwise always answer first and hide which records stand in the way.
-        do!
-            match fieldUpdates.taxTreatmentUpdate with
-            | SetTo newTreatment -> confirmNoLotsStranded context account newTreatment
-            | NoChange -> Ok()
         do!
             match fieldUpdates.taxTreatmentUpdate with
             | SetTo newTreatment -> confirmHoldingsAllowTaxTreatment context account newTreatment
