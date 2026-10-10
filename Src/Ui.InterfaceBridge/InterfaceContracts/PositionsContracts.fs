@@ -105,6 +105,9 @@ type HoldingListInput = { accountName: string option }
 
 type HoldingFetchAsOfInput = { asOf: LocalDate }
 
+// a lot as the institution reported it; a line's lots come back in the order they were sent
+type AccountSnapshotLotReturn = { acquiredDate: LocalDate; quantity: decimal; reportedCostBasis: decimal option }
+
 type HoldingsAsOfLineReturn = {
     securityName: string
     ticker: string option
@@ -114,6 +117,7 @@ type HoldingsAsOfLineReturn = {
     price: decimal
     marketValue: decimal
     reportedCostBasis: decimal option
+    lots: AccountSnapshotLotReturn list
 }
 
 type HoldingsAsOfAccountReturn = {
@@ -131,12 +135,16 @@ type HoldingsAsOfAccountReturn = {
 
 // ---- Account Snapshots ----
 
+type AccountSnapshotLotInput = { acquiredDate: LocalDate; quantity: decimal; reportedCostBasis: decimal option }
+
+// lots are recorded in the order sent; an empty list means the institution supplied none for the line
 type AccountSnapshotLineInput = {
     securityName: string
     quantity: decimal
     price: decimal
     marketValue: decimal
     reportedCostBasis: decimal option
+    lots: AccountSnapshotLotInput list
 }
 
 type AccountSnapshotInput = {
@@ -156,6 +164,7 @@ type AccountSnapshotLineReturn = {
     price: decimal
     marketValue: decimal
     reportedCostBasis: decimal option
+    lots: AccountSnapshotLotReturn list
 }
 
 type AccountSnapshotReturn = {

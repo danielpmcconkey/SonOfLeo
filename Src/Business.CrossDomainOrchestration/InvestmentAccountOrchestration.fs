@@ -1,5 +1,6 @@
 module Business.CrossDomainOrchestration.InvestmentAccountOrchestration
 
+open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
 open App.Utility.FieldUpdate
@@ -183,24 +184,56 @@ let private confirmNoContributionBasisStranded
         }
     | _ -> Ok()
 
-let private confirmPeriodKeepsSnapshots
+// Only a Taxable account's lines carry lots, and recorded lots are never cleared, so an account whose snapshot lines
+// carry them stays Taxable.
+let private confirmNoLotsStranded
+    (context: Context.Context)
+    (account: InvestmentAccount.InvestmentAccount)
+    (taxTreatment: TaxTreatment)
+    : Result<unit, IAppError> =
+    match account |> InvestmentAccount.taxTreatment, taxTreatment with
+    | TaxTreatment.Taxable, TaxTreatment.Taxable -> Ok()
+    | TaxTreatment.Taxable, _ ->
+        result {
+            let! snapshots =
+                account
+                |> InvestmentAccount.investmentAccountId
+                |> AccountSnapshotHeader.fetchByInvestmentAccountCarryingLots context
+            let datesWithLots = snapshots |> List.map AccountSnapshotHeader.snapshotDate
+            if not (datesWithLots |> List.isEmpty) then
+                return!
+                    error (
+                        PositionsTaxTreatmentChangeStrandsLots(
+                            account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value,
+                            datesWithLots |> List.min,
+                            datesWithLots |> List.max
+                        )
+                    )
+        }
+    | _ -> Ok()
+
+let private confirmPeriodKeepsRecords
     (context: Context.Context)
     (account: InvestmentAccount.InvestmentAccount)
     (activityPeriod: ActivityPeriod.ActivityPeriod)
     : Result<unit, IAppError> =
+    let accountId = account |> InvestmentAccount.investmentAccountId
+    let earliestAndLatestOutside (dates: LocalDate list) =
+        match dates |> List.filter (fun d -> not (activityPeriod |> ActivityPeriod.isActive d)) with
+        | [] -> None
+        | offending -> Some(offending |> List.min, offending |> List.max)
     result {
-        let! snapshots = account |> InvestmentAccount.investmentAccountId |> AccountSnapshotHeader.fetchByInvestmentAccount context
-        let offendingDates =
-            snapshots
-            |> List.map AccountSnapshotHeader.snapshotDate
-            |> List.filter (fun d -> not (activityPeriod |> ActivityPeriod.isActive d))
-        if not (offendingDates |> List.isEmpty) then
+        let! snapshots = accountId |> AccountSnapshotHeader.fetchByInvestmentAccount context
+        let! activities = accountId |> InvestmentActivity.fetchByInvestmentAccount context
+        let offendingSnapshots = snapshots |> List.map AccountSnapshotHeader.snapshotDate |> earliestAndLatestOutside
+        let offendingActivities = activities |> List.map InvestmentActivity.activityDate |> earliestAndLatestOutside
+        if offendingSnapshots.IsSome || offendingActivities.IsSome then
             return!
                 error (
                     PositionsActivePeriodExcludesRecords(
                         account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value,
-                        Some(offendingDates |> List.min, offendingDates |> List.max),
-                        None
+                        offendingSnapshots,
+                        offendingActivities
                     )
                 )
     }
@@ -225,6 +258,12 @@ let updateInvestmentAccount
             | SetTo owners -> owners |> Set.toList |> ownerSetOf context resultingName
             | NoChange -> Ok(account |> InvestmentAccount.owners)
         do! confirmJointOwnershipAllowed resultingName resultingTreatment resultingOwners.Count
+        // Lots are checked before Holdings: every Holding that carries a lot has a basis method, so the Holdings rule
+        // would otherwise always answer first and hide which records stand in the way.
+        do!
+            match fieldUpdates.taxTreatmentUpdate with
+            | SetTo newTreatment -> confirmNoLotsStranded context account newTreatment
+            | NoChange -> Ok()
         do!
             match fieldUpdates.taxTreatmentUpdate with
             | SetTo newTreatment -> confirmHoldingsAllowTaxTreatment context account newTreatment
@@ -235,7 +274,7 @@ let updateInvestmentAccount
             | NoChange -> Ok()
         do!
             match fieldUpdates.activityPeriodUpdate with
-            | SetTo period -> confirmPeriodKeepsSnapshots context account period
+            | SetTo period -> confirmPeriodKeepsRecords context account period
             | NoChange -> Ok()
         do!
             match fieldUpdates.ledgerAccountIdUpdate with

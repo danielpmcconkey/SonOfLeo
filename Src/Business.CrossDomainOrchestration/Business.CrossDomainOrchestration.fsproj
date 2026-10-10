@@ -49,10 +49,14 @@
     <Compile Include="InvestmentAccountOrchestration.fs" />
     <Compile Include="HoldingOrchestration.fs" />
     <Compile Include="AccountSnapshotOrchestration.fs" />
+    <Compile Include="InvestmentActivityOrchestration.fs" />
+    <Compile Include="UnitRollForward.fs" />
     <Compile Include="RealEstateOrchestration.fs" />
+    <Compile Include="PreLedgerBalanceOrchestration.fs" />
     <Compile Include="HoldingsAsOf.fs" />
     <Compile Include="NetWorth.fs" />
     <Compile Include="InvestmentWealthHistory.fs" />
+    <Compile Include="NetWorthHistory.fs" />
     <Compile Include="ClassificationOrchestration.fs" />
   </ItemGroup>
 

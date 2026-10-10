@@ -187,6 +187,13 @@ let ``convert [InvestmentAccountUpdateInput] to [InvestmentAccountFieldUpdates]`
 
 // ---- Holdings ----
 
+let ``convert [AccountSnapshotLot] to [AccountSnapshotLotReturn]``
+    (lot: AccountSnapshotLot.AccountSnapshotLot)
+    : AccountSnapshotLotReturn =
+    { acquiredDate = lot |> AccountSnapshotLot.acquiredDate
+      quantity = lot |> AccountSnapshotLot.quantity |> Quantity.amount
+      reportedCostBasis = lot |> AccountSnapshotLot.reportedCostBasis |> Option.map Money.amount }
+
 let ``convert [HoldingView] to [HoldingReturn]`` (view: HoldingView) : HoldingReturn =
     { accountName = view.investmentAccountName
       securityName = view.securityName
@@ -214,7 +221,8 @@ let ``convert [HoldingsAsOfAccount] to [HoldingsAsOfAccountReturn]`` (account: H
               quantity = line.quantity |> Quantity.amount
               price = line.price |> Price.amount
               marketValue = line.marketValue |> Money.amount
-              reportedCostBasis = line.reportedCostBasis |> Option.map Money.amount }) }
+              reportedCostBasis = line.reportedCostBasis |> Option.map Money.amount
+              lots = line.lots |> List.map ``convert [AccountSnapshotLot] to [AccountSnapshotLotReturn]`` }) }
 
 // ---- Account Snapshots ----
 
@@ -234,7 +242,17 @@ let ``convert [AccountSnapshotInput] to [Snapshot]`` (context: Context.Context) 
                     let! price = line.price |> Price.fromDecimal
                     let! marketValue = line.marketValue |> Money.fromDecimal
                     let! costBasis = line.reportedCostBasis |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
-                    return (securityId, quantity, price, marketValue, costBasis): SnapshotLine
+                    let! lots =
+                        line.lots
+                        |> List.map (fun lot ->
+                            result {
+                                let! lotQuantity = lot.quantity |> Quantity.fromDecimal
+                                let! lotCostBasis =
+                                    lot.reportedCostBasis |> convertOptionToDesiredTypeWithFallibleConverter Money.fromDecimal
+                                return (lot.acquiredDate, lotQuantity, lotCostBasis): SnapshotLot
+                            })
+                        |> convertListOfResultsToResultsList
+                    return (securityId, quantity, price, marketValue, costBasis, lots): SnapshotLine
                 })
             |> convertListOfResultsToResultsList
         return (accountId, input.snapshotDate, provenance, contributionBasis, lines): Snapshot
@@ -253,7 +271,8 @@ let ``convert [SnapshotView] to [AccountSnapshotReturn]`` (view: SnapshotView) :
                quantity = l.line |> AccountSnapshotLine.quantity |> Quantity.amount
                price = l.line |> AccountSnapshotLine.price |> Price.amount
                marketValue = l.line |> AccountSnapshotLine.marketValue |> Money.amount
-               reportedCostBasis = l.line |> AccountSnapshotLine.reportedCostBasis |> Option.map Money.amount }
+               reportedCostBasis = l.line |> AccountSnapshotLine.reportedCostBasis |> Option.map Money.amount
+               lots = l.lots |> List.map ``convert [AccountSnapshotLot] to [AccountSnapshotLotReturn]`` }
              : AccountSnapshotLineReturn))
       createdAt = view.header |> AccountSnapshotHeader.createdAt
       modifiedAt = view.header |> AccountSnapshotHeader.modifiedAt }

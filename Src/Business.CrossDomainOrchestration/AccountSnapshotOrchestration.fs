@@ -12,15 +12,21 @@ open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 
-/// One line of a snapshot to record: the Security, quantity, price, market value and reported cost basis.
-type SnapshotLine = SecurityId * Quantity.Quantity * Price.Price * Money.Money * Money.Money option
+/// One lot of a line to record: its acquired date, quantity and reported cost basis.
+type SnapshotLot = LocalDate * Quantity.Quantity * Money.Money option
+
+/// One line of a snapshot to record: the Security, quantity, price, market value, reported cost basis and lots, the
+/// lots in the order the institution reported them.
+type SnapshotLine = SecurityId * Quantity.Quantity * Price.Price * Money.Money * Money.Money option * SnapshotLot list
 
 /// One snapshot to record: the account, the date, provenance, contribution basis and lines.
 type Snapshot = InvestmentAccountId * LocalDate * Provenance * ContributionBasis option * SnapshotLine list
 
+/// A line as stored, with its lots in the order supplied.
 type SnapshotLineView = {
     line: AccountSnapshotLine.AccountSnapshotLine
     securityName: string
+    lots: AccountSnapshotLot.AccountSnapshotLot list
 }
 
 /// A snapshot as stored, its lines ordered by Security name.
@@ -84,7 +90,7 @@ let private confirmEachSecurityOnce
     (lines: SnapshotLine list)
     : Result<unit, IAppError> =
     lines
-    |> List.countBy (fun (securityId, _, _, _, _) -> securityId)
+    |> List.countBy (fun (securityId, _, _, _, _, _) -> securityId)
     |> List.tryFind (fun (_, count) -> count > 1)
     |> function
         | Some(securityId, _) ->
@@ -100,6 +106,17 @@ let private confirmEachSecurityOnce
                 ))
         | None -> Ok()
 
+// Only a Taxable account's lines carry lots: outside one, when a unit was acquired means nothing.
+let private confirmLotsAllowed
+    (account: InvestmentAccount.InvestmentAccount)
+    (securityName: string)
+    (lots: SnapshotLot list)
+    : Result<unit, IAppError> =
+    match lots, account |> InvestmentAccount.taxTreatment with
+    | [], _
+    | _, TaxTreatment.Taxable -> Ok()
+    | _ -> error (PositionsLotsNotAllowed(accountNameOf account, securityName))
+
 // The Holding must already exist; a Security the account doesn't hold is something for the operator to look at.
 let private buildLine
     (context: Context.Context)
@@ -107,8 +124,8 @@ let private buildLine
     (snapshotDate: LocalDate)
     (accountSnapshotId: AccountSnapshotId)
     (input: SnapshotLine)
-    : Result<AccountSnapshotLine.AccountSnapshotLine, IAppError> =
-    let securityId, quantity, price, marketValue, reportedCostBasis = input
+    : Result<AccountSnapshotLine.AccountSnapshotLine * AccountSnapshotLot.AccountSnapshotLot list, IAppError> =
+    let securityId, quantity, price, marketValue, reportedCostBasis, lotInputs = input
     let accountName = accountNameOf account
     result {
         let! security = securityId |> Security.fetchById context
@@ -122,15 +139,24 @@ let private buildLine
         do!
             AccountSnapshotLine.confirmFigures
                 accountName snapshotDate securityName quantity price marketValue reportedCostBasis
-        return
+        do! confirmLotsAllowed account securityName lotInputs
+        do! AccountSnapshotLot.confirmLots accountName snapshotDate securityName quantity lotInputs
+        let accountSnapshotLineId = AccountSnapshotLineId.create ()
+        let line =
             AccountSnapshotLine.create
-                (AccountSnapshotLineId.create ())
+                accountSnapshotLineId
                 accountSnapshotId
                 (holding |> Holding.holdingId)
                 quantity
                 price
                 marketValue
                 reportedCostBasis
+        let lots =
+            lotInputs
+            |> List.mapi (fun ordinal (acquiredDate, lotQuantity, lotCostBasis) ->
+                AccountSnapshotLot.create
+                    (AccountSnapshotLotId.create ()) accountSnapshotLineId ordinal acquiredDate lotQuantity lotCostBasis)
+        return line, lots
     }
 
 let private viewSnapshot
@@ -139,7 +165,11 @@ let private viewSnapshot
     (header: AccountSnapshotHeader.AccountSnapshotHeader)
     : Result<SnapshotView, IAppError> =
     result {
-        let! lines = header |> AccountSnapshotHeader.accountSnapshotId |> AccountSnapshotLine.fetchByAccountSnapshot context
+        let accountSnapshotId = header |> AccountSnapshotHeader.accountSnapshotId
+        let! lines = accountSnapshotId |> AccountSnapshotLine.fetchByAccountSnapshot context
+        let! lots = accountSnapshotId |> AccountSnapshotLot.fetchByAccountSnapshot context
+        let lotsOf line =
+            lots |> List.filter (fun l -> AccountSnapshotLot.accountSnapshotLineId l = AccountSnapshotLine.accountSnapshotLineId line)
         let! lineViews =
             lines
             |> List.map (fun line ->
@@ -148,7 +178,9 @@ let private viewSnapshot
                 |> Holding.fetchById context
                 |> Result.bind (Holding.securityId >> Security.fetchById context)
                 |> Result.map (fun security ->
-                    { line = line; securityName = security |> Security.securityName |> SecurityName.value }))
+                    { line = line
+                      securityName = security |> Security.securityName |> SecurityName.value
+                      lots = lotsOf line }))
             |> convertListOfResultsToResultsList
         return
             { header = header
@@ -170,7 +202,7 @@ let private recordOne (context: Context.Context) (input: Snapshot) : Result<Reco
             existing
             |> Option.map AccountSnapshotHeader.accountSnapshotId
             |> Option.defaultWith AccountSnapshotId.create
-        let! lines =
+        let! linesAndLots =
             lineInputs
             |> List.map (buildLine context account snapshotDate accountSnapshotId)
             |> convertListOfResultsToResultsList
@@ -189,7 +221,16 @@ let private recordOne (context: Context.Context) (input: Snapshot) : Result<Reco
                     AccountSnapshotHeader.create
                         accountSnapshotId accountId snapshotDate provenance contributionBasis instant instant
                 header |> AccountSnapshotHeader.persist context |> Result.map (fun () -> header)
-        do! lines |> List.map (AccountSnapshotLine.persist context) |> convertListOfResultsToResultsList |> Result.map ignore
+        do!
+            linesAndLots
+            |> List.map (fun (line, lots) ->
+                line
+                |> AccountSnapshotLine.persist context
+                |> Result.bind (fun () ->
+                    lots |> List.map (AccountSnapshotLot.persist context) |> convertListOfResultsToResultsList)
+                |> Result.map ignore)
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
         let! view = viewSnapshot context accountName header
         return { snapshot = view; replacedExisting = existing |> Option.isSome }
     }
@@ -216,7 +257,7 @@ let private fetchHeader
         | None -> return! error (PositionsSnapshotDoesntExist(accountName, snapshotDate))
     }
 
-/// Deletes the snapshot and its lines, and returns it as it stood before deletion.
+/// Deletes the snapshot and its lines with their lots, and returns it as it stood before deletion.
 let deleteSnapshot
     (context: Context.Context)
     (investmentAccountId: InvestmentAccountId)

@@ -131,7 +131,7 @@ let private listHoldings (account: string option) =
 // ---- Account Snapshots ----
 
 let private line security quantity price marketValue cost : C.AccountSnapshotLineInput =
-    { securityName = security; quantity = quantity; price = price; marketValue = marketValue; reportedCostBasis = cost }
+    { securityName = security; quantity = quantity; price = price; marketValue = marketValue; reportedCostBasis = cost; lots = [] }
 
 let private snapshotOf account date lines : C.AccountSnapshotInput =
     { accountName = account; snapshotDate = date; provenance = "Reported"; contributionBasis = None; lines = lines }

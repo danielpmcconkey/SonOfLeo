@@ -50,7 +50,7 @@ let private pointAt
     (monthEnd: LocalDate)
     : Result<WealthPoint, IAppError> =
     result {
-        let! accounts = fetchHoldingsAsOf context monthEnd
+        let! accounts = fetchHoldingValuesAsOf context monthEnd
         let values = accounts |> List.collect (groupedValues grouping)
         let! totals =
             values
