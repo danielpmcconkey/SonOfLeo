@@ -365,11 +365,13 @@ let private executeCleanUpStatements (statements: (string * QueryParameter list)
                 |> Result.map ignore))
         (Ok())
 
-/// Deletes an Investment Account by name, with its snapshots and their lines, its Holdings and its owner rows.
+/// Deletes an Investment Account by name, with its activities, its snapshots and their lines and lots, its Holdings
+/// and its owner rows.
 let cleanUpInvestmentAccountByName (name: string) : Result<unit, IAppError> =
     let parameters = [ { name = "@name"; value = CharString name } ]
     let ofAccount = "(select unique_id from positions.investment_account where account_name = @name)"
-    [ $"""delete from positions.account_snapshot_line WHERE account_snapshot_id IN
+    [ $"""delete from positions.investment_activity WHERE investment_account_id IN {ofAccount};"""
+      $"""delete from positions.account_snapshot_line WHERE account_snapshot_id IN
             (select unique_id from positions.account_snapshot where investment_account_id IN {ofAccount});"""
       $"""delete from positions.account_snapshot WHERE investment_account_id IN {ofAccount};"""
       $"""delete from positions.holding WHERE investment_account_id IN {ofAccount};"""
@@ -378,14 +380,22 @@ let cleanUpInvestmentAccountByName (name: string) : Result<unit, IAppError> =
     |> List.map (fun query -> query, parameters)
     |> executeCleanUpStatements
 
-/// Deletes a Security by name, with any Holding of it and any snapshot line on such a Holding.
+/// Deletes a Security by name, with any Holding of it and any snapshot line or activity on such a Holding.
 let cleanUpSecurityByName (name: string) : Result<unit, IAppError> =
     let parameters = [ { name = "@name"; value = CharString name } ]
     let holdingsOf = "(select unique_id from positions.holding where security_id IN (select unique_id from positions.security where security_name = @name))"
-    [ $"""delete from positions.account_snapshot_line WHERE holding_id IN {holdingsOf};"""
+    [ $"""delete from positions.investment_activity WHERE holding_id IN {holdingsOf};"""
+      $"""delete from positions.account_snapshot_line WHERE holding_id IN {holdingsOf};"""
       $"""delete from positions.holding WHERE unique_id IN {holdingsOf};"""
       """delete from positions.security WHERE security_name = @name;""" ]
     |> List.map (fun query -> query, parameters)
+    |> executeCleanUpStatements
+
+/// Deletes the Pre-ledger Balance of the ledger account with the code, dated so. One that doesn't exist deletes nothing.
+let cleanUpPreLedgerBalance (accountCode: string) (balanceDate: NodaTime.LocalDate) : Result<unit, IAppError> =
+    [ """delete from positions.pre_ledger_balance WHERE balance_date = @balance_date
+            AND ledger_account_id IN (select unique_id from ledger.account where code = @code);""",
+      [ { name = "@code"; value = CharString accountCode }; { name = "@balance_date"; value = DbLocalDate balanceDate } ] ]
     |> executeCleanUpStatements
 
 /// Deletes a Dimension Value by dimension and name. A Security still pointing at it must go first.

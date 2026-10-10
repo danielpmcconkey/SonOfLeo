@@ -16,6 +16,7 @@ open Business.FinancialServices.Positions.PositionsComponent
 open Business.FinancialServices.Positions.PositionsError
 open Business.CrossDomainOrchestration.NetWorth
 open Business.CrossDomainOrchestration.InvestmentWealthHistory
+open Business.CrossDomainOrchestration.NetWorthHistory
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Tests.Helpers
 open Tests.Helpers.PositionsValues
@@ -88,6 +89,34 @@ let private wealthReportPath beginDate endDate interpolate fileName =
     |> Result.bind (function
         | InvestmentWealthHistoryReturn.Report pathReturn -> Ok pathReturn.fullyQualifiedPath
         | InvestmentWealthHistoryReturn.DataOnly _ -> Error(TestingError "Expected Report but got DataOnly"))
+
+// ---- Net worth history ----
+
+let private runNetWorthHistory beginDate endDate (reportOutput: OutputSpecifier) =
+    ({ beginDate = beginDate; endDate = endDate; reportOutput = reportOutput } : NetWorthHistoryInput)
+    |> Json.toJson<NetWorthHistoryInput>
+    |> Result.bind (routeReportingCommandForTesting "NetWorthHistory" [])
+    |> Result.bind Json.fromJson<NetWorthHistoryReturn>
+
+let private netWorthHistoryReportPath beginDate endDate interpolate fileName =
+    runNetWorthHistory beginDate endDate
+        (OutputSpecifier.Report { baseDir = outputDir; interpolateAsOf = interpolate; fileName = fileName })
+    |> Result.bind (function
+        | NetWorthHistoryReturn.Report pathReturn -> Ok pathReturn.fullyQualifiedPath
+        | NetWorthHistoryReturn.DataOnly _ -> Error(TestingError "Expected Report but got DataOnly"))
+
+/// The text of the first <p> carrying the class, with its markup taken out.
+let private paragraphWithClass (cssClass: string) (html: string) =
+    let m = Regex.Match(html, $"<p[^>]*class=\"{cssClass}\"[^>]*>(.*?)</p>", RegexOptions.Singleline)
+    Assert.True(m.Success, $"the rendered report has no paragraph of class {cssClass}")
+    Regex.Replace(m.Groups.[1].Value, "<[^>]+>", "").Trim() |> System.Net.WebUtility.HtmlDecode
+
+/// Each table row's data cells, for the rows that have any.
+let private dataRowsOf (html: string) =
+    Regex.Matches(html, "<tr[^>]*>(.*?)</tr>", RegexOptions.Singleline)
+    |> Seq.map (fun m -> m.Groups.[1].Value |> cellsIn "td" |> List.map System.Net.WebUtility.HtmlDecode)
+    |> Seq.filter (fun cells -> not cells.IsEmpty)
+    |> List.ofSeq
 
 /// Writes the report, checks the path is the one expected and that the file is new, and hands back its HTML.
 let private writtenFresh (expectedPath: string) (write: unit -> Result<string, IAppError>) =
@@ -335,28 +364,136 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-8.6 REQ-RPT-8.5 the NetWorth route in data-only mode on a pre-ledger date with absent components returns the pre-ledger flag, each listed account's balance date and the absent components the computation gives`` () =
-        Assert.Fail "Not yet implemented"
+        // on monthEnd8 investments are absent and every listed balance is dated monthEnd8
+        result {
+            let! returned = runNetWorth p.monthEnd8 OutputSpecifier.DataOnly
+            let! row =
+                match returned with
+                | NetWorthReturn.DataOnly row -> Ok row
+                | NetWorthReturn.Report _ -> Error(TestingError "Expected DataOnly but got Report")
+            let! computed = computeNetWorth (fresh ()) p.monthEnd8
+            let dated (rows: LedgerAccountBalance list) = rows |> List.map (fun r -> r.code, r.balance |> Money.amount, r.balanceDate)
+            let returnedDated (rows: NetWorthLedgerAccountReturnRow list) = rows |> List.map (fun r -> r.code, r.balance, r.balanceDate)
+            let mortgagesOf (rows: NetWorthPropertyReturnRow list) = rows |> List.collect (fun x -> x.mortgageAccounts)
+            Assert.True(row.isPreLedger)
+            Assert.Equal<(string * decimal * LocalDate option) list>(
+                computed.assetAccounts @ computed.liabilityAccounts @ (computed.properties |> List.collect (fun x -> x.mortgageAccounts))
+                |> dated,
+                row.assetAccounts @ row.liabilityAccounts @ mortgagesOf row.properties |> returnedDated)
+            Assert.Equal<string list>(
+                computed.absentComponents |> List.map NetWorthComponent.toString, row.absentComponents)
+            Assert.Equal<string list>([ "Investments" ], row.absentComponents)
+            Assert.Contains(("F-2320", 185000.00M, Some p.monthEnd8), mortgagesOf row.properties |> returnedDated)
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-8.6 REQ-RPT-8.5 the rendered net worth on a pre-ledger date marks the date as pre-ledger, shows each listed account's balance date, and names the absent components`` () =
-        Assert.Fail "Not yet implemented"
+        // on monthEnd7 F-1275's balance is dated monthEnd7 and F-1000's monthEnd8; on monthEnd9 three components are absent
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-8-6-net-worth-pre-ledger.html"))
+            (fun () -> netWorthReportPath p.monthEnd7 false "rpt-8-6-net-worth-pre-ledger")
+        |> Result.map (fun html ->
+            Assert.StartsWith("This is a pre-ledger date", html |> paragraphWithClass "pre-ledger-note")
+            Assert.Equal("No component is absent.", html |> paragraphWithClass "absent-note")
+            let rows = html |> dataRowsOf
+            Assert.Contains([ "F-1000"; "Assets"; dateText p.monthEnd8; "100.00" ], rows)
+            Assert.Contains([ "F-1275"; "Fixture Positions Cash"; dateText p.monthEnd7; "2,500.00" ], rows)
+            Assert.Contains(
+                rows,
+                fun cells -> cells |> List.exists (fun c -> c.StartsWith "Mortgage F-2320")
+                             && cells |> List.contains $"pre-ledger balance of {dateText p.monthEnd7}"))
+        |> railroadWrapper
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-8-6-net-worth-absent.html"))
+            (fun () -> netWorthReportPath p.monthEnd9 false "rpt-8-6-net-worth-absent")
+        |> Result.map (fun html ->
+            Assert.Equal(
+                "Absent on this date, each totalling 0.00: Counted ledger assets, Investments, Liabilities.",
+                html |> paragraphWithClass "absent-note"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-10.4 the NetWorthHistory route in data-only mode for a range spanning pre-ledger and fiscal-period month-ends returns the same points, totals, pre-ledger flags and absent components as the net worth history computation`` () =
-        Assert.Fail "Not yet implemented"
+        result {
+            let! returned = runNetWorthHistory p.monthEnd9 p.monthEnd4 OutputSpecifier.DataOnly
+            let! points =
+                match returned with
+                | NetWorthHistoryReturn.DataOnly points -> Ok points
+                | NetWorthHistoryReturn.Report _ -> Error(TestingError "Expected DataOnly but got Report")
+            let! computed = computeNetWorthHistory (fresh ()) p.monthEnd9 p.monthEnd4
+            Assert.Equal(6, computed.Length)
+            Assert.Equal<(LocalDate * bool * decimal list * string list) list>(
+                computed
+                |> List.map (fun pt ->
+                    pt.monthEnd,
+                    pt.isPreLedger,
+                    [ pt.totalLedgerAssets; pt.totalInvestments; pt.totalPropertyValues; pt.totalLiabilities
+                      pt.totalOwnedPropertyMortgages; pt.netWorth; pt.investableWealth ]
+                    |> List.map Money.amount,
+                    pt.absentComponents |> List.map NetWorthComponent.toString),
+                points
+                |> List.map (fun pt ->
+                    pt.monthEnd,
+                    pt.isPreLedger,
+                    [ pt.totalLedgerAssets; pt.totalInvestments; pt.totalPropertyValues; pt.totalLiabilities
+                      pt.totalOwnedPropertyMortgages; pt.netWorth; pt.investableWealth ],
+                    pt.absentComponents))
+            Assert.Equal<bool list>([ true; true; true; true; false; false ], points |> List.map (fun pt -> pt.isPreLedger))
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-10.4 REQ-RPT-2.3 the NetWorthHistory route in report mode writes a new HTML file and returns its fully qualified path`` () =
-        Assert.Fail "Not yet implemented"
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-10-4-net-worth-history.html"))
+            (fun () -> netWorthHistoryReportPath p.monthEnd7 p.monthEnd4 false "rpt-10-4-net-worth-history")
+        |> Result.map (fun html -> Assert.Contains("Net Worth History", html))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-10.4 REQ-RPT-2.4 the NetWorthHistory report file with date interpolation is the base directory and file name followed by a hyphen, the begin and end dates as yyyy-MM-dd_yyyy-MM-dd, and .html`` () =
-        Assert.Fail "Not yet implemented"
+        writtenFresh
+            (Path.Combine(outputDir, $"rpt-10-4-net-worth-history-interpolated-{dateText p.monthEnd7}_{dateText p.monthEnd4}.html"))
+            (fun () -> netWorthHistoryReportPath p.monthEnd7 p.monthEnd4 true "rpt-10-4-net-worth-history-interpolated")
+        |> Result.map ignore
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-10.4 REQ-RPT-3.1 the rendered net worth history header shows the report title and the begin and end dates and no as-of date`` () =
-        Assert.Fail "Not yet implemented"
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-10-4-net-worth-history-header.html"))
+            (fun () -> netWorthHistoryReportPath (p.monthEnd7.PlusDays(-3)) p.monthEnd5 false "rpt-10-4-net-worth-history-header")
+        |> Result.map (fun html ->
+            let header = headerOf html
+            let text = Regex.Replace(header.Substring(header.IndexOf("</h1>")), "<[^>]+>", "").Trim()
+            Assert.Equal("Net Worth History", titleIn header)
+            // the begin and end dates are the only dates shown, so no as-of date stands beside them
+            Assert.Equal<string list>(
+                [ dateText (p.monthEnd7.PlusDays(-3)); dateText p.monthEnd5 ],
+                Regex.Matches(header, @"\d{4}-\d{2}-\d{2}") |> Seq.map _.Value |> List.ofSeq)
+            Assert.DoesNotContain("As of", text))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-10.4 the rendered net worth history has one row per month-end and one column per total, a pre-ledger point is marked as such, and the absent column names a point's absent components and is empty for a point with none absent`` () =
-        Assert.Fail "Not yet implemented"
+        // monthEnd9 has three components absent, monthEnd8 one, monthEnd7 and monthEnd6 none, monthEnd5 is in a fiscal period
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-10-4-net-worth-history-table.html"))
+            (fun () -> netWorthHistoryReportPath p.monthEnd9 p.monthEnd5 false "rpt-10-4-net-worth-history-table")
+        |> Result.map (fun html ->
+            Assert.Equal<string list>(
+                [ "Month end"; "Source"; "Counted ledger assets"; "Investments"; "Property values"; "Liabilities"
+                  "Mortgages of owned properties"; "Net worth"; "Investable wealth"; "Absent" ],
+                html |> cellsIn "th")
+            let rows = html |> dataRowsOf
+            Assert.All(rows, fun cells -> Assert.Equal(10, cells.Length))
+            Assert.Equal<(string * string * string * string) list>(
+                [ dateText p.monthEnd9, "pre-ledger", "264,000.00", "Counted ledger assets, Investments, Liabilities"
+                  dateText p.monthEnd8, "pre-ledger", "265,585.00", "Investments"
+                  dateText p.monthEnd7, "pre-ledger", "268,835.00", ""
+                  dateText p.monthEnd6, "pre-ledger", "268,835.00", ""
+                  dateText p.monthEnd5, "ledger", "250,275.00", "" ],
+                rows |> List.map (fun cells -> cells.[0], cells.[1], cells.[7], cells.[9]))
+            Assert.Equal(4, Regex.Matches(html, "<tr[^>]*class=\"pre-ledger\"").Count))
+        |> railroadWrapper
