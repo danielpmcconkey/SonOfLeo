@@ -167,9 +167,9 @@ let private fetchAny
     : Result<AccountSnapshotLine list, IAppError> =
     let select =
         """
-        snapl.unique_id, snapl.account_snapshot_id, snaplh.investment_account_id, snaplh.snapshot_date, snapl.holding_id,
+        snapl.unique_id, snapl.account_snapshot_id, snap.investment_account_id, snap.snapshot_date, snapl.holding_id,
         snapl.quantity, snapl.price, snapl.market_value, snapl.reported_cost_basis"""
-    let joins = [ "join positions.account_snapshot snaplh on snaplh.unique_id = snapl.account_snapshot_id" ]
+    let joins = [ "join positions.account_snapshot snap on snap.unique_id = snapl.account_snapshot_id" ]
     query context None select (Some joins) predicate limit None None parameters AnyQuantityIsAcceptable
 
 let fetchByAccountSnapshot

@@ -3,17 +3,17 @@ module Business.CrossDomainOrchestration.NetWorthHistory
 open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
+open App.Utility.Calendar
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Positions.PositionsError
 open Business.CrossDomainOrchestration.NetWorth
-open Business.CrossDomainOrchestration.InvestmentWealthHistory
 
 /// Net worth on one month-end, reduced to its totals, whether the date is pre-ledger, and what is absent.
 type NetWorthPoint = {
     monthEnd: LocalDate
-    isPreLedger: bool
+    netWorthDate: NetWorthDate
     totalLedgerAssets: Money.Money
     totalInvestments: Money.Money
     totalPropertyValues: Money.Money
@@ -26,7 +26,7 @@ type NetWorthPoint = {
 
 let private pointOf (netWorth: NetWorth) : NetWorthPoint =
     { monthEnd = netWorth.asOf
-      isPreLedger = netWorth.isPreLedger
+      netWorthDate = netWorth.netWorthDate
       totalLedgerAssets = netWorth.totalLedgerAssets
       totalInvestments = netWorth.totalInvestments
       totalPropertyValues = netWorth.totalPropertyValues

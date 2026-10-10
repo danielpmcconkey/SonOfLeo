@@ -90,7 +90,7 @@ type OutputSpecifier =
     | Report of OutputPathInput
     
 // one point per month-end from begin to end, inclusive; with Report and interpolateAsOf, the file name gets
-// -yyyy-MM-dd_yyyy-MM-dd (begin_end). Declared ahead of the period activity input, which has the same fields.
+// -yyyy-MM-dd_yyyy-MM-dd (begin_end)
 type NetWorthHistoryInput = { beginDate: LocalDate; endDate: LocalDate; reportOutput: OutputSpecifier }
 
 // begin and end are inclusive; with Report and interpolateAsOf, the file name gets -yyyy-MM-dd_yyyy-MM-dd (begin_end)

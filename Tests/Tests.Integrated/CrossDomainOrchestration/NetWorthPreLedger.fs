@@ -75,7 +75,7 @@ type NetWorthPreLedgerTests(fixture: TestDataFixture) =
         result {
             let! before = netWorthAsOf (p.ledgerStart.PlusDays(-1))
             let! onStart = netWorthAsOf p.ledgerStart
-            Assert.Equal((true, false), (before.isPreLedger, onStart.isPreLedger))
+            Assert.Equal((PreLedgerDate, FiscalPeriodDate), (before.netWorthDate, onStart.netWorthDate))
         }
         |> railroadWrapper
 
@@ -89,7 +89,7 @@ type NetWorthPreLedgerTests(fixture: TestDataFixture) =
                 let! _ = monthPlus5Start.PlusMonths(1) |> fiscalPeriodKeyOf |> FiscalPeriodCreation.constructNewAndPersist context
                 computeNetWorth context inGap |> expectError outsideFiscalPeriods (fun d -> Assert.Equal(inGap, d))
                 let! inLaterPeriod = computeNetWorth context (monthPlus5Start.PlusMonths(1).PlusDays(14))
-                Assert.False(inLaterPeriod.isPreLedger)
+                Assert.Equal(FiscalPeriodDate, inLaterPeriod.netWorthDate)
             })
         |> railroadWrapper
 

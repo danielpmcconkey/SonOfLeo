@@ -3,6 +3,7 @@ module Business.CrossDomainOrchestration.InvestmentWealthHistory
 open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
+open App.Utility.Calendar
 open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Positions.PositionsError
@@ -14,17 +15,6 @@ type WealthPoint = {
     totals: (WealthGroup * Money.Money) list
     total: Money.Money
 }
-
-/// Every month-end on or after the begin date and on or before the end date, in date order.
-let monthEndsBetween (beginDate: LocalDate) (endDate: LocalDate) : LocalDate list =
-    let monthEndOf (d: LocalDate) = d.With(DateAdjusters.EndOfMonth)
-    Seq.unfold
-        (fun (monthEnd: LocalDate) ->
-            if monthEnd > endDate then None
-            else Some(monthEnd, monthEndOf (monthEnd.PlusDays 1)))
-        (monthEndOf beginDate)
-    |> Seq.filter (fun d -> d >= beginDate)
-    |> Seq.toList
 
 let private groupedValues (grouping: WealthGrouping) (account: HoldingsAsOfAccount) : (WealthGroup * Money.Money) list =
     let accountGroup =
@@ -50,7 +40,7 @@ let private pointAt
     (monthEnd: LocalDate)
     : Result<WealthPoint, IAppError> =
     result {
-        let! accounts = fetchHoldingValuesAsOf context monthEnd
+        let! accounts = fetchHoldingsAsOf context monthEnd
         let values = accounts |> List.collect (groupedValues grouping)
         let! totals =
             values

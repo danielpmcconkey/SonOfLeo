@@ -83,8 +83,11 @@ let private mapRawForDbRead (row: RowReader) : RawRow =
       marketValue = row |> RowReader.getNumericOption "market_value"
       reportedCostBasis = row |> RowReader.getNumericOption "reported_cost_basis" }
 
+/// A line as read, waiting for its lots, which are read separately.
+type private LineWithoutLots = AccountSnapshotLot.AccountSnapshotLot list -> HoldingsAsOfLine
+
 // A snapshot with no lines comes back as one row whose line columns are all null.
-let private reconstituteLine (raw: RawRow) : Result<(Guid * HoldingsAsOfLine) option, IAppError> =
+let private reconstituteLine (raw: RawRow) : Result<(Guid * LineWithoutLots) option, IAppError> =
     match raw.lineId, raw.securityName, raw.quantity, raw.price, raw.marketValue with
     | Some lineId, Some securityName, Some quantityRaw, Some priceRaw, Some marketValueRaw ->
         result {
@@ -96,26 +99,24 @@ let private reconstituteLine (raw: RawRow) : Result<(Guid * HoldingsAsOfLine) op
             do!
                 AccountSnapshotLine.confirmFigures
                     raw.accountName raw.snapshotDate securityName quantity price marketValue costBasis
-            return
-                Some(
-                    lineId,
-                    { securityName = securityName
-                      ticker = raw.ticker
-                      dimensionValueNames =
-                        List.zip Dimension.all raw.dimensionValueNames
-                        |> List.choose (fun (d, name) -> name |> Option.map (fun n -> d, n))
-                        |> Map.ofList
-                      basisMethod = basisMethod
-                      quantity = quantity
-                      price = price
-                      marketValue = marketValue
-                      reportedCostBasis = costBasis
-                      lots = [] }
-                )
+            let line (lots: AccountSnapshotLot.AccountSnapshotLot list) =
+                { securityName = securityName
+                  ticker = raw.ticker
+                  dimensionValueNames =
+                    List.zip Dimension.all raw.dimensionValueNames
+                    |> List.choose (fun (d, name) -> name |> Option.map (fun n -> d, n))
+                    |> Map.ofList
+                  basisMethod = basisMethod
+                  quantity = quantity
+                  price = price
+                  marketValue = marketValue
+                  reportedCostBasis = costBasis
+                  lots = lots }
+            return Some(lineId, line)
         }
     | _ -> Ok None
 
-let private reconstitute (raw: RawRow) : Result<RawRow * (Guid * HoldingsAsOfLine) option, IAppError> =
+let private reconstitute (raw: RawRow) : Result<RawRow * (Guid * LineWithoutLots) option, IAppError> =
     reconstituteLine raw |> Result.map (fun line -> raw, line)
 
 let private buildAccount (raw: RawRow) (lines: HoldingsAsOfLine list) : Result<HoldingsAsOfAccount, IAppError> =
@@ -142,23 +143,9 @@ let private buildAccount (raw: RawRow) (lines: HoldingsAsOfLine list) : Result<H
               lines = lines |> List.sortBy (fun l -> l.securityName) }
     }
 
-let private latestCte =
-    """
-    latest as (
-        select distinct on (snap.investment_account_id)
-            snap.unique_id, snap.investment_account_id, snap.snapshot_date, snap.provenance, snap.contribution_basis
-        from positions.account_snapshot snap
-        join positions.investment_account sia on sia.unique_id = snap.investment_account_id
-        where snap.snapshot_date <= @as_of
-            and sia.active_begin <= @as_of
-            and (sia.active_end is null or sia.active_end >= @as_of)
-        order by snap.investment_account_id, snap.snapshot_date desc)"""
-
-let private fetchAccountsAsOf
-    (context: Context.Context)
-    (asOf: LocalDate)
-    (lotsOf: Guid -> AccountSnapshotLot.AccountSnapshotLot list)
-    : Result<HoldingsAsOfAccount list, IAppError> =
+/// For every Investment Account active on the date with a snapshot on or before it, that account's latest such
+/// snapshot, each line with its lots in the order supplied. Accounts ordered by name, lines by Security name.
+let fetchHoldingsAsOf (context: Context.Context) (asOf: LocalDate) : Result<HoldingsAsOfAccount list, IAppError> =
     let dimensionColumns =
         Dimension.all |> List.map (fun d -> $"{dimensionAlias d}.value_name as {dimensionAlias d}") |> String.concat ", "
     let dimensionJoins =
@@ -168,24 +155,30 @@ let private fetchAccountsAsOf
         |> String.concat Environment.NewLine
     let queryStatement =
         $"""
-        with {latestCte}
+        with latest as (
+            select distinct on (snap.investment_account_id)
+                snap.unique_id, snap.investment_account_id, snap.snapshot_date, snap.provenance, snap.contribution_basis
+            from positions.account_snapshot snap
+            where snap.snapshot_date <= @as_of
+            order by snap.investment_account_id, snap.snapshot_date desc)
         select
             ia.account_name, ia.institution, ia.account_group, ia.tax_treatment,
             (select string_agg(per.person_name, @owner_separator)
              from positions.investment_account_owner iao
              join general.person per on per.unique_id = iao.person_id
              where iao.investment_account_id = ia.unique_id) as owner_names,
-            la.code as ledger_code, la.account_name as ledger_name,
+            a.code as ledger_code, a.account_name as ledger_name,
             l.snapshot_date, l.provenance, l.contribution_basis,
             snapl.unique_id as line_id, sec.security_name, sec.ticker, {dimensionColumns},
             hol.basis_method, snapl.quantity, snapl.price, snapl.market_value, snapl.reported_cost_basis
         from latest l
         join positions.investment_account ia on ia.unique_id = l.investment_account_id
-        left join ledger.account la on la.unique_id = ia.ledger_account_id
+        left join ledger.account a on a.unique_id = ia.ledger_account_id
         left join positions.account_snapshot_line snapl on snapl.account_snapshot_id = l.unique_id
         left join positions.holding hol on hol.unique_id = snapl.holding_id
         left join positions.security sec on sec.unique_id = hol.security_id
-        {dimensionJoins}"""
+        {dimensionJoins}
+        where ia.active_begin <= @as_of and (ia.active_end is null or ia.active_end >= @as_of)"""
     let parameters =
         [ { name = "@as_of"; value = DbLocalDate asOf }
           { name = "@owner_separator"; value = CharString ownerSeparator } ]
@@ -198,32 +191,19 @@ let private fetchAccountsAsOf
                 mapRawForDbRead
                 reconstitute
                 AnyQuantityIsAcceptable
+        let lineIds = rows |> List.choose (snd >> Option.map (fst >> AccountSnapshotLineId.fromGuid))
+        let! lots =
+            if lineIds |> List.isEmpty then Ok [] else AccountSnapshotLot.fetchByAccountSnapshotLineIdList context lineIds
+        let lotsByLine =
+            lots |> List.groupBy (AccountSnapshotLot.accountSnapshotLineId >> AccountSnapshotLineId.value) |> Map.ofList
         let! accounts =
             rows
             |> List.groupBy (fun (raw, _) -> raw.accountName)
             |> List.map (fun (_, accountRows) ->
                 accountRows
                 |> List.choose snd
-                |> List.map (fun (lineId, line) -> { line with lots = lotsOf lineId })
+                |> List.map (fun (lineId, line) -> lotsByLine |> Map.tryFind lineId |> Option.defaultValue [] |> line)
                 |> buildAccount (accountRows |> List.head |> fst))
             |> convertListOfResultsToResultsList
         return accounts |> List.sortBy (fun a -> a.investmentAccountName)
     }
-
-/// For every Investment Account active on the date with a snapshot on or before it, that account's latest such
-/// snapshot, each line with its lots in the order supplied. Accounts ordered by name, lines by Security name.
-let fetchHoldingsAsOf (context: Context.Context) (asOf: LocalDate) : Result<HoldingsAsOfAccount list, IAppError> =
-    result {
-        let! lots =
-            AccountSnapshotLot.fetchBySnapshotsOf context [ latestCte ] "latest" [ { name = "@as_of"; value = DbLocalDate asOf } ]
-        let lotsByLine =
-            lots
-            |> List.groupBy (AccountSnapshotLot.accountSnapshotLineId >> AccountSnapshotLineId.value)
-            |> Map.ofList
-        return! fetchAccountsAsOf context asOf (fun lineId -> lotsByLine |> Map.tryFind lineId |> Option.defaultValue [])
-    }
-
-/// As fetchHoldingsAsOf, without reading lots: every line's lots are empty. For the reports that total market values,
-/// which lots never change.
-let fetchHoldingValuesAsOf (context: Context.Context) (asOf: LocalDate) : Result<HoldingsAsOfAccount list, IAppError> =
-    fetchAccountsAsOf context asOf (fun _ -> [])

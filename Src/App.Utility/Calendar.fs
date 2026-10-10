@@ -13,3 +13,14 @@ let localDateToString
     (localDate: LocalDate)
     : string =
     localDate.ToString(format, CultureInfo.InvariantCulture)
+
+/// Every month-end on or after the begin date and on or before the end date, in date order.
+let monthEndsBetween (beginDate: LocalDate) (endDate: LocalDate) : LocalDate list =
+    let monthEndOf (d: LocalDate) = d.With(DateAdjusters.EndOfMonth)
+    Seq.unfold
+        (fun (monthEnd: LocalDate) ->
+            if monthEnd > endDate then None
+            else Some(monthEnd, monthEndOf (monthEnd.PlusDays 1)))
+        (monthEndOf beginDate)
+    |> Seq.filter (fun d -> d >= beginDate)
+    |> Seq.toList

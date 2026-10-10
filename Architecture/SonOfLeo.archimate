@@ -489,10 +489,10 @@
               <documentation>Transition a fiscal period from closed to open, allowing entries to post to it again. Fails if the fiscal period is already open.</documentation>
             </element>
             <element xsi:type="archimate:ApplicationFunction" name="Create and persist a new fiscal period" id="id-d5040e35df664ae5a430199b1eae9d6b">
-              <documentation>Validate a new fiscal period's key and dates and write it.</documentation>
+              <documentation>Validate a new fiscal period's key and dates and write it, refusing one that would start on or before the date of a pre-ledger balance.</documentation>
             </element>
             <element xsi:type="archimate:ApplicationFunction" name="Ensure fiscal periods exist for a range of months" id="id-8d1f90c62fd94f2abba02ecb914b4e14">
-              <documentation>Create an open fiscal period for every month in the range that has none, and return only those created.</documentation>
+              <documentation>Create an open fiscal period for every month in the range that has none, in month order and stopping at the first refused, and return only those created.</documentation>
             </element>
           </folder>
           <folder name="Journal entry functions" id="id-f3be016471754f93abd1fb7f5316332e">
@@ -1012,7 +1012,7 @@
             <documentation>Create, update and list securities with their tickers and at most one dimension value per dimension.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Maintain investment accounts" id="id-d247b323faaa40abac4c33cef24b8f08">
-            <documentation>Create, update and list investment accounts with their owners, tax treatment, active period and ledger link, holding owner count and holdings to the tax treatment.</documentation>
+            <documentation>Create, update and list investment accounts with their owners, tax treatment, active period and ledger link, holding owner count and holdings to the tax treatment, and refusing a ledger link to an account that carries pre-ledger balances.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Maintain holdings" id="id-4bbacad3feca48d7aacaef981b3174ef">
             <documentation>Create holdings, change their basis method within the tax-treatment rule, and list them.</documentation>
@@ -1027,7 +1027,7 @@
             <documentation>Refuse lots on a line of a non-taxable account, a lot with no units, a negative cost basis or an acquisition after the snapshot, and lots whose units do not sum exactly to the line's quantity.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Maintain properties" id="id-e1ee017b40a84b10b387d240aaa26e7f">
-            <documentation>Create, update and list properties with their owners, owned period, ledger asset account and mortgage accounts, at most one primary residence owned on any date.</documentation>
+            <documentation>Create, update and list properties with their owners, owned period, ledger asset account and mortgage accounts, at most one primary residence owned on any date, and no asset account that carries pre-ledger balances.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Record property valuations" id="id-5a2f947ccb6e467bbb0e18e25f94db66">
             <documentation>Record, replace, delete and list what a property was judged to be worth on a date within its ownership.</documentation>
@@ -4839,7 +4839,6 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-9e3ac3e4ab0444dda9364bb7be64029c" source="id-33f6c476f50e47e79f9d8362a77e9573" target="id-f5a9b36d8ff449a2a0631dfddba5f071"/>
     <element xsi:type="archimate:ServingRelationship" id="id-785ca1694d2841e093d56c45a5db19c8" source="id-402b15ed0b5444f984d1cb6baa880508" target="id-57cc94143c2b46f2af144526989a4bad"/>
     <element xsi:type="archimate:ServingRelationship" id="id-3d070791391a4d8f8828b29000e12aa5" source="id-402b15ed0b5444f984d1cb6baa880508" target="id-0b8f78fed2a84146aafbe3f80f40b677"/>
-    <element xsi:type="archimate:ServingRelationship" id="id-959c9ac466a94cbf9badf8790c5f2839" source="id-94c33f4f83b443bfb825c24ed1f7e17f" target="id-b14c1379463a4c1a842d0a5a36145318"/>
     <element xsi:type="archimate:ServingRelationship" id="id-69afa394b1d94954a92d2df8655f458e" source="id-9ba8d4011f524302855f42df75651696" target="id-b14c1379463a4c1a842d0a5a36145318"/>
     <element xsi:type="archimate:ServingRelationship" id="id-3d2994b9e6b848abafefd3197c6d2c85" source="id-b14c1379463a4c1a842d0a5a36145318" target="id-730b79fef9c444ebb6c8283d4726dde9"/>
     <element xsi:type="archimate:ServingRelationship" id="id-c40308c6f2b24730a7f5a002a4c51d5c" source="id-b14c1379463a4c1a842d0a5a36145318" target="id-f5a9b36d8ff449a2a0631dfddba5f071"/>
@@ -4910,6 +4909,13 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:ServingRelationship" id="id-f8f0825227c04591936c6f9407faaf82" source="id-4840f98c9473406abfd04b336f004f03" target="id-f5a9b36d8ff449a2a0631dfddba5f071"/>
     <element xsi:type="archimate:ServingRelationship" id="id-d72dab5ee6a74d1f9f56e366366a4918" source="id-f5a9b36d8ff449a2a0631dfddba5f071" target="id-9a61707a675948739877f2025209de61"/>
     <element xsi:type="archimate:ServingRelationship" id="id-e4083692325a4adc89130bb48c1799db" source="id-03bdfc4a3ff44c2f8845f0dc5b3379bf" target="id-f5a9b36d8ff449a2a0631dfddba5f071"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-592395887c78458bb57eb10f1ca94e2c" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-94c33f4f83b443bfb825c24ed1f7e17f"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-cbf0f00143974e7eb1745e86a5f69074" source="id-94733ae1f03d4d31aeb31b5441eb3cb6" target="id-b14c1379463a4c1a842d0a5a36145318"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-a4b41cf9c162409b8a48c8f0151e8723" source="id-9ba8d4011f524302855f42df75651696" target="id-f5a9b36d8ff449a2a0631dfddba5f071"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-a2431d4b7b19418d9924544fb0afccc2" source="id-c8c78273cc5346e1a2f8723ae4d11a8a" target="id-d334f6c1bbc14cdba0704d4ac9dc0d24"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-6628460e63034de888359186b0aa1c18" source="id-c8c78273cc5346e1a2f8723ae4d11a8a" target="id-5bf336489a1c43d4830f147bd974067b"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-ae5f64a48b01486b81f43d2d2b30d66e" source="id-558d946483e1412797ba25db60485b00" target="id-d334f6c1bbc14cdba0704d4ac9dc0d24"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-8d31991ff93348b08580712ab3e3c507" source="id-558d946483e1412797ba25db60485b00" target="id-5bf336489a1c43d4830f147bd974067b"/>
   </folder>
   <folder name="Views" id="id-75e0717f00f244fe89d04a8b9e32fac9" type="diagrams">
     <element xsi:type="archimate:ArchimateDiagramModel" name="Application tiers" id="id-398726ae0f1d4b0a896928395ae87a15">

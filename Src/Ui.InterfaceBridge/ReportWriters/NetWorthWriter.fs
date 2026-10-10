@@ -95,9 +95,10 @@ let componentLabel (netWorthComponent: NetWorthComponent) =
     | OwnedPropertyMortgages -> "Mortgages of owned properties"
 
 // On a pre-ledger date each balance comes from a Pre-ledger Balance, and its date is shown beside it.
-let private ledgerTable ordinal (isPreLedger: bool) (rows: LedgerAccountBalance list) =
+let private ledgerTable ordinal (netWorthDate: NetWorthDate) (rows: LedgerAccountBalance list) =
     let balanceDateText (r: LedgerAccountBalance) = r.balanceDate |> Option.map dateString |> Option.defaultValue ""
-    if isPreLedger then
+    match netWorthDate with
+    | PreLedgerDate ->
         table ordinal [ "Code", false; "Name", false; "Balance date", false; "Balance", true ]
             (rows
              |> List.mapi (fun i r ->
@@ -106,7 +107,7 @@ let private ledgerTable ordinal (isPreLedger: bool) (rows: LedgerAccountBalance 
                        (fun o -> textCell o r.name)
                        (fun o -> textCell o (balanceDateText r))
                        (fun o -> moneyCell o r.balance) ]))
-    else
+    | FiscalPeriodDate ->
         table ordinal [ "Code", false; "Name", false; "Balance", true ]
             (rows |> List.mapi (fun i r -> row (10 + i) None [ (fun o -> textCell o r.code); (fun o -> textCell o r.name); (fun o -> moneyCell o r.balance) ]))
 
@@ -133,7 +134,7 @@ let private investmentsBlock ordinal (accounts: NetWorthInvestmentAccount list) 
               "Market value", true; "Contribution basis", true ]
             rows ]
 
-let private propertiesBlock ordinal (isPreLedger: bool) (properties: NetWorthProperty list) =
+let private propertiesBlock ordinal (netWorthDate: NetWorthDate) (properties: NetWorthProperty list) =
     let propertyTable i (p: NetWorthProperty) =
         let source =
             match p.valueSource with
@@ -145,8 +146,8 @@ let private propertiesBlock ordinal (isPreLedger: bool) (properties: NetWorthPro
                 row (20 + j) None
                     [ (fun o -> textCell o $"Mortgage {m.code} · {m.name}")
                       (fun o ->
-                          match isPreLedger, m.balanceDate with
-                          | true, Some d -> textCell o $"pre-ledger balance of {dateString d}"
+                          match netWorthDate, m.balanceDate with
+                          | PreLedgerDate, Some d -> textCell o $"pre-ledger balance of {dateString d}"
                           | _ -> textCell o "")
                       (fun o -> moneyCell o m.balance) ])
         table (10 + i)
@@ -189,9 +190,10 @@ let write
     }
     let header = createAsOfHeader "Net Worth" netWorth.asOf
     let dateNote =
-        if netWorth.isPreLedger then
+        match netWorth.netWorthDate with
+        | PreLedgerDate ->
             "This is a pre-ledger date: account balances come from pre-ledger balances, each dated as shown."
-        else
+        | FiscalPeriodDate ->
             "This date is in a fiscal period: account balances come from the ledger."
     let absentNote =
         match netWorth.absentComponents with
@@ -202,10 +204,10 @@ let write
             [ block 0 "Sources"
                   [ element 10 Paragraph (Class "pre-ledger-note") [ element 1 (NoTag(encode dateNote)) NoIdentifier [] ]
                     element 20 Paragraph (Class "absent-note") [ element 1 (NoTag(encode absentNote)) NoIdentifier [] ] ]
-              block 1 "Counted ledger assets" [ ledgerTable 10 netWorth.isPreLedger netWorth.assetAccounts ]
+              block 1 "Counted ledger assets" [ ledgerTable 10 netWorth.netWorthDate netWorth.assetAccounts ]
               investmentsBlock 2 netWorth.investmentAccounts
-              propertiesBlock 3 netWorth.isPreLedger netWorth.properties
-              block 4 "Liabilities" [ ledgerTable 10 netWorth.isPreLedger netWorth.liabilityAccounts ]
+              propertiesBlock 3 netWorth.netWorthDate netWorth.properties
+              block 4 "Liabilities" [ ledgerTable 10 netWorth.netWorthDate netWorth.liabilityAccounts ]
               totalsBlock 5 netWorth
               subtotalsBlock 6 "Investments by tax treatment"
                   (netWorth.investmentsByTaxTreatment |> List.map (fun (t, m) -> t |> TaxTreatment.toString, m))

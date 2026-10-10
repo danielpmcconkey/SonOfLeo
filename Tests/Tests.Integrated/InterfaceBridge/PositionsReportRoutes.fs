@@ -427,7 +427,7 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
                 computed
                 |> List.map (fun pt ->
                     pt.monthEnd,
-                    pt.isPreLedger,
+                    pt.netWorthDate = PreLedgerDate,
                     [ pt.totalLedgerAssets; pt.totalInvestments; pt.totalPropertyValues; pt.totalLiabilities
                       pt.totalOwnedPropertyMortgages; pt.netWorth; pt.investableWealth ]
                     |> List.map Money.amount,

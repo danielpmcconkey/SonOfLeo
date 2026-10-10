@@ -148,19 +148,19 @@ let query
     (parameters: QueryParameter list)
     (expectedRows: AcceptableExpectedRows)
     : Result<AccountSnapshotLot list, IAppError> =
-    let from = "positions.account_snapshot_lot snplot"
+    let from = "positions.account_snapshot_lot snaplot"
     let queryStatement = buildReadQuery cteList select from joinList predicate limit groupBy orderBy
     executeReaderQuery
         (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute expectedRows
 
 let private select =
     """
-    snplot.unique_id, snplot.account_snapshot_line_id, snplot.ordinal, snplot.acquired_date, snplot.quantity,
-    snplot.reported_cost_basis, snplothd.investment_account_id, snplothd.snapshot_date, snplotln.holding_id"""
+    snaplot.unique_id, snaplot.account_snapshot_line_id, snaplot.ordinal, snaplot.acquired_date, snaplot.quantity,
+    snaplot.reported_cost_basis, snap.investment_account_id, snap.snapshot_date, snapl.holding_id"""
 
 let private joins =
-    [ "join positions.account_snapshot_line snplotln on snplotln.unique_id = snplot.account_snapshot_line_id"
-      "join positions.account_snapshot snplothd on snplothd.unique_id = snplotln.account_snapshot_id" ]
+    [ "join positions.account_snapshot_line snapl on snapl.unique_id = snaplot.account_snapshot_line_id"
+      "join positions.account_snapshot snap on snap.unique_id = snapl.account_snapshot_id" ]
 
 /// Lots in the order supplied, line by line.
 let private inOrder (lots: AccountSnapshotLot list) =
@@ -173,18 +173,25 @@ let fetchByAccountSnapshot
     let parameters =
         [ { name = "@account_snapshot_id"; value = UniqueId(accountSnapshotId |> AccountSnapshotId.value) } ]
     query
-        context None select (Some joins) (Some "snplotln.account_snapshot_id = @account_snapshot_id") None None None
+        context None select (Some joins) (Some "snapl.account_snapshot_id = @account_snapshot_id") None None None
         parameters AnyQuantityIsAcceptable
     |> Result.map inOrder
 
-/// The lots of every line of the snapshots a caller's common table expression selects. The CTE is named in
-/// snapshotCte and must carry a unique_id column of account snapshot IDs.
-let fetchBySnapshotsOf
+/// The lots of every line given, line by line in the order supplied. The list may not be empty.
+let fetchByAccountSnapshotLineIdList
     (context: Context.Context)
-    (cteList: string list)
-    (snapshotCte: string)
-    (parameters: QueryParameter list)
+    (accountSnapshotLineIds: AccountSnapshotLineId list)
     : Result<AccountSnapshotLot list, IAppError> =
-    let predicate = $"snplotln.account_snapshot_id in (select unique_id from {snapshotCte})"
-    query context (Some cteList) select (Some joins) (Some predicate) None None None parameters AnyQuantityIsAcceptable
+    if accountSnapshotLineIds |> List.isEmpty then error PositionsAccountSnapshotLineIdListCannotBeEmpty else
+    let ordinals = [ 1 .. accountSnapshotLineIds.Length ]
+    let zipped = List.zip ordinals accountSnapshotLineIds
+    let namesAndParameters =
+        zipped
+        |> List.map (fun (ordinal, id) ->
+            let name = $"@accountSnapshotLineId{ordinal}"
+            name, { name = name; value = UniqueId(id |> AccountSnapshotLineId.value) })
+    let names = namesAndParameters |> List.map fst |> String.concat ", "
+    let parameters = namesAndParameters |> List.map snd
+    let predicate = $"snaplot.account_snapshot_line_id in ({names})"
+    query context None select (Some joins) (Some predicate) None None None parameters AnyQuantityIsAcceptable
     |> Result.map inOrder

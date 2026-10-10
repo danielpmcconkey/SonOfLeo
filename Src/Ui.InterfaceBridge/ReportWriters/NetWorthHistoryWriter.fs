@@ -6,6 +6,7 @@ open App.Utility.Result
 open App.Utility.File
 open App.Utility.Calendar
 open Business.FinancialServices
+open Business.CrossDomainOrchestration.NetWorth
 open Business.CrossDomainOrchestration.NetWorthHistory
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
@@ -88,7 +89,9 @@ let write
         let absent = point.absentComponents |> List.map NetWorthWriter.componentLabel |> String.concat ", "
         let cells =
             [ point.monthEnd |> dateString, "text"
-              (if point.isPreLedger then "pre-ledger" else "ledger"), "text"
+              (match point.netWorthDate with
+               | PreLedgerDate -> "pre-ledger"
+               | FiscalPeriodDate -> "ledger"), "text"
               moneyText point.totalLedgerAssets, ""
               moneyText point.totalInvestments, ""
               moneyText point.totalPropertyValues, ""
@@ -97,7 +100,11 @@ let write
               moneyText point.netWorth, "total"
               moneyText point.investableWealth, "total"
               absent, "text" ]
-        element (10 + i) TableRow (if point.isPreLedger then Class "pre-ledger" else NoIdentifier)
+        let rowClass =
+            match point.netWorthDate with
+            | PreLedgerDate -> Class "pre-ledger"
+            | FiscalPeriodDate -> NoIdentifier
+        element (10 + i) TableRow rowClass
             (cells |> List.mapi (fun j (text, c) -> element (10 + j) (TableDataCell(encode text)) (cellClass c) []))
     let historyTable = element 1 Table NoIdentifier (headRow :: (points |> List.mapi pointRow))
     let reportBody = createReportBody [ historyTable ]

@@ -242,8 +242,8 @@ let fetchByAssetAccountId (context: Context.Context) (accountId: AccountId) : Re
     let parameters = [ { name = "@ledger_account_id"; value = UniqueId(accountId |> AccountId.value) } ]
     let predicate =
         """
-        exists (select 1 from positions.property_asset_account paaf
-                where paaf.property_id = prop.unique_id and paaf.ledger_account_id = @ledger_account_id)"""
+        exists (select 1 from positions.property_asset_account paa
+                where paa.property_id = prop.unique_id and paa.ledger_account_id = @ledger_account_id)"""
     fetchAny context (Some predicate) parameters AnyQuantityIsAcceptable
     |> Result.map List.tryHead
 
@@ -251,8 +251,8 @@ let fetchByMortgageAccountId (context: Context.Context) (accountId: AccountId) :
     let parameters = [ { name = "@ledger_account_id"; value = UniqueId(accountId |> AccountId.value) } ]
     let predicate =
         """
-        exists (select 1 from positions.property_mortgage_account pmaf
-                where pmaf.property_id = prop.unique_id and pmaf.ledger_account_id = @ledger_account_id)"""
+        exists (select 1 from positions.property_mortgage_account pma
+                where pma.property_id = prop.unique_id and pma.ledger_account_id = @ledger_account_id)"""
     fetchAny context (Some predicate) parameters AnyQuantityIsAcceptable
     |> Result.map List.tryHead
 

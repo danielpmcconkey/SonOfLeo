@@ -5,6 +5,8 @@ open NodaTime
 open App.Utility.IAppError
 
 /// What is wrong with an Activity whose kind fixes whether it names a Security and carries a quantity.
+// todo: ActivityShapeProblem belongs with the Activity kind in PositionsComponent. It is declared here only because an error
+// case carries it and PositionsError compiles first.
 type ActivityShapeProblem =
     | SecurityMissing
     | QuantityMissing
@@ -15,6 +17,7 @@ type PositionsError =
     | PositionsAccountGroupIsEmpty of string
     | PositionsAccountGroupTooLong of string * int
     | PositionsAccountSnapshotIdDoesntExist of Guid
+    | PositionsAccountSnapshotLineIdListCannotBeEmpty
     | PositionsAccountSnapshotUpdateNoOp
     | PositionsActivePeriodExcludesRecords of string * (LocalDate * LocalDate) option * (LocalDate * LocalDate) option
     | PositionsActivityAmountNegative of string * LocalDate * string * decimal
@@ -148,6 +151,7 @@ type PositionsError =
             | PositionsAccountGroupIsEmpty raw -> $"Account group cannot be empty. Provided account group is \"{raw}\"."
             | PositionsAccountGroupTooLong(raw, max) -> $"Account group cannot exceed {max} characters. Provided account group is \"{raw}\"."
             | PositionsAccountSnapshotIdDoesntExist uuid -> $"No Account Snapshot exists with ID {uuid}."
+            | PositionsAccountSnapshotLineIdListCannotBeEmpty -> "The accountSnapshotLineIds list must contain at least 1 ID."
             | PositionsAccountSnapshotUpdateNoOp -> "Updating the Account Snapshot record failed because at least one updatable parameter must be set."
             | PositionsActivePeriodExcludesRecords(account, snapshots, activities) ->
                 let described what dates =

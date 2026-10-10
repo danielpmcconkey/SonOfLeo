@@ -67,7 +67,7 @@ type NetWorthDate =
 
 type NetWorth = {
     asOf: LocalDate
-    isPreLedger: bool
+    netWorthDate: NetWorthDate
     assetAccounts: LedgerAccountBalance list
     liabilityAccounts: LedgerAccountBalance list
     investmentAccounts: NetWorthInvestmentAccount list
@@ -172,7 +172,7 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
             |> List.choose rowOf
             |> List.sortBy (fun r -> r.code)
 
-        let! holdings = fetchHoldingValuesAsOf context asOf
+        let! holdings = fetchHoldingsAsOf context asOf
         let! investmentRows =
             holdings
             |> List.map (fun account ->
@@ -241,7 +241,7 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
             |> List.map fst
         return
             { asOf = asOf
-              isPreLedger = (netWorthDate = PreLedgerDate)
+              netWorthDate = netWorthDate
               assetAccounts = assetAccounts
               liabilityAccounts = liabilityAccounts
               investmentAccounts = investmentRows

@@ -157,7 +157,7 @@ let private ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]
 let ``convert [NetWorth] to [NetWorthReturnRow]`` (netWorth: NetWorth) : NetWorthReturnRow =
     let groupTotal (group, total) : NetWorthGroupTotalReturnRow = { group = group; marketValue = total |> Money.amount }
     { asOf = netWorth.asOf
-      isPreLedger = netWorth.isPreLedger
+      isPreLedger = (netWorth.netWorthDate = PreLedgerDate)
       assetAccounts = netWorth.assetAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
       liabilityAccounts =
         netWorth.liabilityAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
@@ -216,7 +216,7 @@ let ``convert [WealthPoint] to [WealthPointReturnRow]`` (point: WealthPoint) : W
 
 let ``convert [NetWorthPoint] to [NetWorthPointReturnRow]`` (point: NetWorthPoint) : NetWorthPointReturnRow =
     { monthEnd = point.monthEnd
-      isPreLedger = point.isPreLedger
+      isPreLedger = (point.netWorthDate = PreLedgerDate)
       totalLedgerAssets = point.totalLedgerAssets |> Money.amount
       totalInvestments = point.totalInvestments |> Money.amount
       totalPropertyValues = point.totalPropertyValues |> Money.amount
