@@ -25,7 +25,7 @@ type ClassificationRule =
         classificationRuleId: ClassificationRuleId
         classificationRuleName: ClassificationRuleName
         classificationClaimant: ClassificationClaimant 
-        priority: int // lower number wins when multiple rules match
+        priority: RulePriority
         ruleGroups: ClassificationRuleGroup list
         isActive: bool
         createdAt: Instant
@@ -45,7 +45,7 @@ let create
     (classificationRuleId: ClassificationRuleId)
     (classificationRuleName: ClassificationRuleName)
     (classificationClaimant: ClassificationClaimant)
-    (priority: int)
+    (priority: RulePriority)
     (ruleGroups: ClassificationRuleGroup list)
     (isActive: bool)
     (createdAt: Instant)
@@ -212,7 +212,7 @@ let persist (context: Context.Context) (classificationRule: ClassificationRule) 
         match classificationRule.classificationClaimant with
         | ClassificationClaimant.Account accountId -> accountId |> AccountId.value |> Some, None
         | ClassificationClaimant.PaymentAgreement paymentAgreementId -> None, paymentAgreementId |> CashFlowComponent.PaymentAgreementId.value |> Some
-    let priority = classificationRule.priority
+    let priority = classificationRule.priority |> RulePriority.value
     let isActive = classificationRule.isActive
     let createdAt = classificationRule.createdAt
     let modifiedAt = classificationRule.modifiedAt
@@ -261,7 +261,7 @@ let private reconstitute raw =
                 classificationRuleId
                 name
                 classificationClaimant
-                priority
+                (priority |> RulePriority.create)
                 ruleGroups
                 isActive
                 createdAt
@@ -366,7 +366,7 @@ let update
     (classificationRuleId: ClassificationRuleId)
     (classificationRuleNameUpdate: FieldUpdate<ClassificationRuleName>)
     (classificationClaimantUpdate: FieldUpdate<ClassificationClaimant>)
-    (priorityUpdate: FieldUpdate<int>)
+    (priorityUpdate: FieldUpdate<RulePriority>)
     (ruleGroupsUpdate: FieldUpdate<ClassificationRuleGroup list>)
     (isActiveUpdate: FieldUpdate<bool>)
     : Result<unit, IAppError> =
@@ -385,7 +385,7 @@ let update
 
               priorityUpdate
               |> mapNoChangeToOptionWithConversion(fun n ->
-                  ("priority = @priority", { name = "@priority"; value = Integer(n) }))
+                  ("priority = @priority", { name = "@priority"; value = Integer(n |> RulePriority.value) }))
 
               ruleGroupsUpdate
               |> mapNoChangeToOptionWithConversion(fun _ ->

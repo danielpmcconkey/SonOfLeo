@@ -197,7 +197,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
             let! returned = fromJson<ClassificationRuleReturn> returnPayload
             Assert.Equal(expected |> ruleNameOf, returned.classificationRuleName)
             Assert.Equal(Some(expectedAccount |> Account.code |> AccountCode.value), returned.claimantAtMatch |> claimantCodeOf)
-            Assert.Equal(expected |> ClassificationRule.priority, returned.priority)
+            Assert.Equal(expected |> ClassificationRule.priority |> RulePriority.value, returned.priority)
         }
         |> railroadWrapper
 

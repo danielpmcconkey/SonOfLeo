@@ -635,7 +635,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                     let! ruleGroups = [ ("And", [ FieldMatch.Description pattern ], None) ] |> createClassificationRuleGroupListForTest
                     let! rule =
                         ClassificationOrchestration.constructNewAndPersist s.Context name
-                            (ClassificationClaimant.Account(s.accountIdOf "F-5300")) 100 ruleGroups
+                            (ClassificationClaimant.Account(s.accountIdOf "F-5300")) (RulePriority.create 100) ruleGroups
                     let! existing = s.cardEntry reference true [ "Classified" ]
                     return rule, existing
                 })

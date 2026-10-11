@@ -52,7 +52,7 @@ let private ruleOf groups =
         (ClassificationRuleId.create ())
         ("Rule under test" |> ClassificationRuleName.create |> unwrap)
         (ClassificationClaimant.Account syntheticAccountId)
-        100
+        (RulePriority.create 100)
         groups
         true
         instant

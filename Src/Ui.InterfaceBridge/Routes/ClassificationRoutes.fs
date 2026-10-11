@@ -27,7 +27,7 @@ let private newClassificationRule payload _ =
         let! name = input.classificationRuleName |> ClassificationRuleName.create
         let! claimantAtMatch =
             input.claimantAtMatch |> ``convert [ClassificationClaimantInput] to [ClassificationClaimant]`` context
-        let priority = input.priority
+        let priority = input.priority |> ``convert [int] to [RulePriority]``
         let! ruleGroups = input.ruleGroups |> ``convert [ClassificationRuleGroupContract list] to [ClassificationRuleGroup list]``
         let! model =
             ClassificationOrchestration.constructNewAndPersist
@@ -51,7 +51,7 @@ let private updateClassificationRule payload _ =
             input.claimantAtMatchUpdate
             |> convertFieldUpdateToNewTypeFallible
                 (``convert [ClassificationClaimantInput] to [ClassificationClaimant]`` context)
-        let priorityUpdate = input.priorityUpdate
+        let priorityUpdate = input.priorityUpdate |> App.Utility.FieldUpdate.map ``convert [int] to [RulePriority]``
         let! ruleGroupsUpdate =
             input.ruleGroupsUpdate
             |> convertFieldUpdateToNewTypeFallible

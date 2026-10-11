@@ -104,7 +104,7 @@ type PrePostingScenario(fixture: TestDataFixture, context: Context.Context) =
             let! groups = [ ("And", [ FieldMatch.Description pattern ], None) ] |> createClassificationRuleGroupListForTest
             return!
                 ClassificationOrchestration.constructNewAndPersist
-                    context name (ClassificationClaimant.PaymentAgreement legId) priority groups
+                    context name (ClassificationClaimant.PaymentAgreement legId) (priority |> RulePriority.create) groups
         }
 
     /// Records one classification run matching each given rule against the line, at a later instant than any before.

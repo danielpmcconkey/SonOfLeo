@@ -156,7 +156,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! groups = [ ("And", [ FieldMatch.Description pattern ], None) ] |> createClassificationRuleGroupListForTest
             return!
                 ClassificationOrchestration.constructNewAndPersist
-                    context name (ClassificationClaimant.PaymentAgreement legId) 500 groups
+                    context name (ClassificationClaimant.PaymentAgreement legId) (RulePriority.create 500) groups
         }
 
 let private orphansIn (run: Result<'T, IAppError>) =

@@ -360,7 +360,7 @@ type private World(fixture: TestDataFixture) =
                 let! groups = [ ("And", [ FieldMatch.Description pattern ], None) ] |> createClassificationRuleGroupListForTest
                 let! _ =
                     ClassificationOrchestration.constructNewAndPersist
-                        context name (ClassificationClaimant.PaymentAgreement legId) 500 groups
+                        context name (ClassificationClaimant.PaymentAgreement legId) (RulePriority.create 500) groups
                 let! _ = ClassificationOrchestration.classifyPaymentAgreements context
                 return! lineId |> PaymentAgreementLink.fetchByStageEntryLineId context
             })

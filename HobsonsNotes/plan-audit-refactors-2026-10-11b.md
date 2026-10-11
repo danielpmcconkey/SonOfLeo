@@ -547,6 +547,22 @@ commits, one per row.
   `RevisedRequirementsStaging.fs`, `StagingIngestionRules.fs`, route
   `IngestionRoutes.fs`).
 
+**A2. RulePriority** (#041, #042). `RulePriority` (private int, total
+`create`, `value`, and `winner`: lower wins) sits in
+`ClassificationComponent` after `ClassificationRuleName`.
+`ClassificationRule.priority`, `create`, `update`'s `FieldUpdate` and
+`PrioritizedMatch.priority` take it; `persist`, `reconstitute` and `update`
+unwrap and wrap at the column. `Classifier.classifyCandidate` reduces the
+matches' priorities with `RulePriority.winner` in place of `List.min`.
+`ClassificationFieldConverters` has `convert [int] to [RulePriority]`, used by
+the two rule routes (the update maps it over the `FieldUpdate`), and the
+return converters unwrap. `PrePostingReview`'s priority-then-name sort and
+the SQL `PriorityAsc`/`PriorityDesc` ordering are untouched (the union
+compares by its int). Tests: `createClassificationRuleForTest` keeps its
+`int` and wraps; direct `constructNewAndPersist`/`ClassificationRule.create`
+calls wrap their literal; model assertions compare `RulePriority.create n`;
+where a test builds a key or a set of ints it unwraps with `value`.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 

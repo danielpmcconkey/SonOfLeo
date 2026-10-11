@@ -88,6 +88,15 @@ module ClassificationRuleName =
         else
             Ok(ClassificationRuleName trimmed)
 
+type RulePriority = private RulePriority of int
+
+module RulePriority =
+    let value (RulePriority i) = i
+    let create (i: int) : RulePriority = RulePriority i
+    /// winner is whichever of two priorities wins when both rules match: the lower number.
+    let winner (first: RulePriority) (second: RulePriority) : RulePriority =
+        if value first <= value second then first else second
+
 type StringSearchPattern = private StringSearchPattern of string
 
 module StringSearchPattern =
@@ -160,7 +169,7 @@ type ClassificationClaimant = // what entity gets to "claim" the Staged Entry at
 type PrioritizedMatch = {
     claimant: ClassificationClaimant
     ruleId: ClassificationRuleId
-    priority: int
+    priority: RulePriority
 }
 
 type ClassifierOutcome =

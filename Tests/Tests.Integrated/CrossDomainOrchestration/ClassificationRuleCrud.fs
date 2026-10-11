@@ -98,11 +98,11 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         context
                         (ruleNameOf "CR-4.1 return shape")
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
-                        777
+                        (RulePriority.create 777)
                         groups
                 Assert.Equal("CR-4.1 return shape", created |> nameOf)
                 Assert.Equal(ClassificationClaimant.Account fixture.Data.food5350Id, created |> ClassificationRule.classificationClaimant)
-                Assert.Equal(777, created |> ClassificationRule.priority)
+                Assert.Equal(RulePriority.create 777, created |> ClassificationRule.priority)
                 Assert.Equal<ClassificationRuleGroup list>(groups, created |> ClassificationRule.ruleGroups)
                 Assert.NotEqual(System.Guid.Empty, created |> idOf |> ClassificationRuleId.value)
                 let initiated = context |> Context.getInitiationInstant
@@ -132,7 +132,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         context
                         (ruleNameOf "CR-4.5 round trip")
                         (ClassificationClaimant.Account fixture.Data.entertainment5650Id)
-                        778
+                        (RulePriority.create 778)
                         groups
                 let! fetched = created |> idOf |> ClassificationRule.fetchById context
                 Assert.Equal<ClassificationRuleGroup list>(groups, fetched |> ClassificationRule.ruleGroups)
@@ -148,7 +148,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         context
                         (ruleNameOf "CR-4.4 always active")
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
-                        779
+                        (RulePriority.create 779)
                         [ groupOf [ Source(patternOf "TestAlwaysActive") ] ]
                 Assert.True(created |> ClassificationRule.isActive)
                 let! fetched = created |> idOf |> ClassificationRule.fetchById context
@@ -165,7 +165,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 context
                 (ruleNameOf "CR-4.3 bogus code")
                 (ClassificationClaimant.Account(AccountId.create()))
-                780
+                (RulePriority.create 780)
                 [ groupOf [ Source(patternOf "TestBogusCode") ] ]
             |> fun r -> isCorrectError r AccountIdDoesntMatch None)
         |> railroadWrapper
@@ -189,7 +189,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         context
                         (ruleNameOf takenName)
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
-                        783
+                        (RulePriority.create 783)
                         [ groupOf [ Source(patternOf "CR122Duplicate") ] ]
                     |> fun r ->
                         (match r with
@@ -234,7 +234,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         context
                         (ruleNameOf subjectName)
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
-                        784
+                        (RulePriority.create 784)
                         [ groupOf [ Source(patternOf "CR122Rename") ] ]
                 idToCleanUp <- Some(subject |> idOf)
                 do!
@@ -266,7 +266,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 context
                 (ruleNameOf "CR-4.6 no groups")
                 (ClassificationClaimant.Account fixture.Data.food5350Id)
-                781
+                (RulePriority.create 781)
                 []
             |> fun r -> isCorrectErrorEmpty r ClassificationRuleGroupsEmpty None)
         |> railroadWrapper
@@ -293,7 +293,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 context
                 (ruleNameOf $"CR-4.7 empty chain at {emptyPosition}")
                 (ClassificationClaimant.Account fixture.Data.food5350Id)
-                782
+                (RulePriority.create 782)
                 groups
             |> fun r -> isCorrectErrorEmpty r ClassificationFieldMatchChainEmpty None)
         |> railroadWrapper
@@ -332,7 +332,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         context
                         (ruleNameOf "Source = TestBank then 5300 EXTENDED")
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
-                        783
+                        (RulePriority.create 783)
                         [ groupOf [ Source(patternOf "TestSuperstring") ] ]
                 let! fetched = ruleNameOf "Source = TestBank then 5300" |> ClassificationRule.fetchByName context
                 Assert.Equal(target |> idOf, fetched |> idOf)
@@ -428,7 +428,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let tag = "CR53" + System.Guid.NewGuid().ToString("N").Substring(0, 10)
                 let create name groups =
                     ClassificationOrchestration.constructNewAndPersist
-                        context (ruleNameOf name) (ClassificationClaimant.Account fixture.Data.food5350Id) 900 groups
+                        context (ruleNameOf name) (ClassificationClaimant.Account fixture.Data.food5350Id) (RulePriority.create 900) groups
                 let! _ = create $"CR-5.3 {tag} chainOne Source" [ groupOf [ Source(patternOf $"Bank {tag} East") ] ]
                 let! _ = create $"CR-5.3 {tag} Description only" [ groupOf [ Description(patternOf $"Bank {tag} East") ] ]
                 let! _ =
@@ -558,8 +558,8 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     Assert.Equal<string list>(ascKeys |> List.rev, descKeys)
                 | _ ->
                     let ascKeys = ascending |> List.map ClassificationRule.priority
-                    Assert.Equal<int list>(ascKeys |> List.sort, ascKeys)
-                    Assert.Equal<int list>(ascKeys |> List.rev, descending |> List.map ClassificationRule.priority)
+                    Assert.Equal<RulePriority list>(ascKeys |> List.sort, ascKeys)
+                    Assert.Equal<RulePriority list>(ascKeys |> List.rev, descending |> List.map ClassificationRule.priority)
             })
         |> railroadWrapper
 
@@ -651,7 +651,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback ClassificationUpdateRule (fun context ->
             result {
                 let original = this.TwoGroupRule()
-                let newPriority = (original |> ClassificationRule.priority) + 11
+                let newPriority = (original |> ClassificationRule.priority |> RulePriority.value) + 11 |> RulePriority.create
                 let! updated =
                     ClassificationOrchestration.updateClassificationRule
                         context
@@ -785,7 +785,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         context
                         (ruleNameOf "CR-6.5 timestamp")
                         (ClassificationClaimant.Account fixture.Data.food5350Id)
-                        784
+                        (RulePriority.create 784)
                         [ groupOf [ Source(patternOf "TestTimestamp") ] ]
                 // modified_at is stamped from the context's initiation instant, not the wall
                 // clock, so without a fresh instant the update writes the same value back and
@@ -899,7 +899,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let! created =
                     ClassificationOrchestration.constructNewAndPersist
                         context (ruleNameOf $"CR-1.26 stored {field}")
-                        (ClassificationClaimant.Account fixture.Data.food5350Id) 782 [ groupOf [ fieldMatch ] ]
+                        (ClassificationClaimant.Account fixture.Data.food5350Id) (RulePriority.create 782) [ groupOf [ fieldMatch ] ]
                 let ruleUuid = created |> idOf |> ClassificationRuleId.value
                 let brokenPattern = "CR-1.26 [unclosed"
                 let! _ =
@@ -944,7 +944,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 // created second-name-first, so creation order cannot stand in for the name order
                 let createPaymentAgreementRule suffix =
                     ClassificationOrchestration.constructNewAndPersist
-                        context (ruleNameOf $"CR-5.4 {tag} {suffix}") (ClassificationClaimant.PaymentAgreement legId) 500
+                        context (ruleNameOf $"CR-5.4 {tag} {suffix}") (ClassificationClaimant.PaymentAgreement legId) (RulePriority.create 500)
                         [ groupOf [ Source(patternOf "CR-5.4 never matches") ] ]
                 let! _ = createPaymentAgreementRule "B"
                 let! _ = createPaymentAgreementRule "A"
@@ -980,7 +980,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let! created =
                     [ for name in [ "Source = Zed CR-5.4 then 5350"; "Acme CR-5.4 then 5350"; "Source = Nonesuch CR-5.4 then 5350" ] ->
                         ClassificationOrchestration.constructNewAndPersist
-                            context (ruleNameOf name) (ClassificationClaimant.Account fixture.Data.food5350Id) 900
+                            context (ruleNameOf name) (ClassificationClaimant.Account fixture.Data.food5350Id) (RulePriority.create 900)
                             [ groupOf [ Source(patternOf "CR-5.4 never matches") ] ] ]
                     |> convertListOfResultsToResultsList
                 let all = fixtureRules () @ created
@@ -1009,11 +1009,11 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let! created =
                     [ for name in [ "Zed CR-5.4 at 500"; "Acme Insurance to 5310 CR-5.4"; "Acme Assurance CR-5.4" ] ->
                         ClassificationOrchestration.constructNewAndPersist
-                            context (ruleNameOf name) (ClassificationClaimant.Account fixture.Data.food5350Id) 500
+                            context (ruleNameOf name) (ClassificationClaimant.Account fixture.Data.food5350Id) (RulePriority.create 500)
                             [ groupOf [ Source(patternOf "CR-5.4 never matches") ] ] ]
                     |> convertListOfResultsToResultsList
                 let all = fixtureRules () @ created
-                let keyed = all |> List.map (fun r -> r |> ClassificationRule.priority, nameOf r)
+                let keyed = all |> List.map (fun r -> r |> ClassificationRule.priority |> RulePriority.value, nameOf r)
                 Assert.True(
                     (keyed |> List.filter (fun (priority, _) -> priority = 500) |> List.length) >= 2,
                     "rules must share the priority for the order within it to show")

@@ -256,7 +256,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! groups = [ ("And", fieldMatches, None) ] |> createClassificationRuleGroupListForTest
             return!
                 ClassificationOrchestration.constructNewAndPersist
-                    context name (ClassificationClaimant.PaymentAgreement legId) priority groups
+                    context name (ClassificationClaimant.PaymentAgreement legId) (priority |> RulePriority.create) groups
         }
 
     /// An active rule claiming, for the leg, any entry whose description matches, optionally pinned to a line type.
@@ -1027,7 +1027,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     |> List.map (fun (ruleMatch, rule) ->
                         (ruleMatch |> RuleMatch.stageEntryLineId),
                         (rule |> ClassificationRule.classificationRuleId),
-                        (rule |> ClassificationRule.priority))
+                        (rule |> ClassificationRule.priority |> RulePriority.value))
                     |> Set.ofList
                 let idOf = ClassificationRule.classificationRuleId
                 let expected =

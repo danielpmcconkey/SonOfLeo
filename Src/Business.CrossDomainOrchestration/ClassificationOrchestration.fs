@@ -84,7 +84,7 @@ let constructNewAndPersist
     (context: Context.Context)
     (classificationRuleName: ClassificationRuleName)
     (classificationClaimant: ClassificationClaimant)
-    (priority: int)
+    (priority: RulePriority)
     (ruleGroups: ClassificationRuleGroup list)
     : Result<ClassificationRule.ClassificationRule, IAppError> = 
     let classificationRuleId = ClassificationRuleId.create()
@@ -263,7 +263,7 @@ let updateClassificationRule
     (context: Context.Context)
     (classificationRuleNameUpdate: FieldUpdate.FieldUpdate<ClassificationRuleName>)
     (classificationClaimantUpdate: FieldUpdate.FieldUpdate<ClassificationClaimant>)
-    (priorityUpdate: FieldUpdate.FieldUpdate<int>)
+    (priorityUpdate: FieldUpdate.FieldUpdate<RulePriority>)
     (ruleGroupsUpdate: FieldUpdate.FieldUpdate<ClassificationRuleGroup list>)
     (isActiveUpdate: FieldUpdate.FieldUpdate<bool>)
     (classificationRuleId: ClassificationRuleId)

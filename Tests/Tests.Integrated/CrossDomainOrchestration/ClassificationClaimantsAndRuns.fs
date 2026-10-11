@@ -120,7 +120,7 @@ type private Scenario(fixture: TestDataFixture, initialContext: Context.Context)
     member _.rule (name: string) (claimant: ClassificationClaimant) (priority: int) (ruleGroups: ClassificationRuleGroup list) =
         result {
             let! ruleName = $"{name} {Guid.NewGuid():N}" |> ClassificationRuleName.create
-            return! ClassificationOrchestration.constructNewAndPersist context ruleName claimant priority ruleGroups
+            return! ClassificationOrchestration.constructNewAndPersist context ruleName claimant (priority |> RulePriority.create) ruleGroups
         }
 
     /// An account rule claiming any line whose entry description matches the pattern.
@@ -548,7 +548,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                             return!
                                 ClassificationOrchestration.updateClassificationRule s.Context
                                     (FieldUpdate.SetTo name) (FieldUpdate.SetTo(ClassificationClaimant.Account(s.accountIdOf "F-1290")))
-                                    (FieldUpdate.SetTo 7) FieldUpdate.NoChange FieldUpdate.NoChange (ruleIdOf rule)
+                                    (FieldUpdate.SetTo (RulePriority.create 7)) FieldUpdate.NoChange FieldUpdate.NoChange (ruleIdOf rule)
                         })
                 let! returned = fetchRun (run.runId |> ClassificationRunId.value)
                 let only = Assert.Single(returned.matches)

@@ -192,7 +192,7 @@ let createClassificationRuleForTest
                 context
                 classificationRuleName
                 classificationClaimant
-                priority
+                (priority |> RulePriority.create)
                 ruleGroups
     }
 

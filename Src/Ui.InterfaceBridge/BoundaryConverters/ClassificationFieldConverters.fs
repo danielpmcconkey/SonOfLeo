@@ -142,6 +142,8 @@ let ``convert [ClassificationClaimantInput] to [ClassificationClaimant]``
         |> ``convert [PaymentAgreementNameString] to [PaymentAgreementId]`` context
         |> Result.map ClassificationClaimant.PaymentAgreement
 
+let ``convert [int] to [RulePriority]`` (priority: int) : RulePriority = priority |> RulePriority.create
+
 let ``convert [ClassificationRule] to [ClassificationRuleReturn]``
     (context: Context.Context)
     (rule: ClassificationRule.ClassificationRule)
@@ -152,7 +154,7 @@ let ``convert [ClassificationRule] to [ClassificationRuleReturn]``
         rule
         |> ClassificationRule.classificationClaimant
         |> ``convert [ClassificationClaimant] to [ClassificationClaimantReturn]`` context
-    let priority = rule |> ClassificationRule.priority
+    let priority = rule |> ClassificationRule.priority |> RulePriority.value
     let ruleGroups = rule |> ClassificationRule.ruleGroups |> ``convert [ClassificationRuleGroup list] to [ClassificationRuleGroupContract list]``
     let isActive = rule |> ClassificationRule.isActive
     let createdAt = rule |> ClassificationRule.createdAt
@@ -201,7 +203,7 @@ let ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
                 accountName = accountName
                 paymentAgreementName = paymentAgreementName
                 ruleId = prioritizedMatch.ruleId |> ClassificationRuleId.value
-                priority = prioritizedMatch.priority } }
+                priority = prioritizedMatch.priority |> RulePriority.value } }
 
 let ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]``
     (context: Context.Context)
@@ -287,7 +289,7 @@ let ``convert [RuleMatch] to [RuleMatchReturn]``
             classificationRuleId = ruleMatch |> RuleMatch.classificationRuleId |> ClassificationRuleId.value
             classificationRuleName = rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
             claimantAtMatch = claimantAtMatch
-            priority = rule |> ClassificationRule.priority
+            priority = rule |> ClassificationRule.priority |> RulePriority.value
             createdAt = ruleMatch |> RuleMatch.createdAt } }
 
 let ``convert [AccountClassificationResult] to [AccountClassificationResultReturn]``
