@@ -77,21 +77,6 @@ type StageEntryFetchFilter =
       journalEntryHeaderId: JournalEntryHeaderId option
       journalEntryLineId: JournalEntryLineId option }
 
-type FetchStageEntrySort =
-    | EntryDateAsc
-    | EntryDateDesc
-    | FiAsc
-    | FiDesc
-    | StatusAsc
-    | StatusDesc
-    | DescriptionAsc
-    | DescriptionDesc
-
-type AgreementFilter = {
-    agreementIds: MasterAgreementId list option
-    activeAgreementsOnly: bool
-}
-
 let getDateRangeFromTemporalFilter 
     (context: Context.Context)
     (temporalFilter: TemporalFilter)

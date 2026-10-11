@@ -141,7 +141,7 @@ type CashFlowRouteTests(fixture: TestDataFixture) =
             |> railroadWrapper
         finally
             let stored =
-                ({ agreementIds = None; activeAgreementsOnly = false } : Business.CrossDomainOrchestration.FetchFilters.AgreementFilter)
+                ({ agreementIds = None; activeAgreementsOnly = false } : Business.FinancialServices.CashFlow.CashFlowComponent.AgreementFilter)
                 |> Business.CrossDomainOrchestration.AgreementOrchestration.fetchFiltered (fresh ()) AnyQuantityIsAcceptable
             match stored with
             | Ok agreements ->
@@ -203,7 +203,7 @@ type CashFlowRouteTests(fixture: TestDataFixture) =
                     daysDueAfterInvoiceDate = Some 0
                     memo = Some "Original leg memo" } ] }
         let treeNamed (agreementName: string) =
-            ({ agreementIds = None; activeAgreementsOnly = false } : Business.CrossDomainOrchestration.FetchFilters.AgreementFilter)
+            ({ agreementIds = None; activeAgreementsOnly = false } : Business.FinancialServices.CashFlow.CashFlowComponent.AgreementFilter)
             |> Business.CrossDomainOrchestration.AgreementOrchestration.fetchFiltered (fresh ()) AnyQuantityIsAcceptable
             |> Result.map (
                 List.filter (fun a ->
@@ -351,7 +351,7 @@ type CashFlowRouteTests(fixture: TestDataFixture) =
             |> railroadWrapper
         finally
             match
-                ({ agreementIds = None; activeAgreementsOnly = false } : Business.CrossDomainOrchestration.FetchFilters.AgreementFilter)
+                ({ agreementIds = None; activeAgreementsOnly = false } : Business.FinancialServices.CashFlow.CashFlowComponent.AgreementFilter)
                 |> Business.CrossDomainOrchestration.AgreementOrchestration.fetchFiltered (fresh ()) AnyQuantityIsAcceptable
             with
             | Ok agreements ->

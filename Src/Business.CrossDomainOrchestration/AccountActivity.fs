@@ -12,19 +12,6 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.CrossDomainOrchestration.FetchFilters
 
-type AccountActivityDetail =
-    { lineId: JournalEntryLineId
-      amount: Money.Money
-      lineType: JournalEntryLineType
-      lineMemo: JournalEntryLineMemo option
-      lineCreatedAt: Instant
-      lineModifiedAt: Instant
-      journalEntryHeaderId: JournalEntryHeaderId
-      entryDate: LocalDate
-      journalEntryDescription: JournalEntryDescription
-      journalEntrySource: JournalEntrySource option
-      journalEntryVoidedAt: Instant option }
-
 type AccountActivity =
     { accountId: AccountId
       accountCode: AccountCode

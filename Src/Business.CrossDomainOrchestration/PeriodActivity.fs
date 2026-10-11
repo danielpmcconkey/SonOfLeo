@@ -12,14 +12,6 @@ open Business.CrossDomainOrchestration.FetchFilters
 open Business.CrossDomainOrchestration.AccountActivity
 open Business.CrossDomainOrchestration.TrialBalanceReport
 
-type PeriodActivityLine =
-    { entryDate: LocalDate
-      journalEntryId: JournalEntryHeaderId
-      description: JournalEntryDescription
-      lineType: JournalEntryLineType
-      amount: Money.Money
-      memo: JournalEntryLineMemo option }
-
 type PeriodActivityAccount =
     { accountCode: AccountCode
       accountName: AccountName

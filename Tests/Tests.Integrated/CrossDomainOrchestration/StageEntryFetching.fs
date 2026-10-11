@@ -603,7 +603,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                 let ascSort, descSort, keyOf =
                     match key with
                     | "entryDate" ->
-                        EntryDateAsc, EntryDateDesc, (fun e -> (e |> entryDateOf).ToString("yyyy-MM-dd", null))
+                        FetchStageEntrySort.EntryDateAsc, FetchStageEntrySort.EntryDateDesc, (fun e -> (e |> entryDateOf).ToString("yyyy-MM-dd", null))
                     | "ingestionSource" -> FiAsc, FiDesc, sourceNameOf
                     | "status" -> StatusAsc, StatusDesc, (fun e -> e |> latestTransitionStatusOf |> StagedEntryStatus.toString)
                     | "description" -> DescriptionAsc, DescriptionDesc, descriptionOf
@@ -627,7 +627,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! staged = stageAll context
-                let! fetched = noFilter |> fetchFiltered context (Some EntryDateAsc)
+                let! fetched = noFilter |> fetchFiltered context (Some FetchStageEntrySort.EntryDateAsc)
                 let returnedDates = fetched |> List.map entryDateOf
                 Assert.Equal<NodaTime.LocalDate list>(returnedDates |> List.sort, returnedDates)
                 Assert.Equal(staged |> List.length, fetched |> List.length)

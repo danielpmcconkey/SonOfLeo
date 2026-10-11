@@ -563,6 +563,18 @@ compares by its int). Tests: `createClassificationRuleForTest` keeps its
 calls wrap their literal; model assertions compare `RulePriority.create n`;
 where a test builds a key or a set of ints it unwraps with `value`.
 
+**A3. Single-domain rows to their components modules** (#008, #012, #020).
+`AccountActivityDetail` and `PeriodActivityLine` follow
+`JournalEntryLineMemo` in `JournalEntryComponent`; `AgreementFilter` is in
+`CashFlowComponent` (before `OrphanedLineReason`); `FetchStageEntrySort` ends
+`StageEntryComponent`. `IngestionContracts` opens `StageEntryComponent` in
+place of `FetchFilters`. `AgreementOrchestration` names
+`CashFlowComponent.AgreementFilter` (it does not open the component module).
+The `EntryDateAsc`/`EntryDateDesc` clash is qualified in
+`StageEntryOrchestration.fetchFiltered` and `StageEntryFetching.fs` (606,
+630). The new `JournalEntryComponent` fields broke no inference. Tests:
+`StageEntryFetching.fs` qualification; `CashFlowRoutes.fs` setup annotations.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 

@@ -105,3 +105,13 @@ module StageEntryHeaderId =
 type AccountValidationType =
     | AllowNone
     | DisallowNone
+
+type FetchStageEntrySort =
+    | EntryDateAsc
+    | EntryDateDesc
+    | FiAsc
+    | FiDesc
+    | StatusAsc
+    | StatusDesc
+    | DescriptionAsc
+    | DescriptionDesc

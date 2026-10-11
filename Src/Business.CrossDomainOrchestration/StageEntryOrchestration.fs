@@ -913,8 +913,8 @@ let fetchFiltered
     let sortClause =
         match sort with
         | None -> None
-        | Some EntryDateAsc -> Some "se.entry_date asc"
-        | Some EntryDateDesc -> Some "se.entry_date desc"
+        | Some FetchStageEntrySort.EntryDateAsc -> Some "se.entry_date asc"
+        | Some FetchStageEntrySort.EntryDateDesc -> Some "se.entry_date desc"
         | Some FiAsc -> Some "src.source_name asc"
         | Some FiDesc -> Some "src.source_name desc"
         | Some StatusAsc -> Some "latest_statuses.to_status asc"

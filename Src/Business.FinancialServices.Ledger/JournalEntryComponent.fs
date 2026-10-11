@@ -170,6 +170,28 @@ module JournalEntryLineMemo =
             Error(JournalEntryLineMemoTooLong(raw, max))
         else
             Ok(LineMemo trimmed)
+
+type AccountActivityDetail =
+    { lineId: JournalEntryLineId
+      amount: Money.Money
+      lineType: JournalEntryLineType
+      lineMemo: JournalEntryLineMemo option
+      lineCreatedAt: Instant
+      lineModifiedAt: Instant
+      journalEntryHeaderId: JournalEntryHeaderId
+      entryDate: LocalDate
+      journalEntryDescription: JournalEntryDescription
+      journalEntrySource: JournalEntrySource option
+      journalEntryVoidedAt: Instant option }
+
+type PeriodActivityLine =
+    { entryDate: LocalDate
+      journalEntryId: JournalEntryHeaderId
+      description: JournalEntryDescription
+      lineType: JournalEntryLineType
+      amount: Money.Money
+      memo: JournalEntryLineMemo option }
+
 type CommentText = private CommentText of string
 module CommentText =
     let max = 2000

@@ -267,7 +267,7 @@ let private compileFromSubLists
 let fetchFiltered
     (context: Context.Context)
     (expectedRows: AcceptableExpectedRows)
-    (filter: AgreementFilter)
+    (filter: CashFlowComponent.AgreementFilter)
     : Result<Agreement list, IAppError> =
     result {
         let! masterAgreements =
@@ -290,7 +290,7 @@ let fetchByMasterAgreementId
     (agreementId: CashFlowComponent.MasterAgreementId)
     : Result<Agreement, IAppError> =
     result {
-        let filter : AgreementFilter =
+        let filter : CashFlowComponent.AgreementFilter =
             { agreementIds = Some [ agreementId ]; activeAgreementsOnly = false }
         let agreementsResult = filter |> fetchFiltered context ExactlyOne
         let agreementUuid = agreementId |> CashFlowComponent.MasterAgreementId.value
@@ -302,7 +302,7 @@ let fetchByMasterAgreementId
     
 let fetchAllActiveAgreements
     (context: Context.Context) =
-    let filter : AgreementFilter =
+    let filter : CashFlowComponent.AgreementFilter =
         { agreementIds = None; activeAgreementsOnly = true }
     filter |> fetchFiltered context AnyQuantityIsAcceptable
 

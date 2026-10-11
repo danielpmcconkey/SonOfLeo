@@ -3,7 +3,7 @@ module Ui.InterfaceBridge.InterfaceContracts.IngestionContracts
 open System
 open NodaTime
 open App.Utility.FieldUpdate
-open Business.CrossDomainOrchestration.FetchFilters
+open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Ui.InterfaceBridge.InterfaceContracts.SharedContracts
 open Ui.InterfaceBridge.InterfaceContracts.JournalContracts
 

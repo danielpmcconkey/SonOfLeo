@@ -376,6 +376,11 @@ module PaymentAmount =
     let create (money: Money.Money) : PaymentAmount = PaymentAmount money
     let value (PaymentAmount money) : Money.Money = money
 
+type AgreementFilter = {
+    agreementIds: MasterAgreementId list option
+    activeAgreementsOnly: bool
+}
+
 /// Why a linked line that is still eligible found no Invoice to take it.
 type OrphanedLineReason =
     | NoOpenInvoiceCoversDate
