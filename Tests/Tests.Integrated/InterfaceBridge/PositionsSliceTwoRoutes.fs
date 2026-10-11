@@ -392,3 +392,7 @@ type PositionsSliceTwoRoutesTests(fixture: TestDataFixture) =
                 all |> List.map balanceOf)
         }
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-13.7 an InvestmentActivity coverage gaps payload naming an account and two dates returns exactly the uncovered stretches, each with its begin and end date, in date order`` () =
+        Assert.Fail "Not yet implemented"

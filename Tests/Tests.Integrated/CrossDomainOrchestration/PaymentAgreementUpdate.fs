@@ -459,3 +459,23 @@ type PaymentAgreementUpdateTests(fixture: TestDataFixture) =
                     | _, Ok _ -> Assert.Fail "Expected failure; got success"
                 Assert.Equal<(MasterAgreement.MasterAgreement * PaymentAgreement.PaymentAgreement list) list>(before, after)
             })
+
+    [<Fact>]
+    member _.``REQ-CF-14.9 REQ-CF-4.9 adding a Payment Agreement to a Master Agreement leaves an Instance of it that was fulfilled before the add stored fulfilled, with no Invoice on the added Payment Agreement`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-14.9 REQ-CF-4.9 adding a Payment Agreement to a Master Agreement leaves an Instance of it that was not fulfilled before the add stored not fulfilled`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-4.9 REQ-CF-9.10 an Instance fulfilled before a Payment Agreement was added to its Master Agreement stays fulfilled when one of its two FullyPaid Invoices is then cancelled, though the added Payment Agreement has no Invoice on it`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-4.9 REQ-CF-9.10 an Instance created after a Payment Agreement was added to its Master Agreement stays unfulfilled while every other leg's Invoice is FullyPaid and the added leg has none, and is fulfilled once the added leg has a FullyPaid Invoice`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-4.9 a Payment Agreement created in the same operation as an Instance counts for it: with every other leg's Invoice FullyPaid, the Instance stays unfulfilled until that Payment Agreement has a FullyPaid Invoice`` () =
+        Assert.Fail "Not yet implemented"
