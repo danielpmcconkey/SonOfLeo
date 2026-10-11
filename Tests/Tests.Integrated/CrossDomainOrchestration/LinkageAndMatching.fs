@@ -177,12 +177,12 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     member _.addOutgoInvoice instanceId legId (invoiceDate: LocalDate) (dueDate: LocalDate) =
         result {
             let! amount = Money.fromDecimal 100.00M
-            let update: InstanceOrchestration.InstanceCompositeUpdate =
-                { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = FieldUpdate.NoChange }
-                  invoiceCompositeUpdates = []
-                  newInvoices =
-                    [ (legId, None, InvoiceDate.create invoiceDate, DueDate.create dueDate, InvoiceAmount.create amount,
-                       InvoiceReceived, None, None, []) ] }
+            let instanceUpdates: Instance.InstanceFieldUpdates =
+                { instanceIdToUpdate = instanceId; isFulfilledUpdate = FieldUpdate.NoChange }
+            let newInvoice =
+                legId, None, InvoiceDate.create invoiceDate, DueDate.create dueDate, InvoiceAmount.create amount,
+                InvoiceReceived, None, None, []
+            let update = InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [] [ newInvoice ]
             let! composite = update |> InstanceOrchestration.updateInstanceComposite context
             return
                 composite

@@ -94,26 +94,24 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
         result {
             let! amount = Money.fromDecimal 100.00M
             let invoiceId = fixture.Data.cashFlow.openInvoiceAId
-            let update : InstanceOrchestration.InstanceCompositeUpdate =
-                { instanceUpdates =
-                    { instanceIdToUpdate = fixture.Data.cashFlow.openInstanceAId
-                      isFulfilledUpdate = NoChange }
-                  invoiceCompositeUpdates =
-                    [ { invoiceUpdates =
-                          { invoiceIdToUpdate = invoiceId
-                            externalInvoiceIdUpdate = NoChange
-                            invoiceDateUpdate = NoChange
-                            dueDateUpdate = NoChange
-                            amountUpdate = NoChange
-                            invoiceStateUpdate = NoChange
-                            paymentStateUpdate = NoChange
-                            postedStateUpdate = NoChange
-                            blockerUpdate = NoChange
-                            memoUpdate = NoChange }
-                        paymentUpdates = []
-                        paymentIdsToDelete = []
-                        newPayments = [ (CashFlowComponent.Staged lineId, None, None, None) ] } ]
-                  newInvoices = [] }
+            let invoiceUpdates: Invoice.InvoiceFieldUpdates =
+                { invoiceIdToUpdate = invoiceId
+                  externalInvoiceIdUpdate = NoChange
+                  invoiceDateUpdate = NoChange
+                  dueDateUpdate = NoChange
+                  amountUpdate = NoChange
+                  invoiceStateUpdate = NoChange
+                  paymentStateUpdate = NoChange
+                  postedStateUpdate = NoChange
+                  blockerUpdate = NoChange
+                  memoUpdate = NoChange }
+            let instanceUpdates: Instance.InstanceFieldUpdates =
+                { instanceIdToUpdate = fixture.Data.cashFlow.openInstanceAId
+                  isFulfilledUpdate = NoChange }
+            let invoiceCompositeUpdate =
+                InstanceOrchestration.InvoiceCompositeUpdate.create invoiceUpdates [] [] [ (CashFlowComponent.Staged lineId, None, None, None) ]
+            let update =
+                InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [ invoiceCompositeUpdate ] []
             let! _ = InstanceOrchestration.updateInstanceComposite context update
             return ()
         }

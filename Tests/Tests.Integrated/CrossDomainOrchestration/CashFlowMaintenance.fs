@@ -19,6 +19,7 @@ open App.Operation.CoreAuditableAction
 open App.Utility.Json
 open NodaTime
 open Tests.Helpers
+open Tests.Helpers.CompositeUpdates
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
 open Tests.Helpers.TestError
@@ -97,17 +98,13 @@ let private noChangeInvoiceUpdates invoiceId : Invoice.InvoiceFieldUpdates =
       memoUpdate = FieldUpdate.NoChange }
 
 let private invoiceCompositeUpdate invoiceId : InstanceOrchestration.InvoiceCompositeUpdate =
-    { invoiceUpdates = noChangeInvoiceUpdates invoiceId
-      paymentUpdates = []
-      paymentIdsToDelete = []
-      newPayments = [] }
+    InstanceOrchestration.InvoiceCompositeUpdate.create (noChangeInvoiceUpdates invoiceId) [] [] []
 
 let private instanceCompositeUpdate instanceId : InstanceOrchestration.InstanceCompositeUpdate =
-    { instanceUpdates =
+    let instanceUpdates: Instance.InstanceFieldUpdates =
         { instanceIdToUpdate = instanceId
           isFulfilledUpdate = FieldUpdate.NoChange }
-      invoiceCompositeUpdates = []
-      newInvoices = [] }
+    InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [] []
 
 let private instanceIdOf composite = composite |> InstanceOrchestration.instance |> Instance.instanceId
 
@@ -178,12 +175,10 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
             result {
                 let! _, _, created = createInvoicedInstance fixture context "sys62 invoice update"
                 let! memo = "REQ-SYS-6.2 no such invoice" |> InvoiceMemo.create
+                let invoiceUpdates = { noChangeInvoiceUpdates missingId with memoUpdate = FieldUpdate.SetTo(Some memo) }
                 let update =
-                    { instanceCompositeUpdate (created |> instanceIdOf) with
-                        invoiceCompositeUpdates =
-                            [ { invoiceCompositeUpdate missingId with
-                                  invoiceUpdates =
-                                    { noChangeInvoiceUpdates missingId with memoUpdate = FieldUpdate.SetTo(Some memo) } } ] }
+                    instanceCompositeUpdate (created |> instanceIdOf)
+                    |> withInvoiceCompositeUpdates [ invoiceCompositeUpdate missingId |> withInvoiceUpdates invoiceUpdates ]
                 return!
                     InstanceOrchestration.updateInstanceComposite context update
                     |> expectNotFound
@@ -225,9 +220,8 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
                 let! _, _, created = createInvoicedInstance fixture context "sys62 payment delete"
                 let invoiceId = created |> invoiceIdOf
                 let update =
-                    { instanceCompositeUpdate (created |> instanceIdOf) with
-                        invoiceCompositeUpdates =
-                            [ { invoiceCompositeUpdate invoiceId with paymentIdsToDelete = [ missingId ] } ] }
+                    instanceCompositeUpdate (created |> instanceIdOf)
+                    |> withInvoiceCompositeUpdates [ invoiceCompositeUpdate invoiceId |> withPaymentIdsToDelete [ missingId ] ]
                 return!
                     InstanceOrchestration.updateInstanceComposite context update
                     |> expectNotFound
@@ -244,10 +238,9 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
                 let! _, _, created = createInvoicedInstance fixture context "sys63 staged pointer"
                 let instanceId = created |> instanceIdOf
                 let update =
-                    { instanceCompositeUpdate instanceId with
-                        invoiceCompositeUpdates =
-                            [ { invoiceCompositeUpdate (created |> invoiceIdOf) with
-                                  newPayments = [ (Staged missingId, None, None, None) ] } ] }
+                    instanceCompositeUpdate instanceId
+                    |> withInvoiceCompositeUpdates
+                        [ invoiceCompositeUpdate (created |> invoiceIdOf) |> withNewPayments [ (Staged missingId, None, None, None) ] ]
                 do!
                     InstanceOrchestration.updateInstanceComposite context update
                     |> expectNotFound
@@ -266,10 +259,10 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
                 let! _, _, created = createInvoicedInstance fixture context "sys63 posted pointer"
                 let instanceId = created |> instanceIdOf
                 let update =
-                    { instanceCompositeUpdate instanceId with
-                        invoiceCompositeUpdates =
-                            [ { invoiceCompositeUpdate (created |> invoiceIdOf) with
-                                  newPayments = [ (Posted(missingId, None), None, None, None) ] } ] }
+                    instanceCompositeUpdate instanceId
+                    |> withInvoiceCompositeUpdates
+                        [ invoiceCompositeUpdate (created |> invoiceIdOf)
+                          |> withNewPayments [ (Posted(missingId, None), None, None, None) ] ]
                 do!
                     InstanceOrchestration.updateInstanceComposite context update
                     |> expectNotFound
@@ -292,7 +285,7 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
                 let! before = invoicesOfAgreement ()
                 let! newInvoice = newInvoiceFor legId
                 do!
-                    { instanceCompositeUpdate missingId with newInvoices = [ newInvoice ] }
+                    instanceCompositeUpdate missingId |> withNewInvoices [ newInvoice ]
                     |> InstanceOrchestration.updateInstanceComposite context
                     |> expectNotFound
                         (function AsError (CashFlowError.CashflowInstanceIdDoesntExist uuid) -> Some uuid | _ -> None)
@@ -311,7 +304,7 @@ type CashFlowMaintenanceTests(fixture: TestDataFixture) =
                 let instanceId = created |> instanceIdOf
                 let! newInvoice = newInvoiceFor missingId
                 do!
-                    { instanceCompositeUpdate instanceId with newInvoices = [ newInvoice ] }
+                    instanceCompositeUpdate instanceId |> withNewInvoices [ newInvoice ]
                     |> InstanceOrchestration.updateInstanceComposite context
                     |> expectNotFound
                         (function AsError (CashFlowError.CashflowPaymentAgreementIdDoesntExist uuid) -> Some uuid | _ -> None)

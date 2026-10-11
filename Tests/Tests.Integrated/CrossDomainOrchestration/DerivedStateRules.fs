@@ -25,6 +25,7 @@ open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Ui.InterfaceBridge.CommandRoute
 open NodaTime
 open Tests.Helpers
+open Tests.Helpers.CompositeUpdates
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
@@ -212,26 +213,22 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
 
 /// An update to one Invoice of the Instance that changes nothing unless the caller says so.
 let private invoiceUpdate (instanceId: InstanceId) (invoiceId: InvoiceId) : InstanceOrchestration.InstanceCompositeUpdate =
-    { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
-      invoiceCompositeUpdates =
-        [ { invoiceUpdates =
-              { invoiceIdToUpdate = invoiceId
-                externalInvoiceIdUpdate = NoChange
-                invoiceDateUpdate = NoChange
-                dueDateUpdate = NoChange
-                amountUpdate = NoChange
-                invoiceStateUpdate = NoChange
-                paymentStateUpdate = NoChange
-                postedStateUpdate = NoChange
-                blockerUpdate = NoChange
-                memoUpdate = NoChange }
-            paymentUpdates = []
-            paymentIdsToDelete = []
-            newPayments = [] } ]
-      newInvoices = [] }
+    let instanceUpdates: Instance.InstanceFieldUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
+    let invoiceUpdates: Invoice.InvoiceFieldUpdates =
+        { invoiceIdToUpdate = invoiceId
+          externalInvoiceIdUpdate = NoChange
+          invoiceDateUpdate = NoChange
+          dueDateUpdate = NoChange
+          amountUpdate = NoChange
+          invoiceStateUpdate = NoChange
+          paymentStateUpdate = NoChange
+          postedStateUpdate = NoChange
+          blockerUpdate = NoChange
+          memoUpdate = NoChange }
+    let invoiceCompositeUpdate = InstanceOrchestration.InvoiceCompositeUpdate.create invoiceUpdates [] [] []
+    InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [ invoiceCompositeUpdate ] []
 
-let private withInvoiceChange change (update: InstanceOrchestration.InstanceCompositeUpdate) =
-    { update with invoiceCompositeUpdates = update.invoiceCompositeUpdates |> List.map change }
+let private withInvoiceChange = mapInvoiceCompositeUpdates
 
 let private isFullyPaidWithBlocker (r: Result<'a, IAppError>) =
     match r with
@@ -325,7 +322,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let! completing = s.newPayment (PostedPay 40.00M)
                 let update =
                     invoiceUpdate instanceId invoiceId
-                    |> withInvoiceChange (fun u -> { u with newPayments = [ completing ] })
+                    |> withInvoiceChange (withNewPayments [ completing ])
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite s.Context
                 Assert.True(attempt |> isFullyPaidWithBlocker)
                 let! paymentsAfter = s.paymentIdsOf invoiceId
@@ -344,8 +341,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let! sixty = Money.fromDecimal 60.00M
                 let update =
                     invoiceUpdate instanceId invoiceId
-                    |> withInvoiceChange (fun u ->
-                        { u with invoiceUpdates = { u.invoiceUpdates with amountUpdate = SetTo(InvoiceAmount.create sixty) } })
+                    |> withInvoiceChange (mapInvoiceUpdates (fun u -> { u with amountUpdate = SetTo(InvoiceAmount.create sixty) }))
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite s.Context
                 Assert.True(attempt |> isFullyPaidWithBlocker)
                 let! invoice = s.invoiceOf invoiceId
@@ -361,8 +357,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let invoiceId, _ = invoices[0]
                 let update =
                     invoiceUpdate instanceId invoiceId
-                    |> withInvoiceChange (fun u ->
-                        { u with invoiceUpdates = { u.invoiceUpdates with blockerUpdate = SetTo(Some NoFunds) } })
+                    |> withInvoiceChange (mapInvoiceUpdates (fun u -> { u with blockerUpdate = SetTo(Some NoFunds) }))
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite s.Context
                 Assert.True(attempt |> isFullyPaidWithBlocker)
                 let! invoice = s.invoiceOf invoiceId
@@ -441,7 +436,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let! completing = s.newPayment (PostedPay 40.00M)
                 let! _ =
                     invoiceUpdate instanceId invoiceId
-                    |> withInvoiceChange (fun u -> { u with newPayments = [ completing ] })
+                    |> withInvoiceChange (withNewPayments [ completing ])
                     |> InstanceOrchestration.updateInstanceComposite s.Context
                 let! paymentState, _ = s.statesOf invoiceId
                 let! fulfilled = s.isFulfilled instanceId
@@ -476,8 +471,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let missingLine = JournalEntryLineId.create ()
                 let attempt =
                     invoiceUpdate instanceId invoiceId
-                    |> withInvoiceChange (fun u ->
-                        { u with newPayments = [ (Posted(missingLine, None), None, None, None) ] })
+                    |> withInvoiceChange (withNewPayments [ (Posted(missingLine, None), None, None, None) ])
                     |> InstanceOrchestration.updateInstanceComposite s.Context
                 let rejectedForMissingLine =
                     match attempt with
@@ -592,8 +586,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let! raised = Money.fromDecimal 150.00M
                 let! _ =
                     invoiceUpdate instanceId invoiceId
-                    |> withInvoiceChange (fun u ->
-                        { u with invoiceUpdates = { u.invoiceUpdates with amountUpdate = SetTo(InvoiceAmount.create raised) } })
+                    |> withInvoiceChange (mapInvoiceUpdates (fun u -> { u with amountUpdate = SetTo(InvoiceAmount.create raised) }))
                     |> InstanceOrchestration.updateInstanceComposite s.Context
                 let! after = s.statesOf invoiceId
                 let! fulfilled = s.isFulfilled instanceId
@@ -636,10 +629,9 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let added =
                     (legIds[1], None, InvoiceDate.create date, DueDate.create (date.PlusDays(30)),
                      InvoiceAmount.create amount, InvoiceReceived, None, None, payments)
-                let update: InstanceOrchestration.InstanceCompositeUpdate =
-                    { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
-                      invoiceCompositeUpdates = []
-                      newInvoices = [ added ] }
+                let instanceUpdates: Instance.InstanceFieldUpdates =
+                    { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
+                let update = InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [] [ added ]
                 let! _ = update |> InstanceOrchestration.updateInstanceComposite s.Context
                 let! fulfilled = s.isFulfilled instanceId
                 Assert.Equal(expectedFulfilled, fulfilled)
@@ -702,8 +694,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let! replacement = replacing.newPayment (PostedPay 100.00M)
                 let update =
                     invoiceUpdate instanceId secondInvoiceId
-                    |> withInvoiceChange (fun change ->
-                        { change with paymentIdsToDelete = secondPaymentIds; newPayments = [ replacement ] })
+                    |> withInvoiceChange (withPaymentIdsToDelete secondPaymentIds >> withNewPayments [ replacement ])
                 let! _ = update |> InstanceOrchestration.updateInstanceComposite replacing.Context
                 let! paymentIdsAfter = replacing.paymentIdsOf secondInvoiceId
                 let! statesAfter = replacing.statesOf secondInvoiceId
@@ -733,10 +724,9 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let added =
                     (addedLegId, None, InvoiceDate.create date, DueDate.create (date.PlusDays(30)),
                      InvoiceAmount.create amount, InvoiceReceived, None, None, payments)
-                let update: InstanceOrchestration.InstanceCompositeUpdate =
-                    { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
-                      invoiceCompositeUpdates = []
-                      newInvoices = [ added ] }
+                let instanceUpdates: Instance.InstanceFieldUpdates =
+                    { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
+                let update = InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [] [ added ]
                 let! _ = update |> InstanceOrchestration.updateInstanceComposite invoicing.Context
                 let! fulfilled = invoicing.isFulfilled instanceId
                 Assert.True(fulfilled)

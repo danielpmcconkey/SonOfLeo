@@ -310,11 +310,9 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                     (made.legIds[0], None, (InvoiceDate.create (march 1)), (DueDate.create (march 31)),
                      (InvoiceAmount.create amount), InvoiceReceived, None, None, [])
                 let missing = InstanceId.create ()
-                let update : InstanceOrchestration.InstanceCompositeUpdate =
-                    { instanceUpdates =
-                        { instanceIdToUpdate = missing; isFulfilledUpdate = NoChange }
-                      invoiceCompositeUpdates = []
-                      newInvoices = [ invoice ] }
+                let instanceUpdates: Instance.InstanceFieldUpdates =
+                    { instanceIdToUpdate = missing; isFulfilledUpdate = NoChange }
+                let update = InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [] [ invoice ]
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite context
                 let! leg = invoicesOfLeg context made.legIds[0]
                 attempt
@@ -358,11 +356,9 @@ type InvoiceDataStatesTests(fixture: TestDataFixture) =
                 let invoice =
                     (PaymentAgreementId.create (), None, (InvoiceDate.create (march 1)), (DueDate.create (march 31)),
                      (InvoiceAmount.create amount), InvoiceReceived, None, None, [])
-                let update : InstanceOrchestration.InstanceCompositeUpdate =
-                    { instanceUpdates =
-                        { instanceIdToUpdate = made.instanceId; isFulfilledUpdate = NoChange }
-                      invoiceCompositeUpdates = []
-                      newInvoices = [ invoice ] }
+                let instanceUpdates: Instance.InstanceFieldUpdates =
+                    { instanceIdToUpdate = made.instanceId; isFulfilledUpdate = NoChange }
+                let update = InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [] [ invoice ]
                 let attempt = update |> InstanceOrchestration.updateInstanceComposite context
                 let! onInstance = invoicesOfInstance context made.instanceId
                 attempt

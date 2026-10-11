@@ -462,10 +462,7 @@ let ``convert [CreateInvoiceInput] to [InstanceCompositeUpdate]``
     result {
         let instanceId = input.instanceId |> InstanceId.fromGuid
         let! newInvoice = input.invoice |> ``convert [NewInvoiceFieldsInput] to [NewInvoicePrimitives]`` context
-        return {
-            instanceUpdates = instanceId |> noChangeInstanceUpdates
-            invoiceCompositeUpdates = []
-            newInvoices = [ newInvoice ] }
+        return InstanceOrchestration.InstanceCompositeUpdate.create (instanceId |> noChangeInstanceUpdates) [] [ newInvoice ]
     }
 
 let ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]``
@@ -506,12 +503,10 @@ let ``convert [UpdateInvoiceInput] to [InstanceCompositeUpdate]``
             postedStateUpdate = FieldUpdate.NoChange
             blockerUpdate = blockerUpdate
             memoUpdate = memoUpdate }
-        let invoiceCompositeUpdate : InstanceOrchestration.InvoiceCompositeUpdate =
-            { invoiceUpdates = invoiceUpdates; paymentUpdates = []; paymentIdsToDelete = []; newPayments = [] }
-        return {
-            instanceUpdates = instanceId |> noChangeInstanceUpdates
-            invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
-            newInvoices = [] }
+        let invoiceCompositeUpdate = InstanceOrchestration.InvoiceCompositeUpdate.create invoiceUpdates [] [] []
+        return
+            InstanceOrchestration.InstanceCompositeUpdate.create
+                (instanceId |> noChangeInstanceUpdates) [ invoiceCompositeUpdate ] []
     }
 
 let ``convert [CreatePaymentInput] to [InstanceCompositeUpdate]``
@@ -523,15 +518,11 @@ let ``convert [CreatePaymentInput] to [InstanceCompositeUpdate]``
         let! invoice = invoiceId |> Invoice.fetchById context
         let instanceId = invoice |> Invoice.instanceId
         let! newPayment = input.payment |> ``convert [CreatePaymentFieldsInput] to [PaymentPrimitives]``
-        let invoiceCompositeUpdate : InstanceOrchestration.InvoiceCompositeUpdate =
-            { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
-              paymentUpdates = []
-              paymentIdsToDelete = []
-              newPayments = [ newPayment ] }
-        return {
-            instanceUpdates = instanceId |> noChangeInstanceUpdates
-            invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
-            newInvoices = [] }
+        let invoiceCompositeUpdate =
+            InstanceOrchestration.InvoiceCompositeUpdate.create (invoiceId |> noChangeInvoiceUpdates) [] [] [ newPayment ]
+        return
+            InstanceOrchestration.InstanceCompositeUpdate.create
+                (instanceId |> noChangeInstanceUpdates) [ invoiceCompositeUpdate ] []
     }
 
 let ``convert [CreatePaymentAgreementFieldsInput] to [PaymentAgreementPrimitives]``

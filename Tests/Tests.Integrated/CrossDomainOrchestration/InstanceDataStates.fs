@@ -22,6 +22,7 @@ open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Ui.InterfaceBridge.CommandRoute
 open NodaTime
 open Tests.Helpers
+open Tests.Helpers.CompositeUpdates
 open Tests.Helpers.EntityFunctions
 open Tests.Helpers.Railroad
 open Tests.Helpers.RouteResolver
@@ -141,28 +142,24 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
 
 /// An update to the Instance that changes only what the caller says.
 let private instanceUpdate (instanceId: InstanceId) : InstanceOrchestration.InstanceCompositeUpdate =
-    { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
-      invoiceCompositeUpdates = []
-      newInvoices = [] }
+    let instanceUpdates: Instance.InstanceFieldUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
+    InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [] []
 
 /// An update adding the Payment to the Invoice and changing nothing else.
 let private addPayment (instanceId: InstanceId) (invoiceId: InvoiceId) payment : InstanceOrchestration.InstanceCompositeUpdate =
-    { instanceUpdate instanceId with
-        invoiceCompositeUpdates =
-          [ { invoiceUpdates =
-                { invoiceIdToUpdate = invoiceId
-                  externalInvoiceIdUpdate = NoChange
-                  invoiceDateUpdate = NoChange
-                  dueDateUpdate = NoChange
-                  amountUpdate = NoChange
-                  invoiceStateUpdate = NoChange
-                  paymentStateUpdate = NoChange
-                  postedStateUpdate = NoChange
-                  blockerUpdate = NoChange
-                  memoUpdate = NoChange }
-              paymentUpdates = []
-              paymentIdsToDelete = []
-              newPayments = [ payment ] } ] }
+    let invoiceUpdates: Invoice.InvoiceFieldUpdates =
+        { invoiceIdToUpdate = invoiceId
+          externalInvoiceIdUpdate = NoChange
+          invoiceDateUpdate = NoChange
+          dueDateUpdate = NoChange
+          amountUpdate = NoChange
+          invoiceStateUpdate = NoChange
+          paymentStateUpdate = NoChange
+          postedStateUpdate = NoChange
+          blockerUpdate = NoChange
+          memoUpdate = NoChange }
+    let invoiceCompositeUpdate = InstanceOrchestration.InvoiceCompositeUpdate.create invoiceUpdates [] [] [ payment ]
+    instanceUpdate instanceId |> withInvoiceCompositeUpdates [ invoiceCompositeUpdate ]
 
 /// The ids of the composite's Invoices, in the order of the legs given.
 let private invoiceIdsByLeg (composite: InstanceOrchestration.InstanceComposite) (legIds: PaymentAgreementId list) =
@@ -559,7 +556,7 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
                 let! again = s.invoiceFields (march 1) legIds[0] []
                 do!
                     match
-                        { instanceUpdate (idOf created) with newInvoices = [ again ] }
+                        instanceUpdate (idOf created) |> withNewInvoices [ again ]
                         |> InstanceOrchestration.updateInstanceComposite s.Context
                     with
                     | Error (AsError (CashFlowError.CashflowInstanceManyInvoicesForPaymentAgreement(instanceUuid, legUuid, count))) ->
@@ -603,7 +600,7 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
                 let! foreign = s.invoiceFields (march 1) otherLegs[0] []
                 do!
                     match
-                        { instanceUpdate (idOf created) with newInvoices = [ foreign ] }
+                        instanceUpdate (idOf created) |> withNewInvoices [ foreign ]
                         |> InstanceOrchestration.updateInstanceComposite s.Context
                     with
                     | Error (AsError (CashFlowError.CashflowInvoiceDiamondMismatch(_, instanceAgreementUuid, legAgreementUuid))) ->

@@ -326,18 +326,15 @@ let private createPaymentForInvoice
     let invoiceUpdates =
         if clearBlocker then { (invoiceId |> noChangeInvoiceUpdates) with blockerUpdate = FieldUpdate.SetTo None }
         else invoiceId |> noChangeInvoiceUpdates
-    let invoiceCompositeUpdate: InstanceOrchestration.InvoiceCompositeUpdate =
-        { invoiceUpdates = invoiceUpdates
-          paymentUpdates = []
-          paymentIdsToDelete = []
-          newPayments =
-            [ CashFlowComponent.Staged lineId, Some(CashFlowComponent.PostedToFiDate.create entryDate), None, None ] }
-    let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
-        { instanceUpdates =
-            { instanceIdToUpdate = instanceId
-              isFulfilledUpdate = FieldUpdate.NoChange }
-          invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
-          newInvoices = [] }
+    let newPayment =
+        CashFlowComponent.Staged lineId, Some(CashFlowComponent.PostedToFiDate.create entryDate), None, None
+    let invoiceCompositeUpdate =
+        InstanceOrchestration.InvoiceCompositeUpdate.create invoiceUpdates [] [] [ newPayment ]
+    let instanceUpdates: Instance.InstanceFieldUpdates =
+        { instanceIdToUpdate = instanceId
+          isFulfilledUpdate = FieldUpdate.NoChange }
+    let compositeUpdate =
+        InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [ invoiceCompositeUpdate ] []
     compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
 
 let private isOverpaid
@@ -699,17 +696,14 @@ let deletePaymentAndItsLinkage
                         |> convertListOfResultsToResultsList
                         |> Result.map ignore
                 }
-        let invoiceCompositeUpdate: InstanceOrchestration.InvoiceCompositeUpdate =
-            { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
-              paymentUpdates = []
-              paymentIdsToDelete = [ paymentId ]
-              newPayments = [] }
-        let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
-            { instanceUpdates =
-                { instanceIdToUpdate = instanceId
-                  isFulfilledUpdate = FieldUpdate.NoChange }
-              invoiceCompositeUpdates = [ invoiceCompositeUpdate ]
-              newInvoices = [] }
+        let invoiceCompositeUpdate =
+            InstanceOrchestration.InvoiceCompositeUpdate.create
+                (invoiceId |> noChangeInvoiceUpdates) [] [ paymentId ] []
+        let instanceUpdates: Instance.InstanceFieldUpdates =
+            { instanceIdToUpdate = instanceId
+              isFulfilledUpdate = FieldUpdate.NoChange }
+        let compositeUpdate =
+            InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [ invoiceCompositeUpdate ] []
         return! compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
     }
 
@@ -877,18 +871,13 @@ let private transitionOneInstancesPaymentsToPosted
                             { paymentIdToUpdate = payment |> Payment.paymentId
                               journalEntryLineIdUpdate = FieldUpdate.SetTo(Some journalEntryLineId) }
                         paymentUpdate)
-                let invoiceCompositeUpdate: InstanceOrchestration.InvoiceCompositeUpdate =
-                    { invoiceUpdates = invoiceId |> noChangeInvoiceUpdates
-                      paymentUpdates = paymentUpdates
-                      paymentIdsToDelete = []
-                      newPayments = [] }
-                invoiceCompositeUpdate)
-        let compositeUpdate: InstanceOrchestration.InstanceCompositeUpdate =
-            { instanceUpdates =
-                { instanceIdToUpdate = instanceId
-                  isFulfilledUpdate = FieldUpdate.NoChange }
-              invoiceCompositeUpdates = invoiceCompositeUpdates
-              newInvoices = [] }
+                InstanceOrchestration.InvoiceCompositeUpdate.create
+                    (invoiceId |> noChangeInvoiceUpdates) paymentUpdates [] [])
+        let instanceUpdates: Instance.InstanceFieldUpdates =
+            { instanceIdToUpdate = instanceId
+              isFulfilledUpdate = FieldUpdate.NoChange }
+        let compositeUpdate =
+            InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates invoiceCompositeUpdates []
         let! composite = compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
         let agreementName = composite |> InstanceOrchestration.instance |> Instance.masterAgreementName
         return

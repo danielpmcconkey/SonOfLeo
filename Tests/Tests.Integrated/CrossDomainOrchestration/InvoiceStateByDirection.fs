@@ -72,18 +72,15 @@ type InvoiceStateByDirectionTests(fixture: TestDataFixture) =
                       postedStateUpdate = FieldUpdate.NoChange
                       blockerUpdate = FieldUpdate.NoChange
                       memoUpdate = FieldUpdate.NoChange }
+                let instanceUpdates: Instance.InstanceFieldUpdates =
+                    { instanceIdToUpdate = cashFlow.openInstanceAId
+                      isFulfilledUpdate = FieldUpdate.NoChange }
+                let invoiceCompositeUpdate =
+                    InstanceOrchestration.InvoiceCompositeUpdate.create invoiceUpdates [] [] []
                 let updated =
                     InstanceOrchestration.updateInstanceComposite
                         context
-                        { instanceUpdates =
-                            { instanceIdToUpdate = cashFlow.openInstanceAId
-                              isFulfilledUpdate = FieldUpdate.NoChange }
-                          invoiceCompositeUpdates =
-                            [ { invoiceUpdates = invoiceUpdates
-                                paymentUpdates = []
-                                paymentIdsToDelete = []
-                                newPayments = [] } ]
-                          newInvoices = [] }
+                        (InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [ invoiceCompositeUpdate ] [])
                 return updated |> expectStateRejected "InvoiceSent"
             })
         |> railroadWrapper

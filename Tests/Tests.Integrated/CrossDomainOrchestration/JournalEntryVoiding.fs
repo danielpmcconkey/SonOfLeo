@@ -60,26 +60,24 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     let addPayment (context: Context.Context) (pointer: CashFlowComponent.TransactionPointer) =
         result {
             let! amount = Money.fromDecimal 100.00M
-            let update : InstanceOrchestration.InstanceCompositeUpdate =
-                { instanceUpdates =
-                    { instanceIdToUpdate = fixture.Data.cashFlow.openInstanceAId
-                      isFulfilledUpdate = NoChange }
-                  invoiceCompositeUpdates =
-                    [ { invoiceUpdates =
-                          { invoiceIdToUpdate = fixture.Data.cashFlow.openInvoiceAId
-                            externalInvoiceIdUpdate = NoChange
-                            invoiceDateUpdate = NoChange
-                            dueDateUpdate = NoChange
-                            amountUpdate = NoChange
-                            invoiceStateUpdate = NoChange
-                            paymentStateUpdate = NoChange
-                            postedStateUpdate = NoChange
-                            blockerUpdate = NoChange
-                            memoUpdate = NoChange }
-                        paymentUpdates = []
-                        paymentIdsToDelete = []
-                        newPayments = [ (pointer, None, None, None) ] } ]
-                  newInvoices = [] }
+            let invoiceUpdates: Invoice.InvoiceFieldUpdates =
+                { invoiceIdToUpdate = fixture.Data.cashFlow.openInvoiceAId
+                  externalInvoiceIdUpdate = NoChange
+                  invoiceDateUpdate = NoChange
+                  dueDateUpdate = NoChange
+                  amountUpdate = NoChange
+                  invoiceStateUpdate = NoChange
+                  paymentStateUpdate = NoChange
+                  postedStateUpdate = NoChange
+                  blockerUpdate = NoChange
+                  memoUpdate = NoChange }
+            let instanceUpdates: Instance.InstanceFieldUpdates =
+                { instanceIdToUpdate = fixture.Data.cashFlow.openInstanceAId
+                  isFulfilledUpdate = NoChange }
+            let invoiceCompositeUpdate =
+                InstanceOrchestration.InvoiceCompositeUpdate.create invoiceUpdates [] [] [ (pointer, None, None, None) ]
+            let update =
+                InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates [ invoiceCompositeUpdate ] []
             let! composite = InstanceOrchestration.updateInstanceComposite context update
             return
                 composite

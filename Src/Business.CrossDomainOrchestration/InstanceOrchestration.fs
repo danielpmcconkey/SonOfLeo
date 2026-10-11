@@ -409,35 +409,83 @@ let private isThereAPaymentUpdate
     : bool =
     paymentUpdates.journalEntryLineIdUpdate <> FieldUpdate.NoChange
 
-type InvoiceCompositeUpdate = {
-    invoiceUpdates: Invoice.InvoiceFieldUpdates
-    paymentUpdates: Payment.PaymentFieldUpdates list
-    paymentIdsToDelete: CashFlowComponent.PaymentId list
-    newPayments: (
-        CashFlowComponent.TransactionPointer *
-        CashFlowComponent.PostedToFiDate option *
-        CashFlowComponent.PostedToLedgerDate option *
-        CashFlowComponent.PaymentMemo option) list
-}
-
-type InstanceCompositeUpdate = {
-    instanceUpdates: Instance.InstanceFieldUpdates
-    invoiceCompositeUpdates: InvoiceCompositeUpdate list
-    newInvoices: (
-        CashFlowComponent.PaymentAgreementId *
-        CashFlowComponent.ExternalInvoiceId option *
-        CashFlowComponent.InvoiceDate *
-        CashFlowComponent.DueDate *
-        CashFlowComponent.InvoiceAmount *
-        CashFlowComponent.InvoiceState *
-        CashFlowComponent.Blocker option *
-        CashFlowComponent.InvoiceMemo option *
-        ( // payments
+type InvoiceCompositeUpdate =
+    private {
+        invoiceUpdates: Invoice.InvoiceFieldUpdates
+        paymentUpdates: Payment.PaymentFieldUpdates list
+        paymentIdsToDelete: CashFlowComponent.PaymentId list
+        newPayments: (
             CashFlowComponent.TransactionPointer *
             CashFlowComponent.PostedToFiDate option *
             CashFlowComponent.PostedToLedgerDate option *
-            CashFlowComponent.PaymentMemo option) list) list
-}
+            CashFlowComponent.PaymentMemo option) list
+    }
+
+module InvoiceCompositeUpdate =
+    let invoiceUpdates (update: InvoiceCompositeUpdate) = update.invoiceUpdates
+    let paymentUpdates (update: InvoiceCompositeUpdate) = update.paymentUpdates
+    let paymentIdsToDelete (update: InvoiceCompositeUpdate) = update.paymentIdsToDelete
+    let newPayments (update: InvoiceCompositeUpdate) = update.newPayments
+    let create
+        (invoiceUpdates: Invoice.InvoiceFieldUpdates)
+        (paymentUpdates: Payment.PaymentFieldUpdates list)
+        (paymentIdsToDelete: CashFlowComponent.PaymentId list)
+        (newPayments: (
+                CashFlowComponent.TransactionPointer *
+                CashFlowComponent.PostedToFiDate option *
+                CashFlowComponent.PostedToLedgerDate option *
+                CashFlowComponent.PaymentMemo option) list)
+        : InvoiceCompositeUpdate =
+        { invoiceUpdates = invoiceUpdates
+          paymentUpdates = paymentUpdates
+          paymentIdsToDelete = paymentIdsToDelete
+          newPayments = newPayments }
+
+type InstanceCompositeUpdate =
+    private {
+        instanceUpdates: Instance.InstanceFieldUpdates
+        invoiceCompositeUpdates: InvoiceCompositeUpdate list
+        newInvoices: (
+            CashFlowComponent.PaymentAgreementId *
+            CashFlowComponent.ExternalInvoiceId option *
+            CashFlowComponent.InvoiceDate *
+            CashFlowComponent.DueDate *
+            CashFlowComponent.InvoiceAmount *
+            CashFlowComponent.InvoiceState *
+            CashFlowComponent.Blocker option *
+            CashFlowComponent.InvoiceMemo option *
+            ( // payments
+                CashFlowComponent.TransactionPointer *
+                CashFlowComponent.PostedToFiDate option *
+                CashFlowComponent.PostedToLedgerDate option *
+                CashFlowComponent.PaymentMemo option) list) list
+    }
+
+module InstanceCompositeUpdate =
+    let instanceUpdates (update: InstanceCompositeUpdate) = update.instanceUpdates
+    let invoiceCompositeUpdates (update: InstanceCompositeUpdate) = update.invoiceCompositeUpdates
+    let newInvoices (update: InstanceCompositeUpdate) = update.newInvoices
+    let create
+        (instanceUpdates: Instance.InstanceFieldUpdates)
+        (invoiceCompositeUpdates: InvoiceCompositeUpdate list)
+        (newInvoices: (
+                CashFlowComponent.PaymentAgreementId *
+                CashFlowComponent.ExternalInvoiceId option *
+                CashFlowComponent.InvoiceDate *
+                CashFlowComponent.DueDate *
+                CashFlowComponent.InvoiceAmount *
+                CashFlowComponent.InvoiceState *
+                CashFlowComponent.Blocker option *
+                CashFlowComponent.InvoiceMemo option *
+                ( // payments
+                    CashFlowComponent.TransactionPointer *
+                    CashFlowComponent.PostedToFiDate option *
+                    CashFlowComponent.PostedToLedgerDate option *
+                    CashFlowComponent.PaymentMemo option) list) list)
+        : InstanceCompositeUpdate =
+        { instanceUpdates = instanceUpdates
+          invoiceCompositeUpdates = invoiceCompositeUpdates
+          newInvoices = newInvoices }
 
 let private isThereACompositeUpdate (compositeUpdate: InstanceCompositeUpdate) : bool =
     compositeUpdate.invoiceCompositeUpdates
