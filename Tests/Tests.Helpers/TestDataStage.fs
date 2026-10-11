@@ -191,6 +191,7 @@ type TestDataFixture() =
                             positions.account_snapshot_line,
                             positions.account_snapshot_lot,
                             positions.investment_activity,
+                            positions.investment_activity_coverage,
                             positions.pre_ledger_balance,
                             positions.property,
                             positions.property_owner,
