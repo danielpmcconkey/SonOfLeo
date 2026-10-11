@@ -53,6 +53,13 @@ run the next slice. The final batch also writes the disposition template. Invoke
 with `batch: 2`, `batch: 3`, etc. to continue — the return value tells you the
 next batch number and total count.
 
+`only` (optional) is a list of auditor labels, e.g. `["panel:architecture",
+"panel:fsharp-ddd"]`. The run then holds just those auditors, batched as usual, and
+its disposition template covers only them. Use a fresh `runDir` for a re-run, so it
+doesn't overwrite the full run's reports. Only the `statement-delta` auditor uses
+`danStatement`, so a subset that leaves it out needs no statement, and its auditors
+are given none.
+
 In a cloud session, commit and push `runDir` after each batch: the session's clone is thrown away when it ends.
 
 The run is read-only against the repo except for `runDir`. Auditors run

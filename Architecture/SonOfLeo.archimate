@@ -1906,6 +1906,11 @@ This principle judges direction only. A reference that goes down the ladder sati
         <element xsi:type="archimate:Principle" name="Naked primitives are discouraged in Entity or component types" id="id-74c873ba92b647aa8462db94e35b6122">
           <documentation>Ex: type AccountCode = private AccountCode of string</documentation>
         </element>
+        <element xsi:type="archimate:Constraint" name="Below the UserInterfaceBridge, a persisted value travels as its domain type, never as the primitive it unwraps to" id="id-df95f24ef36d465288307c447b66e7b0">
+          <documentation>This carries 'Naked primitives are discouraged in Entity or component types' to every type below the UserInterfaceBridge: entity, component, composite, and report or view rows alike. A field holding an account code is AccountCode, not string; an amount is Money, not decimal; a name is the name's domain type. Domain types are unwrapped to primitives in one place only: the UserInterfaceBridge's boundary converters. A Business-tier type that holds a persisted value as a bare string, decimal or Guid breaks this rule.
+
+The one exception is error cases (see 'Error cases carry primitives').</documentation>
+        </element>
         <element xsi:type="archimate:Principle" name="Any component type in the cross domain orchestration or higher is a signal that we're violating the tiering or domain principles somewhere" id="id-89f90619d3d64a7682f8a73ee93f5465"/>
         <element xsi:type="archimate:Principle" name="Avoid creating types strictly for code convenience" id="id-87774667ddf9444cb58bbf6eee5d4b1f">
           <documentation>Example: 
@@ -1922,7 +1927,9 @@ Instead, create tuples of the primitives that the domain types would need to cre
         <element xsi:type="archimate:Principle" name="A type lives in the lowest compile tier that can see everything it references" id="id-e3ed551eea834267b0af53d5e885cd76"/>
         <element xsi:type="archimate:Constraint" name="Entity types (see definitions in the Spec dir) are defined in the lowest tier of their business domain" id="id-01b88874f69143509aec736fef901a4b"/>
         <element xsi:type="archimate:Constraint" name="Component types are defined in a components module in the lowest tier of their business domain" id="id-0b57f825b57c4394bc2162247ea8c00d"/>
-        <element xsi:type="archimate:Constraint" name="Composite types are defined in the cross domain orchestration tier" id="id-6fa371ba9e46421c84c98910c13a4705"/>
+        <element xsi:type="archimate:Constraint" name="Composite types are defined in the cross domain orchestration tier" id="id-6fa371ba9e46421c84c98910c13a4705">
+          <documentation>A composite is built from the types of more than one business domain. A record whose fields all come from one domain is that domain's component type and is defined in that domain's components module, even when its only consumer is an orchestration function or a report.</documentation>
+        </element>
         <element xsi:type="archimate:Constraint" name="Contract types are defined in the UserInterfaceBridge" id="id-d551ca7d4ad3478d92287332057388ed"/>
       </folder>
       <folder name="Encapsulation" id="id-353446e2c50242e2b087f8446c382dd0">
@@ -1937,6 +1944,11 @@ Instead, create tuples of the primitives that the domain types would need to cre
           <documentation>Most query functions should be private. however, some use cases require that orchestration functions call them. Example: the orchestration function that deduplicates staged entries calls the StageEntryHeader's query function. As deduplication is a data ingestion use case, this is acceptable. Though this should be rare. </documentation>
         </element>
         <element xsi:type="archimate:Assessment" name="A read-only join into another domain's tables is not orchestration" id="id-f5e2db9329b44493b38cc7e43aec4cbc"/>
+        <element xsi:type="archimate:Constraint" name="A report read may reconstitute its own rows, but only into domain types" id="id-bd4d8fe215954493bb74f06ebceea4f6">
+          <documentation>A read-only report or view may issue its own query and need not build the full entities behind it. Business.CrossDomainOrchestration.AccountBalance is the model: its reconstitute turns every column into its domain type (AccountId, JournalEntryLineType, AccountType, Money) before anything else sees it. No column is read into a field as a bare string, decimal or Guid.
+
+The licence is for reporting only. A read whose result feeds a write, a validation or any decision goes through the owning entity module.</documentation>
+        </element>
       </folder>
       <folder name="Error handling" id="id-8a2ac0c498294ca1a951729f488a95e5">
         <element xsi:type="archimate:Principle" name="Error handling conventions are enforced" id="id-f8691ee4b4204b64895e524fe7cb32f0"/>
@@ -1945,6 +1957,11 @@ Instead, create tuples of the primitives that the domain types would need to cre
 
 Ex 1: An error that cites that an account's begin date may not be later than its end date can work in any context
 Ex 2: An error that cites that an account cannot be deactivated because it is referenced by journal entry lines whose JE header is dated after the deactivation date is only relevant to orchestration as it requires knowledge of both account and journal entry properties. It is nevertheless defined in the LedgerErrors module as it is an account-domain error</documentation>
+        </element>
+        <element xsi:type="archimate:Constraint" name="Error cases carry primitives" id="id-467f10875a214394b0d613a431825dee">
+          <documentation>An error case's fields are primitives and NodaTime values (string, decimal, int, LocalDate and the like), so every error module compiles ahead of the domain types it reports on. An error module declares no other type. When an error must describe a structured value, that value's own module provides a toString and the error case carries the string.
+
+A type declared in an error module because the error module compiles first breaks this rule. Move the type to its domain's components module, give it a toString, and change the error case to carry a string.</documentation>
         </element>
         <element xsi:type="archimate:Principle" name="Lower level errors are &quot;backstops&quot;" id="id-bf65575b9a63404ab530071a89ba9f7b">
           <documentation>When a function is called from a higher application tier, the caller should translate the lower level error into one that makes more sense for the highel level operation</documentation>
@@ -1959,7 +1976,9 @@ An error of an account code / account ID mismatch may be specific enough for a J
         <documentation>There are exceptions to this, but each should be called out to Dan or cross-referenced to a known exceptions list</documentation>
       </element>
       <element xsi:type="archimate:Principle" name="IDs are used in the Business tier while human-readable strings are used at the UI boundary" id="id-9c04721a3d32403a82ebfb97bedaccbb">
-        <documentation>All entity-leve types define an ID, which is a type-wrapped UUID. The business tier and lower should always use these ID fields for identification (e.g., the Business tier function for updating an account should take an account ID as its identifier). However, the operator using the SonOfLeo CLI is not expected to memorize UUIDs. We therefore translate IDs to easier to remember strings (e.g. when the operator wants to update an account, they pass in an account code). The UI tier is expected to translate that code and pass the ID down to the Business tier for affecting the use case.</documentation>
+        <documentation>All entity-leve types define an ID, which is a type-wrapped UUID. The business tier and lower should always use these ID fields for identification (e.g., the Business tier function for updating an account should take an account ID as its identifier). However, the operator using the SonOfLeo CLI is not expected to memorize UUIDs. We therefore translate IDs to easier to remember strings (e.g. when the operator wants to update an account, they pass in an account code). The UI tier is expected to translate that code and pass the ID down to the Business tier for affecting the use case.
+
+This holds for reads as much as for writes. A report or view row carries the IDs of the things it reports on, not their codes or names. The UserInterfaceBridge turns IDs into codes and names through App.DataAccessLayer.LookupCache. A Business-tier type that carries another entity's code or name in place of its ID breaks this principle; so does a query below the UserInterfaceBridge that selects a code or name to stand in for an ID.</documentation>
       </element>
       <element xsi:type="archimate:Principle" name="Infallible Create, Orchestrator Validates" id="id-8742bfb562224b2f81e02bf7cca6b4f3">
         <documentation>Create (construct) functions in Entity-level type modules never fail. They accept all inputs. Validation lives in the orchestrator, not the entity. No exceptions in constructors.</documentation>

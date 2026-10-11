@@ -12,6 +12,9 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
   it described is gone. Kept for history. Do not cite it as precedent, either to suppress a
   finding or to support one; judge the finding against the current specs.
 
+A ruling governs only what its **Scope** line names. It never excuses a breach of a
+different rule by the same code.
+
 ---
 
 ## CV-2: Money.fromDecimal Rounding Mode
@@ -233,6 +236,7 @@ If a finding matches a resolved entry's scope, skip it — Dan already ruled on 
 - **Date:** 2026-10-05
 - **Scope:** Whether read-only report and view output records (rows, lines and composites returned by a report or view read) must be private with accessor functions, rather than public records the UI tier reads by field
 - **Ruling:** Dan, 2026-10-05: public report row types follow the precedent in Business.CrossDomainOrchestration.TrialBalanceReport (public row records read by field). Read-only report and view outputs are exempt from the private/accessor constraint. Source: audit 2026-10-04a #112.
+- **Not covered (Hobson, 2026-10-11):** where report and view records are defined, and what their fields are typed as. Those fall under the type-placement, primitive and ID rules like any other type. Audit 2026-10-11a cited this ruling to pass single-domain records defined in orchestration.
 
 ## REPORT-SQL: A Report Read May Be One Cross-Schema SELECT
 - **Status:** overruled

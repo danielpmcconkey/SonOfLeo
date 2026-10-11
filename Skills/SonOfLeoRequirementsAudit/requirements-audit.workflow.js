@@ -9,12 +9,17 @@ export const meta = {
 }
 
 const input = typeof args === 'string' ? JSON.parse(args) : args
-if (!input || !input.repoRoot || !input.runDir || !input.danStatement) {
-  throw new Error('Required args: repoRoot, runDir, danStatement')
+if (!input || !input.repoRoot || !input.runDir) {
+  throw new Error('Required args: repoRoot, runDir')
+}
+// Only the statement-delta auditor uses the statement. A subset run without it needs none.
+const NEEDS_STATEMENT = !input.only || input.only.includes('statement-delta')
+if (NEEDS_STATEMENT && !input.danStatement) {
+  throw new Error('danStatement is required unless only is given and omits statement-delta')
 }
 const REPO = input.repoRoot
 const RUN_DIR = input.runDir
-const DAN_STATEMENT = input.danStatement
+const DAN_STATEMENT = NEEDS_STATEMENT ? input.danStatement : null
 const AUDIT_SCRIPT = `${REPO}/Skills/SonOfLeoRequirementsAudit/traceability-audit.sh`
 const LEDGER_PATH = `${REPO}/Skills/SonOfLeoRequirementsAudit/resolved-findings.md`
 const CONDUCT_PATH = `${REPO}/CompoundedLearnings/catalogs/audit-conduct.md`
@@ -89,6 +94,9 @@ PRECEDENT LEDGER — ${LEDGER_PATH}
 Read it before reporting. Prior rulings on audit findings. Treat as precedent, NOT law:
 - Suppress ONLY when a ruling matches exactly — same requirement, same point.
 - If matching takes any squinting, RE-RAISE and explain why in priorRuling.
+- A ruling governs only what its Scope line names. A ruling on one rule never excuses a
+  breach of a different rule by the same code: a ruling that report rows may be public
+  says nothing about which tier they live in or what their fields are typed as.
 `
 
 const CONDUCT_RULES = `
@@ -205,7 +213,7 @@ Read-only except for build output.`,
     { name: '00-scout-state.md', content: `# Scout — Derived Repo State\n\n${scout.stateSummary}` },
     { name: '01-traceability.md', content: `# Traceability Script and Checks Output\n\n\`\`\`\n${traceability}\n\`\`\`` },
     { name: '02-test-run.md', content: `# Build & Test Run\n\n${testRun || (RUN_TESTS ? '(agent failed)' : '(skipped)')}` },
-    { name: '03-dan-statement.md', content: `# Dan's Statement of Position\n\n${DAN_STATEMENT}` },
+    ...(DAN_STATEMENT ? [{ name: '03-dan-statement.md', content: `# Dan's Statement of Position\n\n${DAN_STATEMENT}` }] : []),
     { name: '.baseline-cache.json', content: JSON.stringify({
       stateSummary: scout.stateSummary,
       behavioralSpecs: scout.behavioralSpecs,
@@ -233,13 +241,13 @@ const STATE_BLOCK = `
 CURRENT REPO STATE (derived by scout this run — verify specifics yourself when load-bearing):
 ${scout.stateSummary}
 `
-const DAN_BLOCK = `
+const DAN_BLOCK = DAN_STATEMENT ? `
 DAN'S STATEMENT (verbatim, this run):
 ${DAN_STATEMENT}
 
 This is his mental model, not ground truth. Where the repo disagrees, flag it
 (category: statement-delta).
-`
+` : ''
 const CONTEXT = `${AUTHORITY_HIERARCHY}\n${VISION}\n${DAN_BLOCK}\n${STATE_BLOCK}\n${PRECEDENT_RULES}\n${CONDUCT_RULES}\n${HYGIENE}`
 
 // ============================================================================
@@ -552,6 +560,13 @@ EVALUATE:
    compose across domains. Is it holding?
 4. IDIOM: pattern matching, pipelines, partial application, F#-native signatures.
 5. DDD: do types speak the accounting domain language? Boundary contracts held?
+6. PRIMITIVE OBSESSION AND IDENTITY: below Src/Ui.*, does every persisted value travel as
+   its domain type, or is it unwrapped to string or decimal early? Do Business-tier types
+   and queries identify things by ID, or carry codes and names in their place? Is a
+   value read straight off a database row into a bare primitive, skipping its domain
+   type's constructor? Sweep every record type below Src/Ui.* for this; don't sample.
+7. ERROR TYPES: do error cases carry primitives, or domain types that force a type to be
+   declared in the error module to satisfy compile order?
 
 Genuine idiom violations only — not F# golf.`,
 })
@@ -595,6 +610,30 @@ METHOD: for each rule, work out from its wording what conforming code looks like
 the code against it. Cite the rule by its exact element name in every finding, with file and
 line.
 
+SWEEP, DON'T SAMPLE. A rule about types or reads applies to every type and every read, not
+to the ones that look relevant. Before reporting, do these sweeps in full and check every
+hit against every rule that could govern it:
+- TYPE INVENTORY. List every type defined under Src/Business.* and Src/App.* (record, union,
+  single-case wrapper). Classify each as entity, component, composite, report or view row,
+  or error. For each, check where it is defined against the placement rules (which tier,
+  which domain, which module) and check every field's type against the primitive and ID
+  rules. A composite must draw on more than one domain; a type in an error module that is
+  not itself an error type is a finding.
+- PRIMITIVE FIELDS. Every record field below Src/Ui.* typed string, decimal, int or Guid
+  (or an option or list of one) that holds a persisted value. For each, name the domain type
+  it should be, or show why none exists.
+- NAMES FOR IDS. Every field, parameter or SELECTed column below Src/Ui.* that carries
+  another entity's code or name where its ID would do.
+- RAW READS. Every RowReader.get* call outside an entity module's mapRawForDbRead. For
+  each, is the value turned into its domain type before anything else sees it?
+- ERROR CASE FIELDS. Every error case whose fields include a non-primitive type, and every
+  type declared in an error module.
+- EXPLANATORY COMMENTS. A comment that says a type or function sits somewhere "because of
+  compile order", or marks a compromise with todo:, is a breach announcing itself. Check it
+  against the rules.
+Report every hit that breaks a rule, one finding per rule per file. Several hits of one rule
+in one file share a finding that lists every line.
+
 REPORT ONLY; DAN RULES. You do not decide whether a breach is warranted, and you do not fix
 anything. Every finding's resolutionOwner is dan-decides; suggestedAction says what you
 would change. Exceptions Dan has approved live in the precedent ledger above: a breach that
@@ -625,6 +664,14 @@ EVALUATE:
 
 Ranked by how badly an agent could hurt the books before anyone noticed.`,
 })
+
+// --- Optional subset: run only the named auditors ---
+if (input.only) {
+  const wanted = new Set(input.only)
+  const unknown = [...wanted].filter(l => !auditors.some(a => a.label === l))
+  if (unknown.length) throw new Error(`Unknown auditor label(s) in only: ${unknown.join(', ')}`)
+  auditors.splice(0, auditors.length, ...auditors.filter(a => wanted.has(a.label)))
+}
 
 // --- Slice for this batch ---
 const batchStart = (BATCH - 1) * BATCH_SIZE
