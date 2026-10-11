@@ -159,26 +159,7 @@ let createFiUpdateFromString fiString =
     fiString |> createJournalRefFinancialInstitutionFromString |> SetTo
 let createReferenceTextUpdateFromString textString =
     textString |> createJournalExternalReferenceTextFromString |> SetTo
-let sumJournalEntryLinesByAccountIdAndType tran unvoidedOnly accountId lineType lines =
-    // this is expensive if unvoidedOnly is true
-    let allLinesAtAccountAndType =
-        lines
-        |> List.filter(fun x ->
-            x |> JournalEntryLine.accountId = accountId && x |> JournalEntryLine.lineType = lineType)
-    let filteredFurther =
-        if unvoidedOnly then
-            allLinesAtAccountAndType
-            |> List.filter(fun x ->
-                x
-                |> JournalEntryLine.journalEntryHeaderId
-                |> JournalEntryHeader.fetchById tran
-                |> Result.defaultWith(fun e -> failwith(e.ToMessage()))
-                |> JournalEntryHeader.voidedAt
-                |> Option.isNone)
-        else
-            allLinesAtAccountAndType
-    filteredFurther |> List.sumBy(fun x -> x |> JournalEntryLine.amount |> Money.amount)
-    
+
 let createClassificationRuleGroupListForTest
     (ruleGroupPrimitives: (string * FieldMatch list * FieldMatch list option) list)
     : Result<ClassificationRuleGroup list, IAppError> =

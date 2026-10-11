@@ -75,14 +75,18 @@ type AccountBalanceTests(fixture: TestDataFixture) =
         let id1 = fixture.Data.creditCard2220Id
         let id2 = fixture.Data.entertainment5650Id
         let accountsList = [ id1; id2 ]
-        let expectedDebits1 =
-            fixture.Data.journalEntryLines |> sumJournalEntryLinesByAccountIdAndType context true id1 Debit
-        let expectedCredits1 =
-            fixture.Data.journalEntryLines |> sumJournalEntryLinesByAccountIdAndType context true id1 Credit
-        let expectedDebits2 =
-            fixture.Data.journalEntryLines |> sumJournalEntryLinesByAccountIdAndType context true id2 Debit
-        let expectedCredits2 =
-            fixture.Data.journalEntryLines |> sumJournalEntryLinesByAccountIdAndType context true id2 Credit
+        // the fixture must hold a voided entry with a line on each account, or there is nothing to exclude
+        let voidedLines =
+            fixture.Data.journalEntries
+            |> List.filter (fun je -> je |> header |> JournalEntryHeader.voidedAt |> Option.isSome)
+            |> List.collect jeLines
+        Assert.True(
+            accountsList |> List.forall (fun id -> voidedLines |> List.exists (fun l -> l |> JournalEntryLine.accountId = id)),
+            "the fixture must hold a voided entry with a line on each account under test")
+        let expectedDebits1 = unvoidedSum id1 Debit
+        let expectedCredits1 = unvoidedSum id1 Credit
+        let expectedDebits2 = unvoidedSum id2 Debit
+        let expectedCredits2 = unvoidedSum id2 Credit
         let expectedBal1 = expectedCredits1 - expectedDebits1 // liability
         let expectedBal2 = expectedDebits2 - expectedCredits2 // expense
         let result = fetchByAccountIdList context (Some accountsList) None
