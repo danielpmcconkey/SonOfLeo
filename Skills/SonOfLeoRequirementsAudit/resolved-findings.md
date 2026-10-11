@@ -254,3 +254,9 @@ different rule by the same code.
 - **Scope:** Whether a failure that is already loud (a thrown exception, a non-zero exit, or a typed error that rejects bad input and writes nothing) needs a requirement or a test: a finding that asks to spec, test or tidy one
 - **Ruling:** Dan, 2026-09-28, on config-refusal requirements that dressed loud failures up as tidy ones: "bubblewrap around an anvil".
 - **Note (Hobson, 2026-10-11):** Applied since as: name the concrete failure and ask whether it is loud or silent. Loud gets no requirement and no test. Only a silent failure (wrong data written, a wrong answer returned) earns one. Dan applied it by name to the slice 2 empty-request guards (HobsonsNotes/plan-positions-2b-2026-10-10.md, Out of scope). It does not excuse a live requirement whose breach would be silent, even when the rule is enforced by a typed rejection: the test is of the rule, not the error. (Audit 2026-10-11a #050.)
+
+## ENTRYDATE-IO: EntryDate.create Resolves Its Fiscal Period
+- **Status:** overruled
+- **Date:** 2026-10-11
+- **Scope:** Whether `EntryDate.create`, which looks up the fiscal period for the date, breaks "Infallible Create, Orchestrator Validates" or the validation-layers article, and whether `createWithFiscalPeriodId` is an unsafe escape hatch
+- **Ruling:** Dan, 2026-10-11: "createWithFiscalPeriodId is the infallible version needed in DB reads. create is fallible because it needs an ID of the fiscal period. Yes, this breaks the infallible create principle but it's well documented. this is needed because we sometimes create entry dates when we *don't* know the FP ID." Then: "overruled". Source: audit 2026-10-11b #080. Do not re-flag.
