@@ -20,6 +20,7 @@ open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Ledger.LedgerAuditableAction
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowAuditableAction
+open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.DataIngestionAuditableAction
 open Business.FinancialServices.DataIngestion.StageEntryComponent
@@ -212,6 +213,32 @@ let private createdRecord (fixture: TestDataFixture) (kind: string) (creating: C
                     context rentalId p.d2 (PositionsValues.toValuationValue 265000.00M) (PositionsValues.toValuationBasis "Appraisal")
                 |> ignoreResult
             return read, update
+        | "Investment Activity" ->
+            let range: Ui.InterfaceBridge.InterfaceContracts.PositionsContracts.InvestmentActivityRangeInput =
+                { accountName = PositionsFixture.jordanCustodial
+                  beginDate = p.d2
+                  endDate = p.d2
+                  activities =
+                    [ { activityDate = p.d2
+                        kind = "Interest"
+                        description = "Interest for the instant test"
+                        source = None
+                        securityName = None
+                        quantity = None
+                        price = None
+                        amount = 1.00M } ] }
+            let! converted =
+                range
+                |> Ui.InterfaceBridge.BoundaryConverters.PositionsFieldConverters.``convert [InvestmentActivityRangeInput] to [ActivityRange]``
+                    creating
+            let! _ = InvestmentActivityOrchestration.recordActivity creating [ converted ]
+            let read context =
+                InvestmentActivity.fetchByInvestmentAccountBetween context jordanCustodialId p.d2 p.d2
+                |> Result.map List.exactlyOne
+                |> stamps InvestmentActivity.createdAt InvestmentActivity.modifiedAt
+            // activity is never updated in place, so there is no update to give
+            let update (_: Context.Context) : Result<unit, IAppError> = failwith "Investment Activity is never updated"
+            return read, update
         | other -> return failwith $"No record kind \"{other}\""
     }
 
@@ -287,6 +314,77 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
                         }
                 Assert.Equal(instantOf creating, createdAt)
                 Assert.Equal(instantOf updating, modifiedAt)
+            })
+        |> railroadWrapper
+
+    [<Theory>]
+    [<InlineData("updating an Instance")>]
+    [<InlineData("cancelling an Instance")>]
+    [<InlineData("updating an Invoice")>]
+    [<InlineData("cancelling an Invoice")>]
+    [<InlineData("updating a Payment")>]
+    [<InlineData("closing a fiscal period")>]
+    [<InlineData("reopening a fiscal period")>]
+    member _.``REQ-SYS-3.3 for each update (updating and cancelling an Instance, updating and cancelling an Invoice, updating a Payment, closing and reopening a fiscal period), under a clock that advances on every read, the record's modified-at is set to the operation's initiation instant and its created-at is unchanged`` (update: string) =
+        runCommandRouteAndAutoRollback CashFlowCreateInstance (fun creating ->
+            result {
+                let cashFlow = fixture.Data.cashFlow
+                let instanceDate = cashFlow.nextInstanceDateA
+                let! amount = Money.fromDecimal 100.00M
+                let! created =
+                    InstanceOrchestration.constructNewAndPersist
+                        creating cashFlow.agreementAId instanceDate
+                        [ (cashFlow.legAId, None, InvoiceDate.create instanceDate, DueDate.create (instanceDate.PlusDays(30)),
+                           InvoiceAmount.create amount, InvoiceReceived, None, None,
+                           [ (CashFlowComponent.TransactionPointer.Posted(cashFlow.unclaimedLedgerLineId, None), None, None, None) ]) ]
+                let instanceId = created |> InstanceOrchestration.instance |> Instance.instanceId
+                let invoiceComposite = created |> InstanceOrchestration.invoiceComposites |> List.exactlyOne
+                let invoiceId = invoiceComposite |> InstanceOrchestration.invoice |> Invoice.invoiceId
+                let paymentId = invoiceComposite |> InstanceOrchestration.payments |> List.exactlyOne |> Payment.paymentId
+                let! otherEntry, _ = createTestJournalEntryFromPrimitives creating $"Other {newTag ()}" None (Calendar.today ()) lines [] []
+                let otherLineId = otherEntry |> JE.jeLines |> List.head |> JournalEntryLine.journalEntryLineId
+                // month -6 is the only month before the fixture's ledger that a new period may still start in
+                let sixMonthsAgo = (Calendar.today ()).PlusMonths(-6)
+                let! periodKey = $"{sixMonthsAgo.Year}-{sixMonthsAgo.Month:D2}" |> FiscalPeriodKey.fromString
+                let! period = periodKey |> FiscalPeriodCreation.constructNewAndPersist creating
+                let periodId = period |> FiscalPeriod.fiscalPeriodId
+                let! _ = if update = "reopening a fiscal period" then FiscalPeriod.closeFiscalPeriod creating periodId else Ok period
+                let updating = creating |> TestContext.updateInitiationInstant
+                let! note = "cancelled for the instant test" |> CancellationReasonNote.create
+                let! memo = "amended for the instant test" |> InvoiceMemo.create
+                let instanceStamps () =
+                    instanceId |> Instance.fetchById updating |> Result.map (fun i -> Instance.createdAt i, Instance.modifiedAt i)
+                let invoiceStamps () =
+                    invoiceId |> Invoice.fetchById updating |> Result.map (fun i -> Invoice.createdAt i, Invoice.modifiedAt i)
+                let periodStamps (read: FiscalPeriod.FiscalPeriod) = FiscalPeriod.createdAt read, FiscalPeriod.modifiedAt read
+                let! createdAt, modifiedAt =
+                    match update with
+                    | "updating an Instance" ->
+                        Instance.update updating { instanceIdToUpdate = instanceId; isFulfilledUpdate = SetTo false }
+                        |> Result.bind (fun _ -> instanceStamps ())
+                    | "cancelling an Instance" -> Instance.cancel updating note instanceId |> Result.bind instanceStamps
+                    | "updating an Invoice" ->
+                        Invoice.update
+                            updating
+                            { invoiceIdToUpdate = invoiceId
+                              externalInvoiceIdUpdate = NoChange
+                              invoiceDateUpdate = NoChange
+                              dueDateUpdate = NoChange
+                              amountUpdate = NoChange
+                              invoiceStateUpdate = NoChange
+                              paymentStateUpdate = NoChange
+                              postedStateUpdate = NoChange
+                              blockerUpdate = NoChange
+                              memoUpdate = SetTo(Some memo) }
+                        |> Result.bind (fun _ -> invoiceStamps ())
+                    | "cancelling an Invoice" -> Invoice.cancel updating note invoiceId |> Result.bind invoiceStamps
+                    | "updating a Payment" ->
+                        Payment.update updating { paymentIdToUpdate = paymentId; journalEntryLineIdUpdate = SetTo(Some otherLineId) }
+                        |> Result.bind (fun _ -> paymentId |> Payment.fetchById updating)
+                        |> Result.map (fun p -> Payment.createdAt p, Payment.modifiedAt p)
+                    | "closing a fiscal period" -> FiscalPeriod.closeFiscalPeriod updating periodId |> Result.map periodStamps
+                    | _ -> FiscalPeriod.reopenFiscalPeriod updating periodId |> Result.map periodStamps
+                Assert.Equal((instantOf creating, instantOf updating), (createdAt, modifiedAt))
             })
         |> railroadWrapper
 
@@ -497,7 +595,8 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
     [<InlineData("Account Snapshot")>]
     [<InlineData("Property")>]
     [<InlineData("Valuation")>]
-    member _.``REQ-SYS-3.2 for each of Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot, Property and Valuation, creating one under a clock that advances on every read sets its created-at and modified-at both to the operation's initiation instant`` (kind: string) =
+    [<InlineData("Investment Activity")>]
+    member _.``REQ-SYS-3.2 for each of Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot, Property, Valuation and Investment Activity, creating one under a clock that advances on every read sets its created-at and modified-at both to the operation's initiation instant`` (kind: string) =
         runCommandRouteAndAutoRollback PositionsCreateProperty (fun creating ->
             result {
                 let! read, _ = createdRecord fixture kind creating
