@@ -91,9 +91,9 @@ type TrialBalanceTests(fixture: TestDataFixture) =
         result {
             let! rows = prefetchedTb
             Assert.Equal(expectedCount, rows |> List.length)
-            let closedRow = rows |> List.tryFind(fun r -> r.accountCode = expectedClosedAccountCode)
+            let closedRow = rows |> List.tryFind(fun r -> (codeOfId r.accountId) = expectedClosedAccountCode)
             Assert.True(closedRow |> Option.isSome, "Inactive account missing from trial balance")
-            let noActivityRow = rows |> List.find(fun r -> r.accountCode = expectedNoActivityCode)
+            let noActivityRow = rows |> List.find(fun r -> (codeOfId r.accountId) = expectedNoActivityCode)
             Assert.Equal(0M, noActivityRow.totalDebits |> Money.amount)
             Assert.Equal(0M, noActivityRow.totalCredits |> Money.amount)
             Assert.Equal(0M, noActivityRow.netBalance |> Money.amount)
@@ -111,7 +111,7 @@ type TrialBalanceTests(fixture: TestDataFixture) =
         let expectedNet = expectedDebits - expectedCredits
         result {
             let! rows = prefetchedTb
-            let leafRow = rows |> List.find(fun r -> r.accountCode = leafCode)
+            let leafRow = rows |> List.find(fun r -> (codeOfId r.accountId) = leafCode)
             Assert.Equal(expectedDebits, leafRow.totalDebits |> Money.amount)
             Assert.Equal(expectedCredits, leafRow.totalCredits |> Money.amount)
             Assert.Equal(expectedNet, leafRow.netBalance |> Money.amount)
@@ -127,7 +127,7 @@ type TrialBalanceTests(fixture: TestDataFixture) =
         let expectedNet = expectedDebits - expectedCredits
         result {
             let! rows = prefetchedTb
-            let parentRow = rows |> List.find(fun r -> r.accountCode = parentCode)
+            let parentRow = rows |> List.find(fun r -> (codeOfId r.accountId) = parentCode)
             Assert.Equal(expectedDebits, parentRow.totalDebits |> Money.amount)
             Assert.Equal(expectedCredits, parentRow.totalCredits |> Money.amount)
             Assert.Equal(expectedNet, parentRow.netBalance |> Money.amount)
@@ -163,8 +163,8 @@ type TrialBalanceTests(fixture: TestDataFixture) =
                     expected,
                     ancestors
                     |> List.map (fun id ->
-                        let row = rows |> List.find(fun r -> r.accountCode = codeOfId id)
-                        row.accountCode, row.totalDebits |> Money.amount, row.totalCredits |> Money.amount))
+                        let row = rows |> List.find(fun r -> (codeOfId r.accountId) = codeOfId id)
+                        (codeOfId row.accountId), row.totalDebits |> Money.amount, row.totalCredits |> Money.amount))
                 return ()
             })
         |> railroadWrapper
@@ -181,7 +181,7 @@ type TrialBalanceTests(fixture: TestDataFixture) =
         let expectedCodes = childrenOf None |> List.collect walk
         result {
             let! rows = prefetchedTb
-            let actualCodes = rows |> List.map(fun r -> r.accountCode |> AccountCode.value)
+            let actualCodes = rows |> List.map(fun r -> (codeOfId r.accountId) |> AccountCode.value)
             Assert.NotEmpty(expectedCodes)
             Assert.Equal<string list>(expectedCodes, actualCodes)
             return ()
@@ -197,7 +197,7 @@ type TrialBalanceTests(fixture: TestDataFixture) =
             let! rows = prefetchedTb
             Assert.Equal<(string * int) list>(
                 expected,
-                rows |> List.map (fun r -> r.accountCode |> AccountCode.value, r.generation) |> List.sort)
+                rows |> List.map (fun r -> (codeOfId r.accountId) |> AccountCode.value, r.generation) |> List.sort)
             return ()
         }
         |> railroadWrapper
@@ -231,7 +231,7 @@ type TrialBalanceTests(fixture: TestDataFixture) =
         let cutoffContext = Context.create NoTransaction FetchOnly
         result {
             let! rows = fetchTrialBalanceData cutoffContext asOfDate
-            let row = rows |> List.find(fun r -> r.accountCode = expenseCode)
+            let row = rows |> List.find(fun r -> (codeOfId r.accountId) = expenseCode)
             Assert.Equal(expectedDebits, row.totalDebits |> Money.amount)
             Assert.Equal(expectedCredits, row.totalCredits |> Money.amount)
             return ()
@@ -254,7 +254,7 @@ type TrialBalanceTests(fixture: TestDataFixture) =
         Assert.All(entriesOnAccount, fun je -> Assert.True(isVoided je || entryDateOf je > asOf))
         result {
             let! rows = fetchTrialBalanceData context asOf
-            let row = rows |> List.find(fun r -> r.accountCode = accountCode)
+            let row = rows |> List.find(fun r -> (codeOfId r.accountId) = accountCode)
             Assert.Equal(0M, row.totalDebits |> Money.amount)
             Assert.Equal(0M, row.totalCredits |> Money.amount)
             Assert.Equal(0M, row.netBalance |> Money.amount)

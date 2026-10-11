@@ -94,21 +94,38 @@ type PeriodActivityTests(fixture: TestDataFixture) =
     let post context description entryDate lines =
         createTestJournalEntryFromPrimitives context description None entryDate lines [] [] |> Result.map snd
 
-    let activity context = fetchPeriodActivity context beginDate endDate
+    /// Each row with the code and name the account table holds for its account, so tests can name accounts by code.
+    let activity context =
+        fetchPeriodActivity context beginDate endDate
+        |> Result.bind (fun rows ->
+            rows
+            |> List.map (fun row ->
+                result {
+                    let! code = row.accountId |> Account.idToCode context
+                    let! name = row.accountId |> Account.idToName context
+                    return row, code, name
+                })
+            |> convertListOfResultsToResultsList)
 
-    let ownRows (rows: PeriodActivityAccount list) =
-        rows |> List.filter (fun r -> (r.accountCode |> AccountCode.value).StartsWith "PA-")
+    let codeOf (_, code, _) = code |> AccountCode.value
 
-    let rowFor code (rows: PeriodActivityAccount list) =
-        rows |> List.filter (fun r -> r.accountCode |> AccountCode.value = code) |> List.exactlyOne
+    let ownRows (rows: (PeriodActivityAccount * AccountCode * AccountName) list) =
+        rows |> List.filter (fun r -> (r |> codeOf).StartsWith "PA-")
 
-    let isListed code (rows: PeriodActivityAccount list) =
-        rows |> List.exists (fun r -> r.accountCode |> AccountCode.value = code)
+    let namedRowFor code (rows: (PeriodActivityAccount * AccountCode * AccountName) list) =
+        rows |> List.filter (fun r -> r |> codeOf = code) |> List.exactlyOne
+
+    let rowFor code rows = let row, _, _ = rows |> namedRowFor code in row
+
+    let nameFor code rows = let _, _, name = rows |> namedRowFor code in name |> AccountName.value
+
+    let isListed code (rows: (PeriodActivityAccount * AccountCode * AccountName) list) =
+        rows |> List.exists (fun r -> r |> codeOf = code)
 
     let netOf code rows = (rows |> rowFor code).netTotal |> Money.amount
 
-    let allLineEntryIds (rows: PeriodActivityAccount list) =
-        rows |> List.collect (fun r -> r.lines |> List.map _.journalEntryId)
+    let allLineEntryIds (rows: (PeriodActivityAccount * AccountCode * AccountName) list) =
+        rows |> List.collect (fun (r, _, _) -> r.lines |> List.map _.journalEntryId)
 
     /// Every test runs inside this rolled-back transaction, with the accounts above already created.
     let withAccounts (test: Context.Context -> PeriodActivityAccounts -> Result<unit, IAppError>) =
@@ -196,10 +213,10 @@ type PeriodActivityTests(fixture: TestDataFixture) =
                 let! rows = activity context
                 Assert.Equal<string list>(
                     [ "PA-4100"; "PA-4500"; "PA-5000" ],
-                    rows |> ownRows |> List.map (_.accountCode >> AccountCode.value) |> List.sort)
+                    rows |> ownRows |> List.map codeOf |> List.sort)
                 [ "PA-4100"; "PA-4500"; "PA-5000" ]
                 |> List.iter (fun code ->
-                    Assert.Equal($"Period activity {code}", (rows |> rowFor code).accountName |> AccountName.value))
+                    Assert.Equal($"Period activity {code}", rows |> nameFor code))
                 return ()
             })
 
@@ -247,7 +264,7 @@ type PeriodActivityTests(fixture: TestDataFixture) =
                 Assert.False(rows |> isListed "PA-2000")
                 Assert.False(rows |> isListed "PA-3000")
                 Assert.All(rows, fun r ->
-                    Assert.Contains(typeOf (r.accountCode |> AccountCode.value), [ Revenue; Expense ]))
+                    Assert.Contains(typeOf (r |> codeOf), [ Revenue; Expense ]))
                 return ()
             })
 
@@ -321,7 +338,7 @@ type PeriodActivityTests(fixture: TestDataFixture) =
                 let! rows = activity context
                 Assert.Equal<string list>(
                     [ "PA-4000"; "PA-4100"; "PA-4900"; "PA-4500"; "PA-5000" ],
-                    rows |> ownRows |> List.map (_.accountCode >> AccountCode.value))
+                    rows |> ownRows |> List.map codeOf)
                 return ()
             })
 
@@ -380,7 +397,7 @@ type PeriodActivityTests(fixture: TestDataFixture) =
                 Assert.Equal<JournalEntryHeaderId list>([ highId ], (rows |> rowFor "PA-5290").lines |> List.map _.journalEntryId)
                 Assert.Equal(10.00M, rows |> netOf "PA-5210")
                 Assert.Equal(20.00M, rows |> netOf "PA-5290")
-                Assert.Equal(1, rows |> List.filter (fun r -> r.lines |> List.exists (fun l -> l.journalEntryId = lowId)) |> List.length)
-                Assert.Equal(1, rows |> List.filter (fun r -> r.lines |> List.exists (fun l -> l.journalEntryId = highId)) |> List.length)
+                Assert.Equal(1, rows |> List.filter (fun (r, _, _) -> r.lines |> List.exists (fun l -> l.journalEntryId = lowId)) |> List.length)
+                Assert.Equal(1, rows |> List.filter (fun (r, _, _) -> r.lines |> List.exists (fun l -> l.journalEntryId = highId)) |> List.length)
                 return ()
             })

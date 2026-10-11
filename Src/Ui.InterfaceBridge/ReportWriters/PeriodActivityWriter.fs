@@ -5,7 +5,9 @@ open App.Utility.IAppError
 open App.Utility.Result
 open App.Utility.File
 open App.Utility.Calendar
+open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.CrossDomainOrchestration.PeriodActivity
@@ -119,19 +121,19 @@ let private lineElement ordinal (line: PeriodActivityLine) : DomElement =
           moneyTab 20 (line.lineType |> JournalEntryLineType.toString) line.amount
           tab 30 "Memo" "val" memoText ]
 
-let private accountElement ordinal (account: PeriodActivityAccount) : DomElement =
+let private accountElement ordinal (account: PeriodActivityAccount, accountCode: AccountCode, accountName: AccountName) : DomElement =
     let head =
         div 1 "acct-head"
-            [ span 10 "head" $"{account.accountCode |> AccountCode.value} · {account.accountName |> AccountName.value}"
+            [ span 10 "head" $"{accountCode |> AccountCode.value} · {accountName |> AccountName.value}"
               moneyTab 20 "Net" account.netTotal ]
     div ordinal "acct" (head :: (account.lines |> List.mapi (fun i l -> lineElement (10 + i) l)))
 
-let write
+let private writeNamed
     (pathInfo: OutputPathInput)
     (generatedAt: Instant)
     (beginDate: LocalDate)
     (endDate: LocalDate)
-    (accounts: PeriodActivityAccount list)
+    (accounts: (PeriodActivityAccount * AccountCode * AccountName) list)
     : Result<PeriodActivityReturn, IAppError> =
     let beginString = beginDate |> dateString
     let endString = endDate |> dateString
@@ -166,4 +168,25 @@ let write
             |> HtmlWrapper.toString
             |> writeTextFile path
         return PeriodActivityReturn.Report { fullyQualifiedPath = path }
+    }
+
+let write
+    (context: Context.Context)
+    (pathInfo: OutputPathInput)
+    (generatedAt: Instant)
+    (beginDate: LocalDate)
+    (endDate: LocalDate)
+    (accounts: PeriodActivityAccount list)
+    : Result<PeriodActivityReturn, IAppError> =
+    result {
+        let! namedAccounts =
+            accounts
+            |> List.map (fun account ->
+                result {
+                    let! code = account.accountId |> Account.idToCode context
+                    let! name = account.accountId |> Account.idToName context
+                    return account, code, name
+                })
+            |> convertListOfResultsToResultsList
+        return! namedAccounts |> writeNamed pathInfo generatedAt beginDate endDate
     }

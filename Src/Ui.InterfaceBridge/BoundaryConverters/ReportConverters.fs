@@ -25,20 +25,29 @@ open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
 open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
 let ``convert [TrialBalanceRowFlattened] to [TrialBalanceReturnRow]``
+    (context: Context.Context)
     (flattenedRow: TrialBalanceRowFlattened)
-    : TrialBalanceReturnRow = {
-        accountCode = flattenedRow.accountCode |> AccountCode.value
-        accountName = flattenedRow.accountName |> AccountName.value
-        generation = flattenedRow.generation
-        totalCredits = flattenedRow.totalCredits |> Money.amount
-        totalDebits = flattenedRow.totalDebits |> Money.amount
-        netBalance = flattenedRow.netBalance |> Money.amount
+    : Result<TrialBalanceReturnRow, IAppError> =
+    result {
+        let! accountCode = flattenedRow.accountId |> ``convert AccountId to AccountCodeString`` context
+        let! accountName = flattenedRow.accountId |> ``convert AccountId to AccountNameString`` context
+        return {
+            accountCode = accountCode
+            accountName = accountName
+            generation = flattenedRow.generation
+            totalCredits = flattenedRow.totalCredits |> Money.amount
+            totalDebits = flattenedRow.totalDebits |> Money.amount
+            netBalance = flattenedRow.netBalance |> Money.amount
+        }
     }
-    
+
 let ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
+    (context: Context.Context)
     (flattenedRows: TrialBalanceRowFlattened list)
-    : TrialBalanceReturnRow list =
-    flattenedRows |> List.map ``convert [TrialBalanceRowFlattened] to [TrialBalanceReturnRow]``
+    : Result<TrialBalanceReturnRow list, IAppError> =
+    flattenedRows
+    |> List.map (``convert [TrialBalanceRowFlattened] to [TrialBalanceReturnRow]`` context)
+    |> convertListOfResultsToResultsList
 
 let ``convert [PrePostingEntry list] to [PrePostingEntryReturnRow list]``
     (entries: PrePostingEntry list)
@@ -88,48 +97,66 @@ let ``convert [ReconciliationInput] to [(AccountId * Money * LocalDate) list]``
     |> convertListOfResultsToResultsList
 
 let ``convert [ReconciliationRow] to [ReconciliationReturnRow]``
+    (context: Context.Context)
     (row: ReconciliationRow)
-    : ReconciliationReturnRow =
-    { accountCode = row.accountCode |> AccountCode.value
-      accountName = row.accountName |> AccountName.value
-      asOf = row.asOf
-      externalBalance = row.externalBalance |> Money.amount
-      ledgerBalance = row.ledgerBalance |> Money.amount
-      delta = row.delta |> Money.amount }
+    : Result<ReconciliationReturnRow, IAppError> =
+    result {
+        let! accountCode = row.accountId |> ``convert AccountId to AccountCodeString`` context
+        let! accountName = row.accountId |> ``convert AccountId to AccountNameString`` context
+        return
+            { accountCode = accountCode
+              accountName = accountName
+              asOf = row.asOf
+              externalBalance = row.externalBalance |> Money.amount
+              ledgerBalance = row.ledgerBalance |> Money.amount
+              delta = row.delta |> Money.amount }
+    }
 
 let ``convert [DeactivatedAccountWithBalance] to [DeactivatedAccountWithBalanceReturnRow]``
+    (context: Context.Context)
     (account: DeactivatedAccountWithBalance)
-    : DeactivatedAccountWithBalanceReturnRow =
-    { accountCode = account.code |> AccountCode.value
-      accountName = account.accountName |> AccountName.value
-      activeEnd = account.activeEnd
-      balance = account.balance |> Money.amount
-      entriesAfterActiveEnd =
-        account.entriesAfterActiveEnd
-        |> List.map (fun je ->
-            { journalEntryId = je |> JournalEntryHeader.journalEntryHeaderId |> JournalEntryHeaderId.value
-              entryDate = je |> JournalEntryHeader.entryDate |> EntryDate.entryDate
-              description = je |> JournalEntryHeader.description |> JournalEntryDescription.value
-              postedAt = je |> JournalEntryHeader.createdAt
-              voidedAt = je |> JournalEntryHeader.voidedAt }) }
+    : Result<DeactivatedAccountWithBalanceReturnRow, IAppError> =
+    result {
+        let! accountCode = account.accountId |> ``convert AccountId to AccountCodeString`` context
+        let! accountName = account.accountId |> ``convert AccountId to AccountNameString`` context
+        return
+            { accountCode = accountCode
+              accountName = accountName
+              activeEnd = account.activeEnd
+              balance = account.balance |> Money.amount
+              entriesAfterActiveEnd =
+                account.entriesAfterActiveEnd
+                |> List.map (fun je ->
+                    { journalEntryId = je |> JournalEntryHeader.journalEntryHeaderId |> JournalEntryHeaderId.value
+                      entryDate = je |> JournalEntryHeader.entryDate |> EntryDate.entryDate
+                      description = je |> JournalEntryHeader.description |> JournalEntryDescription.value
+                      postedAt = je |> JournalEntryHeader.createdAt
+                      voidedAt = je |> JournalEntryHeader.voidedAt }) }
+    }
 
 let ``convert [BalanceSheetIntegrity] to [BalanceSheetIntegrityReturnRow]``
+    (context: Context.Context)
     (integrity: BalanceSheetIntegrity)
-    : BalanceSheetIntegrityReturnRow =
-    { asOf = integrity.asOf
-      totalDebits = integrity.totalDebits |> Money.amount
-      totalCredits = integrity.totalCredits |> Money.amount
-      debitsEqualCredits = integrity.debitsEqualCredits
-      assets = integrity.assets |> Money.amount
-      liabilities = integrity.liabilities |> Money.amount
-      equity = integrity.equity |> Money.amount
-      revenue = integrity.revenue |> Money.amount
-      expenses = integrity.expenses |> Money.amount
-      netIncome = integrity.netIncome |> Money.amount
-      residual = integrity.residual |> Money.amount
-      deactivatedAccountsWithBalance =
-        integrity.deactivatedAccountsWithBalance
-        |> List.map ``convert [DeactivatedAccountWithBalance] to [DeactivatedAccountWithBalanceReturnRow]`` }
+    : Result<BalanceSheetIntegrityReturnRow, IAppError> =
+    result {
+        let! deactivatedAccountsWithBalance =
+            integrity.deactivatedAccountsWithBalance
+            |> List.map (``convert [DeactivatedAccountWithBalance] to [DeactivatedAccountWithBalanceReturnRow]`` context)
+            |> convertListOfResultsToResultsList
+        return
+            { asOf = integrity.asOf
+              totalDebits = integrity.totalDebits |> Money.amount
+              totalCredits = integrity.totalCredits |> Money.amount
+              debitsEqualCredits = integrity.debitsEqualCredits
+              assets = integrity.assets |> Money.amount
+              liabilities = integrity.liabilities |> Money.amount
+              equity = integrity.equity |> Money.amount
+              revenue = integrity.revenue |> Money.amount
+              expenses = integrity.expenses |> Money.amount
+              netIncome = integrity.netIncome |> Money.amount
+              residual = integrity.residual |> Money.amount
+              deactivatedAccountsWithBalance = deactivatedAccountsWithBalance }
+    }
 
 let ``convert [PeriodActivityLine] to [PeriodActivityLineReturnRow]``
     (line: PeriodActivityLine)
@@ -142,12 +169,18 @@ let ``convert [PeriodActivityLine] to [PeriodActivityLineReturnRow]``
       memo = line.memo |> Option.map JournalEntryLineMemo.value }
 
 let ``convert [PeriodActivityAccount] to [PeriodActivityAccountReturnRow]``
+    (context: Context.Context)
     (account: PeriodActivityAccount)
-    : PeriodActivityAccountReturnRow =
-    { accountCode = account.accountCode |> AccountCode.value
-      accountName = account.accountName |> AccountName.value
-      netTotal = account.netTotal |> Money.amount
-      lines = account.lines |> List.map ``convert [PeriodActivityLine] to [PeriodActivityLineReturnRow]`` }
+    : Result<PeriodActivityAccountReturnRow, IAppError> =
+    result {
+        let! accountCode = account.accountId |> ``convert AccountId to AccountCodeString`` context
+        let! accountName = account.accountId |> ``convert AccountId to AccountNameString`` context
+        return
+            { accountCode = accountCode
+              accountName = accountName
+              netTotal = account.netTotal |> Money.amount
+              lines = account.lines |> List.map ``convert [PeriodActivityLine] to [PeriodActivityLineReturnRow]`` }
+    }
 
 let private ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
     (row: LedgerAccountBalance)

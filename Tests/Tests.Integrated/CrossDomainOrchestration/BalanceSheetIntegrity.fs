@@ -170,11 +170,20 @@ type BalanceSheetIntegrityTests(fixture: TestDataFixture) =
             return ()
         }
 
-    let listedCodes (integrity: BalanceSheetIntegrity) =
-        integrity.deactivatedAccountsWithBalance |> List.map (fun a -> a.code |> AccountCode.value)
+    /// The code and name the account table holds for an account ID, read through the route lookups.
+    let codeOf context accountId =
+        accountId |> Account.idToCode context |> Result.defaultWith (fun (e: IAppError) -> failwith (e.ToMessage()))
+        |> AccountCode.value
 
-    let listed code (integrity: BalanceSheetIntegrity) =
-        integrity.deactivatedAccountsWithBalance |> List.filter (fun a -> (a.code |> AccountCode.value) = code)
+    let nameOf context accountId =
+        accountId |> Account.idToName context |> Result.defaultWith (fun (e: IAppError) -> failwith (e.ToMessage()))
+        |> AccountName.value
+
+    let listedCodes context (integrity: BalanceSheetIntegrity) =
+        integrity.deactivatedAccountsWithBalance |> List.map (fun a -> a.accountId |> codeOf context)
+
+    let listed context code (integrity: BalanceSheetIntegrity) =
+        integrity.deactivatedAccountsWithBalance |> List.filter (fun a -> (a.accountId |> codeOf context) = code)
 
     let entryIds (entries: JournalEntryHeader.JournalEntryHeader list) =
         entries |> List.map JournalEntryHeader.journalEntryHeaderId |> Set.ofList
@@ -341,13 +350,13 @@ type BalanceSheetIntegrityTests(fixture: TestDataFixture) =
                 let! integrity = computeBalanceSheetIntegrity context today
                 let! expectedBalance = Money.fromDecimal 30.00M
                 let () =
-                    match listed "BI-1100" integrity with
+                    match listed context "BI-1100" integrity with
                     | [ account ] ->
-                        Assert.Equal("Integrity retired asset", account.accountName |> AccountName.value)
+                        Assert.Equal("Integrity retired asset", account.accountId |> nameOf context)
                         Assert.Equal(retiredEnd, account.activeEnd)
                         Assert.Equal(expectedBalance, account.balance)
                         Assert.Equal<Set<JournalEntryHeaderId>>(Set.singleton backdated, account.entriesAfterActiveEnd |> entryIds)
-                    | other -> Assert.Fail $"Expected BI-1100 listed once; listed {other |> List.length} times among {listedCodes integrity}"
+                    | other -> Assert.Fail $"Expected BI-1100 listed once; listed {other |> List.length} times among {listedCodes context integrity}"
                 return ()
             })
 
@@ -368,9 +377,9 @@ type BalanceSheetIntegrityTests(fixture: TestDataFixture) =
                 let! integrity = computeBalanceSheetIntegrity context earlyAsOf
                 let! expectedBalance = Money.fromDecimal 30.00M
                 let () =
-                    match listed "BI-1100" integrity with
+                    match listed context "BI-1100" integrity with
                     | [ account ] -> Assert.Equal(expectedBalance, account.balance)
-                    | other -> Assert.Fail $"Expected BI-1100 listed once; listed {other |> List.length} times among {listedCodes integrity}"
+                    | other -> Assert.Fail $"Expected BI-1100 listed once; listed {other |> List.length} times among {listedCodes context integrity}"
                 return ()
             })
 
@@ -385,11 +394,11 @@ type BalanceSheetIntegrityTests(fixture: TestDataFixture) =
                 let! integrity = computeBalanceSheetIntegrity context today
                 let! expectedBalance = Money.fromDecimal 40.00M
                 let () =
-                    match listed "BI-1100" integrity with
+                    match listed context "BI-1100" integrity with
                     | [ account ] ->
                         Assert.Equal(expectedBalance, account.balance)
                         Assert.Equal<Set<JournalEntryHeaderId>>(Set.singleton creditEntry, account.entriesAfterActiveEnd |> entryIds)
-                    | other -> Assert.Fail $"Expected BI-1100 listed once; listed {other |> List.length} times among {listedCodes integrity}"
+                    | other -> Assert.Fail $"Expected BI-1100 listed once; listed {other |> List.length} times among {listedCodes context integrity}"
                 return ()
             })
 
@@ -403,8 +412,8 @@ type BalanceSheetIntegrityTests(fixture: TestDataFixture) =
                 // BI-1000 stays active and holds 70.00
                 let! _ = post context "Integrity active holding" yesterday (everyTypeLines accounts)
                 let! integrity = computeBalanceSheetIntegrity context today
-                Assert.DoesNotContain("BI-1100", listedCodes integrity)
-                Assert.DoesNotContain("BI-1000", listedCodes integrity)
+                Assert.DoesNotContain("BI-1100", listedCodes context integrity)
+                Assert.DoesNotContain("BI-1000", listedCodes context integrity)
                 return ()
             })
 
@@ -417,6 +426,6 @@ type BalanceSheetIntegrityTests(fixture: TestDataFixture) =
                     post context "Integrity ends today" yesterday
                         [ (endsTodayId, 25.00M, "Debit", None); (accounts.liability, 25.00M, "Credit", None) ]
                 let! integrity = computeBalanceSheetIntegrity context today
-                Assert.DoesNotContain("BI-1100", listedCodes integrity)
+                Assert.DoesNotContain("BI-1100", listedCodes context integrity)
                 return ()
             })

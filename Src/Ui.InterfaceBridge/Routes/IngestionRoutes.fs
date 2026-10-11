@@ -131,9 +131,11 @@ let private post payload _ =
             runner auditAction (fun context ->
                 result {
                     let! before, after = StageEntryOrchestration.postWithTrialBalances context
+                    let! trialBalanceBefore = before |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]`` context
+                    let! trialBalanceAfter = after |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]`` context
                     let fullResult: PostStageEntriesFullResult = {
-                          trialBalanceBefore = before |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
-                          trialBalanceAfter = after |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
+                          trialBalanceBefore = trialBalanceBefore
+                          trialBalanceAfter = trialBalanceAfter
                           wasRolledBack = willBeRolledBack }
                     return! fullResult |> Json.toJson<PostStageEntriesFullResult>
                 })
@@ -151,8 +153,9 @@ let private shadowReconcile payload _ =
                     let! rows = requests |> reconcileAfterPostingStagedEntries context
                     return!
                         rows
-                        |> List.map ``convert [ReconciliationRow] to [ReconciliationReturnRow]``
-                        |> Json.toJson<ReconciliationReturnRow list>
+                        |> List.map (``convert [ReconciliationRow] to [ReconciliationReturnRow]`` context)
+                        |> convertListOfResultsToResultsList
+                        |> Result.bind Json.toJson<ReconciliationReturnRow list>
                 })
     }
     

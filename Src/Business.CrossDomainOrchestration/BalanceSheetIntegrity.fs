@@ -11,8 +11,7 @@ open Business.FinancialServices.Ledger.AccountComponent
 
 /// A deactivated Account still holding money, with the journal entries posted or voided after its active end.
 type DeactivatedAccountWithBalance =
-    { code: AccountCode
-      accountName: AccountName
+    { accountId: AccountId
       activeEnd: LocalDate
       balance: Money.Money
       entriesAfterActiveEnd: JournalEntryHeader.JournalEntryHeader list }
@@ -65,8 +64,7 @@ let private deactivatedAccountsWithBalance
                             (je |> JournalEntryHeader.createdAt |> after)
                             || (je |> JournalEntryHeader.voidedAt |> Option.exists after))
                     return
-                        { code = account |> Account.code
-                          accountName = account |> Account.accountName
+                        { accountId = account |> Account.accountId
                           activeEnd = activeEnd
                           balance = account |> Account.accountId |> balanceOf
                           entriesAfterActiveEnd = entriesAfterActiveEnd }

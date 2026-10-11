@@ -631,6 +631,22 @@ is untouched.
 
 **B2. `Src/README.md`.** The LookupCache row carries the plan's text.
 
+**C1. R4 ledger report rows carry AccountId** (#055–#058, #075 ledger
+half). One commit. `TrialBalanceRowNested`/`Flattened`, `ReconciliationRow`,
+`PeriodActivityAccount` and `DeactivatedAccountWithBalance` carry
+`accountId` in place of code and name; `Reconciliation` matches trial
+balance rows on it. The orders are untouched (the crawl and the deactivated
+list still sort `Account` entities). `ReportConverters` take a context and
+resolve code and name through `Account.idToCode`/`idToName` (via the account
+converters), returning `Result`; the three writers take a context, resolve
+each row, then render as before. `ReportRoutes` and the shadow post and
+shadow reconcile in `IngestionRoutes` pass the context. Tests:
+`TrialBalance.fs` and `StageEntryPosting.fs` find rows by the fixture's IDs
+(or `codeOfId`); `Reconciliation.fs` and `BalanceSheetIntegrity.fs` read a
+row's code and name back through the lookups with the test's context;
+`PeriodActivity.fs` pairs each row with its code and name once per fetch.
+Route `ReportRoutes.fs`: see 5.1.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 

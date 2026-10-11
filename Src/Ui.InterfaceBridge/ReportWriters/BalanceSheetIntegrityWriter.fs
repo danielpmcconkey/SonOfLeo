@@ -5,6 +5,7 @@ open App.Utility.IAppError
 open App.Utility.Result
 open App.Utility.File
 open App.Utility.Calendar
+open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
@@ -88,9 +89,12 @@ let private block ordinal title figures : DomElement =
 
 let private dateString (d: LocalDate) = d |> localDateToString "yyyy-MM-dd"
 
-let private deactivatedAccountBlock ordinal (account: DeactivatedAccountWithBalance) : DomElement =
-    let code = account.code |> AccountCode.value
-    let name = account.accountName |> AccountName.value
+let private deactivatedAccountBlock
+    ordinal
+    (account: DeactivatedAccountWithBalance, accountCode: AccountCode, accountName: AccountName)
+    : DomElement =
+    let code = accountCode |> AccountCode.value
+    let name = accountName |> AccountName.value
     let entryFigure i (je: JournalEntryHeader.JournalEntryHeader) =
         let entryDate = je |> JournalEntryHeader.entryDate |> EntryDate.entryDate
         let description = je |> JournalEntryHeader.description |> JournalEntryDescription.value
@@ -106,10 +110,11 @@ let private deactivatedAccountBlock ordinal (account: DeactivatedAccountWithBala
            moneyFigure 20 "figure check" "Balance" account.balance ]
          @ (account.entriesAfterActiveEnd |> List.mapi entryFigure))
 
-let write
+let private writeNamed
     (pathInfo: OutputPathInput)
     (generatedAt: Instant)
     (integrity: BalanceSheetIntegrity)
+    (deactivatedAccounts: (DeactivatedAccountWithBalance * AccountCode * AccountName) list)
     : Result<BalanceSheetIntegrityReturn, IAppError> =
     let asOf = integrity.asOf
     let asOfString = asOf |> localDateToString "yyyy-MM-dd"
@@ -136,7 +141,7 @@ let write
               moneyFigure 60 "figure" "Net income (revenue minus expenses)" integrity.netIncome
               moneyFigure 70 "figure check" "Residual: assets minus (liabilities + equity + net income)" integrity.residual ]
     let deactivated =
-        match integrity.deactivatedAccountsWithBalance with
+        match deactivatedAccounts with
         | [] ->
             [ block 3 "Deactivated accounts holding a balance"
                 [ figure 10 "figure" "Every deactivated account holds a zero balance" "val" "None" ] ]
@@ -157,4 +162,23 @@ let write
             |> HtmlWrapper.toString
             |> writeTextFile path
         return BalanceSheetIntegrityReturn.Report { fullyQualifiedPath = path }
+    }
+
+let write
+    (context: Context.Context)
+    (pathInfo: OutputPathInput)
+    (generatedAt: Instant)
+    (integrity: BalanceSheetIntegrity)
+    : Result<BalanceSheetIntegrityReturn, IAppError> =
+    result {
+        let! namedAccounts =
+            integrity.deactivatedAccountsWithBalance
+            |> List.map (fun account ->
+                result {
+                    let! code = account.accountId |> Account.idToCode context
+                    let! name = account.accountId |> Account.idToName context
+                    return account, code, name
+                })
+            |> convertListOfResultsToResultsList
+        return! namedAccounts |> writeNamed pathInfo generatedAt integrity
     }

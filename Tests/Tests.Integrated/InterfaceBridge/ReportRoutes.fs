@@ -374,8 +374,11 @@ type ReportRoutesTests(fixture: TestDataFixture) =
         result {
             let! trialBalanceToday = TrialBalanceReport.fetchTrialBalanceData context today
             let! trialBalanceYesterday = TrialBalanceReport.fetchTrialBalanceData context yesterday
+            let! accounts = Account.fetchAll context false
             let expectedRow code (trialBalance: TrialBalanceReport.TrialBalanceRowFlattened list) =
-                trialBalance |> List.find (fun row -> row.accountCode |> AccountCode.value = code)
+                let account = accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = code)
+                let row = trialBalance |> List.find (fun row -> row.accountId = (account |> Account.accountId))
+                {| accountName = account |> Account.accountName; netBalance = row.netBalance |}
             let! payload = input |> toJson<ReconciliationInput>
             let! returnPayload = routeReportingCommandForTesting "Reconciliation" [] payload
             let! rows = returnPayload |> fromJson<ReconciliationReturnRow list>
@@ -545,6 +548,9 @@ type ReportRoutesTests(fixture: TestDataFixture) =
         let context = Context.create NoTransaction FetchOnly
         result {
             let! expected = PeriodActivity.fetchPeriodActivity context activityBegin activityEnd
+            let! accounts = Account.fetchAll context false
+            let accountOf (a: PeriodActivity.PeriodActivityAccount) =
+                accounts |> List.find (fun account -> account |> Account.accountId = a.accountId)
             Assert.True(expected |> List.length >= 2)
             Assert.All(expected, fun a -> Assert.NotEmpty a.lines)
             let! returned = runPeriodActivity activityBegin activityEnd OutputSpecifier.DataOnly
@@ -554,8 +560,8 @@ type ReportRoutesTests(fixture: TestDataFixture) =
                     let expectedRows =
                         expected
                         |> List.map (fun a ->
-                            a.accountCode |> AccountCode.value,
-                            a.accountName |> AccountName.value,
+                            accountOf a |> Account.code |> AccountCode.value,
+                            accountOf a |> Account.accountName |> AccountName.value,
                             a.netTotal |> Money.amount,
                             a.lines
                             |> List.map (fun l ->
@@ -652,7 +658,7 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             // the writer renders the instant it is given
             let handedIn = Clock.now().Minus(NodaTime.Duration.FromDays(400)).Minus(NodaTime.Duration.FromSeconds(3917L))
             let! written =
-                Ui.InterfaceBridge.ReportWriters.TrialBalanceWriter.write
+                Ui.InterfaceBridge.ReportWriters.TrialBalanceWriter.write (Context.create NoTransaction FetchOnly)
                     { baseDir = testOutputDir; interpolateAsOf = false; fileName = "sys-3-4-footer-writer" } handedIn nextMonth []
             let! writerPath =
                 match written with

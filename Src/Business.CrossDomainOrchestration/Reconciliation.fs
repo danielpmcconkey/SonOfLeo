@@ -11,8 +11,7 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.CrossDomainOrchestration.TrialBalanceReport
 
 type ReconciliationRow =
-    { accountCode: AccountCode
-      accountName: AccountName
+    { accountId: AccountId
       asOf: LocalDate
       externalBalance: Money.Money
       ledgerBalance: Money.Money
@@ -64,12 +63,11 @@ let reconcile
                     trialBalances
                     |> List.find (fun (tbAsOf, _) -> tbAsOf = asOf)
                     |> snd
-                    |> List.find (fun row -> row.accountCode = Account.code account)
+                    |> List.find (fun row -> row.accountId = Account.accountId account)
                 // external minus ledger
                 Money.subtractVal1FromVal2 trialBalanceRow.netBalance externalBalance
                 |> Result.map (fun delta ->
-                    { accountCode = trialBalanceRow.accountCode
-                      accountName = trialBalanceRow.accountName
+                    { accountId = trialBalanceRow.accountId
                       asOf = asOf
                       externalBalance = externalBalance
                       ledgerBalance = trialBalanceRow.netBalance

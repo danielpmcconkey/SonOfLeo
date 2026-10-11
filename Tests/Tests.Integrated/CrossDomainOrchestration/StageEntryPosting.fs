@@ -209,8 +209,8 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                 let contextForPost = context |> TestContext.updateInitiationInstant
                 do! Business.CrossDomainOrchestration.StageEntryOrchestration.post contextForPost
                 let! trialBalanceAfter = fetchTrialBalanceData context asOf
-                let rowFor accountCode (rows: TrialBalanceRowFlattened list) =
-                    rows |> List.find (fun row -> row.accountCode = accountCode)
+                let rowFor accountId (rows: TrialBalanceRowFlattened list) =
+                    rows |> List.find (fun row -> row.accountId = accountId)
                 accountIdsReceivingPostings
                 |> List.iter (fun accountId ->
                     let expectedDebits = accountId |> stagedAmountFor Debit
@@ -221,8 +221,8 @@ type StageEntryPostingTests(fixture: TestDataFixture) =
                     Assert.True(
                         expectedDebits + expectedCredits > 0M,
                         $"Nothing is staged against {accountCode |> AccountCode.value}, so its delta proves nothing.")
-                    let before = trialBalanceBefore |> rowFor accountCode
-                    let after = trialBalanceAfter |> rowFor accountCode
+                    let before = trialBalanceBefore |> rowFor accountId
+                    let after = trialBalanceAfter |> rowFor accountId
                     Assert.Equal(
                         expectedDebits,
                         (after.totalDebits |> Money.amount) - (before.totalDebits |> Money.amount))

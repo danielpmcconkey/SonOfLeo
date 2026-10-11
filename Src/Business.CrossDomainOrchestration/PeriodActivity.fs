@@ -13,8 +13,7 @@ open Business.CrossDomainOrchestration.AccountActivity
 open Business.CrossDomainOrchestration.TrialBalanceReport
 
 type PeriodActivityAccount =
-    { accountCode: AccountCode
-      accountName: AccountName
+    { accountId: AccountId
       // in the account's normal-balance direction
       netTotal: Money.Money
       lines: PeriodActivityLine list }
@@ -77,8 +76,7 @@ let fetchPeriodActivity
                 let lines = lines |> List.sortBy (fun l -> l.entryDate, l.journalEntryId |> JournalEntryHeaderId.value)
                 netTotal (account |> Account.accountType) lines
                 |> Result.map (fun net ->
-                    { accountCode = account |> Account.code
-                      accountName = account |> Account.accountName
+                    { accountId = account |> Account.accountId
                       netTotal = net
                       lines = lines }))
             |> convertListOfResultsToResultsList

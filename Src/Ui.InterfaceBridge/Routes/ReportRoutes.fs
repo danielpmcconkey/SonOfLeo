@@ -25,14 +25,14 @@ let private trialBalance payload _ =
     result {
         let! input = Json.fromJson<TrialBalanceReportInput> payload
         let! trialBalanceData = fetchTrialBalanceData context input.asOf.asOf
-        let trialBalanceRows =
-            trialBalanceData
-            |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
         let! (trialBalanceReturn:TrialBalanceReportReturn) =
             match input.reportOutput with
-            | OutputSpecifier.DataOnly -> Ok (TrialBalanceReportReturn.DataOnly trialBalanceRows) 
+            | OutputSpecifier.DataOnly ->
+                trialBalanceData
+                |> ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]`` context
+                |> Result.map TrialBalanceReportReturn.DataOnly
             | OutputSpecifier.Report outputPathInput ->
-                trialBalanceData |> TrialBalanceWriter.write outputPathInput (context |> Context.getInitiationInstant) input.asOf.asOf
+                trialBalanceData |> TrialBalanceWriter.write context outputPathInput (context |> Context.getInitiationInstant) input.asOf.asOf
         return! trialBalanceReturn |> Json.toJson<TrialBalanceReportReturn>
     }
     
@@ -60,8 +60,9 @@ let private reconciliation payload _ =
         let! rows = requests |> reconcile context
         return!
             rows
-            |> List.map ``convert [ReconciliationRow] to [ReconciliationReturnRow]``
-            |> Json.toJson<ReconciliationReturnRow list>
+            |> List.map (``convert [ReconciliationRow] to [ReconciliationReturnRow]`` context)
+            |> convertListOfResultsToResultsList
+            |> Result.bind Json.toJson<ReconciliationReturnRow list>
     }
 
 let private balanceSheetIntegrity payload _ =
@@ -72,8 +73,10 @@ let private balanceSheetIntegrity payload _ =
         let! (integrityReturn: BalanceSheetIntegrityReturn) =
             match input.reportOutput with
             | OutputSpecifier.DataOnly ->
-                Ok (BalanceSheetIntegrityReturn.DataOnly (integrity |> ``convert [BalanceSheetIntegrity] to [BalanceSheetIntegrityReturnRow]``))
-            | OutputSpecifier.Report outputPathInput -> integrity |> BalanceSheetIntegrityWriter.write outputPathInput (context |> Context.getInitiationInstant)
+                integrity
+                |> ``convert [BalanceSheetIntegrity] to [BalanceSheetIntegrityReturnRow]`` context
+                |> Result.map BalanceSheetIntegrityReturn.DataOnly
+            | OutputSpecifier.Report outputPathInput -> integrity |> BalanceSheetIntegrityWriter.write context outputPathInput (context |> Context.getInitiationInstant)
         return! integrityReturn |> Json.toJson<BalanceSheetIntegrityReturn>
     }
 
@@ -85,9 +88,12 @@ let private periodActivity payload _ =
         let! (periodActivityReturn: PeriodActivityReturn) =
             match input.reportOutput with
             | OutputSpecifier.DataOnly ->
-                Ok (PeriodActivityReturn.DataOnly (accounts |> List.map ``convert [PeriodActivityAccount] to [PeriodActivityAccountReturnRow]``))
+                accounts
+                |> List.map (``convert [PeriodActivityAccount] to [PeriodActivityAccountReturnRow]`` context)
+                |> convertListOfResultsToResultsList
+                |> Result.map PeriodActivityReturn.DataOnly
             | OutputSpecifier.Report outputPathInput ->
-                accounts |> PeriodActivityWriter.write outputPathInput (context |> Context.getInitiationInstant) input.beginDate input.endDate
+                accounts |> PeriodActivityWriter.write context outputPathInput (context |> Context.getInitiationInstant) input.beginDate input.endDate
         return! periodActivityReturn |> Json.toJson<PeriodActivityReturn>
     }
 

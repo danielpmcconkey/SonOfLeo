@@ -111,11 +111,20 @@ type ReconciliationTests(fixture: TestDataFixture) =
                 |> convertListOfResultsToResultsList
         }
 
-    let rowFor code (rows: ReconciliationRow list) =
-        rows |> List.filter (fun row -> row.accountCode |> AccountCode.value = code)
+    /// The code and name the account table holds for an account ID, read through the route lookups.
+    let codeOf context accountId =
+        accountId |> Account.idToCode context |> Result.defaultWith (fun (e: IAppError) -> failwith (e.ToMessage()))
+        |> AccountCode.value
 
-    let ledgerBalanceOf code rows =
-        rows |> rowFor code |> List.exactlyOne |> _.ledgerBalance |> Money.amount
+    let nameOf context accountId =
+        accountId |> Account.idToName context |> Result.defaultWith (fun (e: IAppError) -> failwith (e.ToMessage()))
+        |> AccountName.value
+
+    let rowFor context code (rows: ReconciliationRow list) =
+        rows |> List.filter (fun row -> row.accountId |> codeOf context = code)
+
+    let ledgerBalanceOf context code rows =
+        rows |> rowFor context code |> List.exactlyOne |> _.ledgerBalance |> Money.amount
 
     /// Every ledger test runs inside this rolled-back transaction, with the ledger above already written.
     let withLedger (test: Context.Context -> ReconciliationLedger -> Result<unit, IAppError>) =
@@ -137,14 +146,14 @@ type ReconciliationTests(fixture: TestDataFixture) =
                 let! input = requests context [ ledger.childCode, 104.25M, today; ledger.liabilityCode, 118.50M, yesterday ]
                 let! rows = input |> reconcile context
                 Assert.Equal(2, rows |> List.length)
-                let child = rows |> rowFor ledger.childCode |> List.exactlyOne
-                Assert.Equal(ledger.childName, child.accountName |> AccountName.value)
+                let child = rows |> rowFor context ledger.childCode |> List.exactlyOne
+                Assert.Equal(ledger.childName, child.accountId |> nameOf context)
                 Assert.Equal(today, child.asOf)
                 Assert.Equal(104.25M, child.externalBalance |> Money.amount)
                 Assert.Equal(100.00M, child.ledgerBalance |> Money.amount)
                 Assert.Equal(4.25M, child.delta |> Money.amount)
-                let liability = rows |> rowFor ledger.liabilityCode |> List.exactlyOne
-                Assert.Equal(ledger.liabilityName, liability.accountName |> AccountName.value)
+                let liability = rows |> rowFor context ledger.liabilityCode |> List.exactlyOne
+                Assert.Equal(ledger.liabilityName, liability.accountId |> nameOf context)
                 Assert.Equal(yesterday, liability.asOf)
                 Assert.Equal(118.50M, liability.externalBalance |> Money.amount)
                 Assert.Equal(100.00M, liability.ledgerBalance |> Money.amount)
@@ -161,7 +170,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
                           ledger.liabilityCode, 125.00M, today
                           ledger.parentCode, 130.00M, today ]
                 let! rows = input |> reconcile context
-                let deltaOf code = (rows |> rowFor code |> List.exactlyOne).delta |> Money.amount
+                let deltaOf code = (rows |> rowFor context code |> List.exactlyOne).delta |> Money.amount
                 Assert.Equal(10.00M, deltaOf ledger.childCode)
                 Assert.Equal(-5.00M, deltaOf ledger.liabilityCode)
                 Assert.Equal(0.00M, deltaOf ledger.parentCode)
@@ -173,7 +182,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
             result {
                 let! input = requests context [ ledger.childCode, 0.00M, today ]
                 let! rows = input |> reconcile context
-                Assert.Equal(100.00M, rows |> ledgerBalanceOf ledger.childCode)
+                Assert.Equal(100.00M, rows |> ledgerBalanceOf context ledger.childCode)
             })
 
     [<Fact>]
@@ -185,8 +194,8 @@ type ReconciliationTests(fixture: TestDataFixture) =
                 let! rowsYesterday = asOfYesterday |> reconcile context
                 let! rowsToday = asOfToday |> reconcile context
                 // yesterday's entry counts on its own date; today's does not count as of yesterday
-                Assert.Equal(100.00M, rowsYesterday |> ledgerBalanceOf ledger.parentCode)
-                Assert.Equal(130.00M, rowsToday |> ledgerBalanceOf ledger.parentCode)
+                Assert.Equal(100.00M, rowsYesterday |> ledgerBalanceOf context ledger.parentCode)
+                Assert.Equal(130.00M, rowsToday |> ledgerBalanceOf context ledger.parentCode)
             })
 
     [<Fact>]
@@ -195,8 +204,8 @@ type ReconciliationTests(fixture: TestDataFixture) =
             result {
                 let! input = requests context [ ledger.childCode, 0.00M, today; ledger.liabilityCode, 0.00M, today ]
                 let! rows = input |> reconcile context
-                Assert.Equal(100.00M, rows |> ledgerBalanceOf ledger.childCode)
-                Assert.Equal(130.00M, rows |> ledgerBalanceOf ledger.liabilityCode)
+                Assert.Equal(100.00M, rows |> ledgerBalanceOf context ledger.childCode)
+                Assert.Equal(130.00M, rows |> ledgerBalanceOf context ledger.liabilityCode)
             })
 
     [<Fact>]
@@ -205,7 +214,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
             result {
                 let! input = requests context [ ledger.parentCode, 0.00M, today ]
                 let! rows = input |> reconcile context
-                Assert.Equal(130.00M, rows |> ledgerBalanceOf ledger.parentCode)
+                Assert.Equal(130.00M, rows |> ledgerBalanceOf context ledger.parentCode)
             })
 
     [<Fact>]
@@ -214,8 +223,8 @@ type ReconciliationTests(fixture: TestDataFixture) =
             result {
                 let! input = requests context [ ledger.parentCode, 0.00M, yesterday; ledger.liabilityCode, 0.00M, today ]
                 let! rows = input |> reconcile context
-                Assert.Equal(100.00M, rows |> ledgerBalanceOf ledger.parentCode)
-                Assert.Equal(130.00M, rows |> ledgerBalanceOf ledger.liabilityCode)
+                Assert.Equal(100.00M, rows |> ledgerBalanceOf context ledger.parentCode)
+                Assert.Equal(130.00M, rows |> ledgerBalanceOf context ledger.liabilityCode)
             })
 
     [<Fact>]
@@ -249,8 +258,8 @@ type ReconciliationTests(fixture: TestDataFixture) =
                 Assert.Equal(Classified, staged.stagedEntries |> List.exactlyOne |> StageTestData.latestStatus)
                 let! input = requests context [ ledger.childCode, 0.00M, today; ledger.parentCode, 0.00M, today ]
                 let! rows = input |> reconcileAfterPostingStagedEntries (context |> TestContext.updateInitiationInstant)
-                Assert.Equal(140.00M, rows |> ledgerBalanceOf ledger.childCode)
-                Assert.Equal(170.00M, rows |> ledgerBalanceOf ledger.parentCode)
+                Assert.Equal(140.00M, rows |> ledgerBalanceOf context ledger.childCode)
+                Assert.Equal(170.00M, rows |> ledgerBalanceOf context ledger.parentCode)
             })
 
     (* The two tests above and below this one run inside a transaction the test itself rolls back, so they cannot see
@@ -262,6 +271,7 @@ type ReconciliationTests(fixture: TestDataFixture) =
         let accountCode = "F-5650"
         let mutable idsToCleanUp = []
         let fetchOnly () = Context.create NoTransaction FetchOnly
+        let context = fetchOnly ()
         try
             result {
                 let! staged =
@@ -288,9 +298,9 @@ type ReconciliationTests(fixture: TestDataFixture) =
                         input |> reconcileAfterPostingStagedEntries context)
                 let! after = input |> reconcile (fetchOnly ())
                 Assert.Equal(
-                    (before |> ledgerBalanceOf accountCode) + expectedMovement,
-                    shadow |> ledgerBalanceOf accountCode)
-                Assert.Equal(before |> ledgerBalanceOf accountCode, after |> ledgerBalanceOf accountCode)
+                    (before |> ledgerBalanceOf context accountCode) + expectedMovement,
+                    shadow |> ledgerBalanceOf context accountCode)
+                Assert.Equal(before |> ledgerBalanceOf context accountCode, after |> ledgerBalanceOf context accountCode)
                 let! financialInstitution = "TestBank" |> JournalRefFinancialInstitution.create
                 let! referenceText = reference |> JournalExternalReferenceText.create
                 let! posted =

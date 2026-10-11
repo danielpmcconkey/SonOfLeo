@@ -9,8 +9,7 @@ open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 
 type TrialBalanceRowNested =
-    { accountCode: AccountCode
-      accountName: AccountName
+    { accountId: AccountId
       generation: int
       totalCredits: Money.Money
       totalDebits: Money.Money
@@ -18,8 +17,7 @@ type TrialBalanceRowNested =
       children:  TrialBalanceRowNested list }
 
 type TrialBalanceRowFlattened =
-    { accountCode: AccountCode
-      accountName: AccountName
+    { accountId: AccountId
       generation: int
       totalCredits: Money.Money
       totalDebits: Money.Money
@@ -55,8 +53,7 @@ let rec private crawlAndCompile
     if children |> List.isEmpty
     then
         // you're a bottom rung, just add your own tallies
-        Ok { accountCode = accountToCrawl |> Account.code
-             accountName = accountToCrawl |> Account.accountName
+        Ok { accountId = accountToCrawl |> Account.accountId
              generation = thisGeneration
              totalCredits = creditsForThisAccount
              totalDebits = debitsForThisAccount
@@ -86,8 +83,7 @@ let rec private crawlAndCompile
         let! totalNet = sumChildrenBalances |> Money.add netForThisAccount
         // create the parent row
         return
-               { accountCode = accountToCrawl |> Account.code
-                 accountName = accountToCrawl |> Account.accountName
+               { accountId = accountToCrawl |> Account.accountId
                  generation = thisGeneration
                  totalCredits = totalCredits
                  totalDebits = totalDebits
@@ -98,8 +94,7 @@ let rec private flattenNestedTrialBalance
     (nested: TrialBalanceRowNested)
     : TrialBalanceRowFlattened list =
     let selfFlattened = 
-        { accountCode = nested.accountCode
-          accountName = nested.accountName
+        { accountId = nested.accountId
           generation = nested.generation
           totalCredits = nested.totalCredits
           totalDebits = nested.totalDebits

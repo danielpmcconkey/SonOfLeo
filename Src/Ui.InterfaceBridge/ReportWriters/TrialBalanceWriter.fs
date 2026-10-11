@@ -5,7 +5,9 @@ open App.Utility.IAppError
 open App.Utility.Result
 open App.Utility.File
 open App.Utility.Calendar
+open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.CrossDomainOrchestration.TrialBalanceReport
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
@@ -196,10 +198,10 @@ let createAccountLabel labelType amount ordinal   =
 
 let createAccountRowDomElement
     (ordinal:int)
-    (row:TrialBalanceRowFlattened)
+    (row:TrialBalanceRowFlattened, accountCode: AccountCode, accountName: AccountName)
     : DomElement =
-    let code = row.accountCode |> AccountCode.value |> System.Net.WebUtility.HtmlEncode
-    let accountName = row.accountName |> AccountName.value |> System.Net.WebUtility.HtmlEncode
+    let code = accountCode |> AccountCode.value |> System.Net.WebUtility.HtmlEncode
+    let accountName = accountName |> AccountName.value |> System.Net.WebUtility.HtmlEncode
     let accountLabelName = {
         ordinal = 10
         elementType = (Span $"{code} &middot; {accountName}")
@@ -223,11 +225,11 @@ let createAccountRowDomElement
     } 
     
 
-let write
+let private writeNamed
     (pathInfo: OutputPathInput)
     (generatedAt: Instant)
     (asOf: LocalDate)
-    (sortedRows: TrialBalanceRowFlattened list)
+    (sortedRows: (TrialBalanceRowFlattened * AccountCode * AccountName) list)
     : Result<TrialBalanceReportReturn, IAppError> =
     let head = {
         charSet = "utf-8"
@@ -275,4 +277,24 @@ let write
             |> HtmlWrapper.toString
             |> writeTextFile path
         return TrialBalanceReportReturn.Report{ fullyQualifiedPath = path}
+    }
+
+let write
+    (context: Context.Context)
+    (pathInfo: OutputPathInput)
+    (generatedAt: Instant)
+    (asOf: LocalDate)
+    (sortedRows: TrialBalanceRowFlattened list)
+    : Result<TrialBalanceReportReturn, IAppError> =
+    result {
+        let! namedRows =
+            sortedRows
+            |> List.map (fun row ->
+                result {
+                    let! code = row.accountId |> Account.idToCode context
+                    let! name = row.accountId |> Account.idToName context
+                    return row, code, name
+                })
+            |> convertListOfResultsToResultsList
+        return! namedRows |> writeNamed pathInfo generatedAt asOf
     }
