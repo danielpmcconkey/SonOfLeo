@@ -1,0 +1,21 @@
+# NGUI spec-quality auditor (NonGraphicalInterface.md)
+
+_No findings._
+
+## Reasoning
+
+Scope: /home/claude/SonOfLeo/Specs/Behavioral/NonGraphicalInterface.md. The spec text has not changed since the last audit's disposition commit 22af7f4 (`git diff 22af7f4 HEAD` on the file is empty). Its last two commits are 22af7f4 and da96f73. Before judging anything I read the audit-conduct catalog and all twelve of its articles, the resolved-findings precedents (NGUI-AQ-1, WAIVE-1), Audit/2026-10-04a/10-quality-NonGraphicalInterface.md, the 2026-10-04a disposition rows (#065-#067, #163, #164) and the 2026-10-03a NGUI dispositions (#113-#117, #180, #268-#270, #298-#299).
+
+1. Terms against Definitions.md. "Interface layer" in REQ-NGUI-2.4 points to the matching Definitions entry, and "actor" matches Actors. The new "Pre-ledger date" term does not touch this spec. REQ-NGUI-1.4 and 1.6 use "account" to mean a ledger Account, which has a code. The Positions "Investment Account" has no code and is addressed by name. I considered whether that makes 1.4/1.6 ambiguous, but a reasonable developer would not try to give a code to an entity that has no code field. Under the reasonable-person standard that is not a finding.
+
+2. Internal contradictions. None found. REQ-NGUI-1.3 (code plus payload, example "0 {...}") agrees with 3.6/3.7 and 4.4. 3.10's rule about where `--file` may appear covers both CLIs, and 4.3 points back to it. 3.11 and 4.6 (usage message, non-zero exit) agree. 1.5's "fail with an error" is consistent with 3.9 and 4.5.
+
+3. Conflicts with SystemWide.md and the specs this one cites. REQ-SYS-6.2 and 8.1 do not conflict. For slice 2, I checked REQ-NGUI-1.4, 1.5 and 1.6 against the new contracts in Src/Ui.InterfaceBridge/InterfaceContracts/PositionsContracts.fs. The PreLedgerBalance inputs take `accountCode`, and the returns use `LedgerAccountReturn {code; name}`. In ReportsContracts.fs, the net worth and net worth history rows use NetWorthLedgerAccountReturnRow {code; name}. That matches REQ-POS-15.1/15.6 and REQ-RPT-8.7/10.x, so slice 2 introduces nothing that contradicts this spec.
+
+4 and 5. Ambiguity and missing detail. 1.6's role list ("the account itself, its parent, and the debit and credit accounts of an agreement") could be read as exhaustive. The leading clause "every role an account plays" governs, though, and the reflection-based test in Tests/Tests.Integrated/InterfaceBridge/AccountNamesInPayloads.fs already enforces that broad reading over every non-input contract, including the slice-2 LedgerAccountReturn and NetWorthLedgerAccountReturnRow. Two developers would not diverge. The 1.6 ambiguity about related accounts was already settled at 10-03a #270, and the wording was amended then.
+
+6. Withdrawn table. 2.3 and 2.3.1 were dropped in favour of the interface-contract approach. 2.5 is Dan's 2026-09-26 rejection: deserialisation enforces the contract, and extra fields are dropped harmlessly. 1.3.2 was withdrawn on 2026-09-28 because an uncaught exception already reports its trace. All four reasons hold up, and none leaves a gap: unknown fields remain covered by deserialisation, which typed missing-field errors back under 1.3.1.
+
+7. Waived and Unenforceable tables, and the three-state rule. All 28 active IDs are accounted for. 14 are waived (1.1, 1.2, 1.4, 2.1, 2.1.1, 2.2, 2.4, 3.1-3.5, 4.1, 4.3). 14 are cited by tests: 1.3, 1.3.1, 1.5, 1.6, 3.6-3.11, 4.2, 4.4, 4.5 and 4.6. The Unenforceable table is empty. No waived ID is also cited by a test: the REQ-NGUI-1.4 miscitations from 10-04a #065/#163 have been fixed, with the waiver restored and the tests now citing 1.5. WAIVE-1 settles the "too broadly scoped" wording for 3.1-3.5, and I did not re-raise it. For the REQ-NGUI-1.2 waiver ("no use cases yet") I checked that it is still true: every route and report handler in Src/Ui.InterfaceBridge/Routes/*.fs, slice-2 routes included, ignores the extra-arguments list (`payload _`), so the reason still stands.
+
+Statement delta inside this scope. Dan says "All UI routes and reports are wired in". I confirmed the InvestmentActivity, PreLedgerBalance and InvestmentAccount RollForward command routes and the NetWorthHistory report route are registered (PositionsRoutes.fs about lines 500-595, ReportRoutes.fs line 176), and that Ui.ReportCli/Program.fs dispatches over reportingRoutes. No delta.

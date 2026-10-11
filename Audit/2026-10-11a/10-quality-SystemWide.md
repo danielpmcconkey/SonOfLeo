@@ -1,0 +1,31 @@
+# SystemWide spec auditor
+
+## SYS-TS-2 — contradiction
+- **Location:** Specs/Behavioral/SystemWide.md REQ-SYS-3.1; Specs/Definitions.md 'Component rows'; DbMigration/Scripts/202610101000-CreateAccountSnapshotLotTable.sql; Src/Business.FinancialServices.Positions/AccountSnapshotLot.fs (create)
+- **Summary:** Slice 2's positions.account_snapshot_lot table has no created_at or modified_at. The Definitions 'Component rows' exemption from REQ-SYS-3.1 lists its tables by name and does not include lots, so REQ-SYS-3.1 applies to lots and is not met.
+- **Resolution:** fix-spec
+- **Prior ruling:** Audit 2026-10-04a #097 (SYS31-POS-1) accepted adding a Component rows definition for the then-existing tables. It does not cover account_snapshot_lot, which slice 2 added on 2026-10-10. This is the same kind of gap on a new table, so it is not suppressed.
+
+REQ-SYS-3.1: 'Every persisted entity must carry a "created at" and a "modified at" timestamp.' Under Definitions.md 'Entity', a table that a user action inserts into is an entity. Recording a snapshot inserts lots (AccountSnapshotOrchestration builds them with AccountSnapshotLot.create and persists them). The only way out is the 'Component rows' entry, which is a closed list: 'an account snapshot line (positions.account_snapshot_line ...), an owner set (positions.investment_account_owner, positions.property_owner) and a property's ledger-account sets (positions.property_asset_account, positions.property_mortgage_account ...)'. positions.account_snapshot_lot is not on it. The migration header says the opposite: 'A lot is a component of its line, like the line is of its snapshot: no timestamps.' The table has only unique_id, account_snapshot_line_id, ordinal, acquired_date, quantity and reported_cost_basis, and the AccountSnapshotLot record has no timestamp fields. Positions.md says nothing that makes lots component rows. So the code and migration rely on an exemption that the higher authority (Definitions plus REQ-SYS-3.1) does not grant. The other two slice 2 tables (investment_activity, pre_ledger_balance) do carry both timestamps. This is the same defect the 10-04a audit raised for snapshot lines (#097, canonical for #126/#169/#180/#194). That fix named the tables one by one instead of stating a rule, so the next component table fell outside it. REQ-SYS-3.1 is waived from testing, so no test caught it.
+
+**Action:** Add positions.account_snapshot_lot (part of an account snapshot line) to the Definitions.md 'Component rows' entry. Better, restate the entry as a rule (a row written and removed only with its parent and never updated in place) with the current tables as examples, so a later component table does not need a Definitions edit to be exempt.
+
+**Why:** REQ-SYS-3.1 has no test, so the Definitions exemption list is the only thing that decides whether a timestamp-less table is legal. A closed list goes stale each time a slice adds a component table, and the code then breaks a binding requirement while its comments claim an exemption the spec does not give.
+
+---
+
+## SYS-READ-1 — contradiction
+- **Location:** Specs/Behavioral/SystemWide.md REQ-SYS-2.1; Audit/2026-10-03a/99-disposition.md #311 (Dan, 2026-10-03); CompoundedLearnings/articles/coding/validation-layers.md layer 5; Src/Business.FinancialServices.Positions/AccountSnapshotLot.fs reconstitute; Src/Business.CrossDomainOrchestration/AccountSnapshotOrchestration.fs viewSnapshot
+- **Summary:** REQ-SYS-2.1 still says every read from persistence must enforce the entity's legal data-state rules. Dan ruled on 2026-10-03 that rules needing a database read are not checked on read. Slice 2 added several such rules, and they are not re-checked when read.
+- **Resolution:** fix-spec
+- **Prior ruling:** Not in resolved-findings.md. Related: 10-03a #311 and 10-04a #094 (accepted, impl-agent) applied the 'no DB read on read' rule to code and learnings but left REQ-SYS-2.1's text unchanged. This finding is about the spec text, not the code.
+
+REQ-SYS-2.1: 'Every operation that constructs, persists, or reconstitutes an entity — create, update, and read-from-persistence alike — must enforce that entity's legal data-state rules ... No operation may produce, persist, or return an entity in an illegal data state.' Dan's disposition of 10-03a #311 says: 'validate cadence and every cross-field constraint that needs no DB read inside reconstitute. Constraints that need a DB read stay unchecked on read (persistence is trusted).' validation-layers.md layer 5 repeats this. The spec was never amended to match, so REQ-SYS-2.1 as written is stricter than the system Dan approved. Slice 2 makes the gap concrete. AccountSnapshotLot.reconstitute re-checks only the row-local rules (quantity > 0, cost basis >= 0, acquired date <= snapshot date via the joined snapshot_date). It does not re-check REQ-POS-6.12 (a line's lots sum exactly to the line quantity) or REQ-POS-6.9 (lots only on a 'Taxable' account's lines). AccountSnapshotOrchestration.viewSnapshot groups the lots under their lines without checking the sum. Pre-ledger balances (REQ-POS-15.1 Asset/Liability type, 15.2 before the earliest fiscal period, 15.3 not linked) and Activity (REQ-POS-12.5 Security held in the account) are in the same position. An auditor or developer reading REQ-SYS-2.1 alone would call each of these a violation. One reading the ruling would call them compliant. Two reasonable developers would implement the read path differently depending on which they read.
+
+**Action:** Amend REQ-SYS-2.1 to state Dan's 2026-10-03 rule: on read-from-persistence, enforce the rules that can be decided from the record as read; rules that need other database state (cross-record sums, referent types, links, fiscal-period position) are enforced on write and trusted on read. Alternatively, Dan rules that slice 2's composite rules (e.g. REQ-POS-6.12) must be re-checked on read and the code follows.
+
+**Why:** Dan's explicit decision outranks the spec, but it lives only in an audit disposition and a learning. Each new slice adds cross-record data-state rules (slice 2 added at least six), and each audit will re-raise them against REQ-SYS-2.1's literal text or quietly let them pass. The binding text should say what the system actually does.
+
+---
+
+
