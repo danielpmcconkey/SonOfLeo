@@ -1,6 +1,6 @@
 # Type Taxonomy
 
-**Source:** Codebase observation, 2026-07-11; Dan's clarification on domain primitives. Updated 2026-07-25 for the July refactor.
+**Source:** Codebase observation, 2026-07-11; Dan's clarification on domain primitives. Updated 2026-07-25 for the July refactor; composite and component sections 2026-10-11.
 
 The system has distinct kinds of types, each with different construction rules and responsibilities.
 
@@ -16,13 +16,15 @@ Private records with a same-named companion module providing accessors, `create`
 
 ## Composite types
 
-Multi-part entities composed and validated at the orchestrator. `JournalEntry` (header + lines + references + comments) — the orchestrator enforces collection-level rules (≥2 lines, debits = credits). The composite and its components live in the same namespace slice.
+Multi-part types composed of entity types and validated at the orchestrator. `JournalEntry` (header + lines + references + comments, in `JournalEntryOrchestration`) — the orchestrator enforces collection-level rules (≥2 lines, debits = credits). Composites live in `Business.CrossDomainOrchestration`; the entity types they are composed of live in their domain's project.
 
 A composite is any type composed of entity types, whether or not they come from one domain: `JournalEntry`, or `SnapshotLineView` (a snapshot line and its lots). A record built from more than one of the model's business domains (Account, Fiscal Period, Journal Entry, Data Ingestion, Cash Flow, Positions, Classification) also lives in orchestration, e.g. `AccountBalance` (Account and Journal Entry) or `NetWorth`. A read or report row that holds only IDs and component values of a single domain does not: it is that domain's component type. See the model's "Composite types are defined in the cross domain orchestration tier". (2026-10-11)
 
 ## Component types
 
-Parts of a composite. `JournalEntryHeader`, `JournalEntryLine`, `JournalEntryExternalReference`, `JournalEntryComment`. Each has its own module with smart constructors. They participate in composite validation when a full composite is created, but may also be created, fetched, or modified independently (e.g., adding a comment to an existing JE).
+Single-domain value types defined in their domain's components module, in the lowest tier of the domain (`AccountComponent`, `JournalEntryComponent`, `CashFlowComponent`, `PositionsComponent`, …): ID wrappers, bounded values, DU enumerations, and read or report rows that hold only IDs and component values of that one domain. An entity or composite is never a component type, and a component type never holds one. Any component type in `Business.CrossDomainOrchestration` or higher signals a tiering or domain violation (model: "Component types are defined in a components module in the lowest tier of their business domain"). (2026-10-11)
+
+The parts of the `JournalEntry` composite (`JournalEntryHeader`, `JournalEntryLine`, `JournalEntryExternalReference`, `JournalEntryComment`) are not component types. Each is an entity type with its own table and module, so it can be created, fetched or modified on its own (e.g. adding a comment to an existing JE), and takes part in composite validation when a whole JE is created.
 
 ## Interface contracts
 

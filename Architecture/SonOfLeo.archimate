@@ -952,6 +952,12 @@
           <element xsi:type="archimate:ApplicationFunction" name="Update an instance composite" id="id-46c9184b134a4835865e71d48e7e0452">
             <documentation>Apply changes to an instance, its invoices and payments, and re-derive their states.</documentation>
           </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Cancel an instance" id="id-8744921614d44129940574e40deae675">
+            <documentation>Cancel an instance and every invoice it holds, permanently and with a reason note, refused while any of its invoices has a payment. An invoice already cancelled keeps its own note.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="Cancel an invoice" id="id-30dd597df2de4c5291b795f98daa3046">
+            <documentation>Cancel one invoice, permanently and with a reason note, refused while it has a payment or its instance is cancelled, and re-derive whether its instance is fulfilled.</documentation>
+          </element>
           <element xsi:type="archimate:ApplicationFunction" name="Fetch instance composites by filter" id="id-e7534733477946beb9322c4ac85c222b">
             <documentation>Read whole instances (invoices and payments) matching a filter.</documentation>
           </element>
@@ -1000,7 +1006,7 @@
         </folder>
         <folder name="Positions functions" id="id-db53dd9581784dbd9282c86708f55819">
           <element xsi:type="archimate:ApplicationFunction" name="Positions functions" id="id-05d26ab59cae4a77850a00c0bca2fd44">
-            <documentation>Behaviours that record and read what is held: investment accounts and their owners and tax treatment, securities, holdings, and what each holding was reported to be worth on a date.</documentation>
+            <documentation>Behaviours that record and read what is held: investment accounts and their owners and tax treatment, securities, holdings, what each holding was reported to be worth on a date, and the activity that moved it between dates.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Define what positions records are made of" id="id-270b02a6508b49e7bc2541194776d23c">
             <documentation>The identifiers, dimensions, tax treatments, basis methods, provenances, property uses, bounded names and owned periods from which every positions record is built.</documentation>
@@ -1015,7 +1021,7 @@
             <documentation>Create, update and list investment accounts with their owners, tax treatment, active period and ledger link, holding owner count and holdings to the tax treatment, and refusing a ledger link to an account that carries pre-ledger balances.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Maintain holdings" id="id-4bbacad3feca48d7aacaef981b3174ef">
-            <documentation>Create holdings, change their basis method within the tax-treatment rule, and list them.</documentation>
+            <documentation>Create holdings, change their basis method within the tax-treatment rule and not while any snapshot line of the holding carries lots, list them, and delete one that no snapshot line or investment activity names.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Record account snapshots" id="id-78884504263a46aaabf5532bdd1754ea">
             <documentation>Record, replace, delete, fetch and list what an institution reported for an account on a date, with any tax lots under each line, all of one request or none.</documentation>
@@ -1027,7 +1033,7 @@
             <documentation>Refuse lots on a line of a non-taxable account, a lot with no units, a negative cost basis or an acquisition after the snapshot, and lots whose units do not sum exactly to the line's quantity.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Maintain properties" id="id-e1ee017b40a84b10b387d240aaa26e7f">
-            <documentation>Create, update and list properties with their owners, owned period, ledger asset account and mortgage accounts, at most one primary residence owned on any date, and no asset account that carries pre-ledger balances.</documentation>
+            <documentation>Create, update and list properties with their owners, owned period, ledger asset account and mortgage accounts, at most one primary residence owned on any date, and no asset account that carries pre-ledger balances; delete one, with its owners and ledger links, while it has no valuation.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Record property valuations" id="id-5a2f947ccb6e467bbb0e18e25f94db66">
             <documentation>Record, replace, delete and list what a property was judged to be worth on a date within its ownership.</documentation>
@@ -2829,6 +2835,12 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:RealizationRelationship" id="id-d13e64a881df40a890ee95f870de9700" source="id-219d22490aef4c85bc606b90690be18f" target="id-30482fa95c63404ea48fb90bee5f62e7"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-6c74d3050f7340adaa8a2d3c9677ff6d" source="id-219d22490aef4c85bc606b90690be18f" target="id-39a5d9af1797461eb71be964a29e35b3"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-43259a7b75504c7f99478f0b8b2aebd4" source="id-219d22490aef4c85bc606b90690be18f" target="id-46c9184b134a4835865e71d48e7e0452"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-23a0b71060dc4006a0af7749e783cd09" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-8744921614d44129940574e40deae675"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-0fa4914bee3544ed96cba0aa36ea5054" source="id-8caa490eafca4592894d0ecb5896e2f5" target="id-30dd597df2de4c5291b795f98daa3046"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-b370cb3045f6454282c83deb52e7bc91" source="id-219d22490aef4c85bc606b90690be18f" target="id-8744921614d44129940574e40deae675"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-5325049fa8af4416a2446ee95e6314b0" source="id-219d22490aef4c85bc606b90690be18f" target="id-30dd597df2de4c5291b795f98daa3046"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-50934768e07a4ee5a2145206be372817" source="id-d1476fdd4b04462ba885221b4932ab05" target="id-8744921614d44129940574e40deae675"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-201fb7ff493f48d4b8617ae70acc219f" source="id-73beb61a7786474da68c3b4428d515ee" target="id-30dd597df2de4c5291b795f98daa3046"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-3c4cc593d5d3449ea32c84a69c0c6511" source="id-219d22490aef4c85bc606b90690be18f" target="id-b154f72c191346fbafc796d002aaf836"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-b7b89d1df31a477fb1f6b66780c93bd3" source="id-219d22490aef4c85bc606b90690be18f" target="id-d3608492306e4a13a1c8d15d33f3db8d"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-fbc59b3fd6144db7b8543cbec16df2af" source="id-219d22490aef4c85bc606b90690be18f" target="id-e7534733477946beb9322c4ac85c222b"/>
