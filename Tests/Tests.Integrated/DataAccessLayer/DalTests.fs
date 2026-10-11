@@ -70,18 +70,28 @@ let ``REQ-DAL-2.2 an update requiring exactly one row that touches none returns 
 
 [<Fact>]
 let ``REQ-DAL-2.2 an update requiring exactly one row that touches two returns DalResultantRowsDidntMatchExpectation carrying the expectation and the count`` () =
-    // the two rows are the test's own, in a table that lives only inside the rolled-back transaction
+    // the two rows are the test's own, inserted inside the rolled-back transaction; ingestion.source is the table with
+    // the fewest required columns and no foreign key
     runCommandRouteAndAutoRollback FiscalPeriodCreate (fun context ->
         let transaction = context |> Context.getDatabaseTransaction
         result {
             do!
                 executeNonQuery
                     transaction
-                    "create temporary table dal_two_rows (id int) on commit drop; insert into dal_two_rows (id) values (1), (2);"
+                    """
+                    insert into ingestion.source (unique_id, source_name, created_at, modified_at)
+                    values (gen_random_uuid(), 'DAL-2.2 first', now(), now()), (gen_random_uuid(), 'DAL-2.2 second', now(), now());
+                    """
                     []
                     AnyQuantityIsAcceptable
             let () =
-                match executeNonQuery transaction "update dal_two_rows set id = id where id in (1, 2);" [] ExactlyOne with
+                match
+                    executeNonQuery
+                        transaction
+                        "update ingestion.source set source_name = source_name where source_name in ('DAL-2.2 first', 'DAL-2.2 second');"
+                        []
+                        ExactlyOne
+                with
                 | Error (AsError (DalResultantRowsDidntMatchExpectation (expectation, actual))) ->
                     Assert.Equal("ExactlyOne", expectation)
                     Assert.Equal(2, actual)
