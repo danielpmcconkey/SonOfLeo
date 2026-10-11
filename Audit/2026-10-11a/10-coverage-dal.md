@@ -1,0 +1,24 @@
+# code-outward-coverage: App.DataAccessLayer
+
+_No findings._
+
+## Reasoning
+
+I read all 8 files in scope (DalError, DbConnection, DbTransaction, QueryParameter, ExecuteReader, ExecuteScalar, ExecuteNonQuery, LookupCache) and listed every public entry point and error branch. Then I checked each against Specs/Behavioral/DataAccessLayer.md, SystemWide.md, resolved-findings.md and the Tests/ tree.
+
+What I checked, behaviour by behaviour:
+- **DbConnection, connection-string chain** (config entry missing or empty, value looks like a connection string, env var unset, value blank after trimming, trim before connecting): these map one-to-one to REQ-DAL-1.14 to 1.19. All six are in the spec's Waived table, approved by Dan on 2026-08-02. Not flagged.
+- **executeReaderQuery / executeNonQuery / confirmNumRows**: REQ-DAL-2.2. DalTests.fs covers a read or update needing exactly one row that gets zero (DalNoOp) and one that gets two (DalResultantRowsDidntMatchExpectation, checking the expectation and the count). AnyQuantityIsAcceptable is ruled valid under CON-DAL-02. The with-transaction and without-transaction branches both run through domain tests.
+- **whenNoRows**: REQ-DAL-2.2, tested directly in DalTests.fs (swaps DalNoOp for the caller's error, passes other errors through).
+- **DbTransaction (createDbTransaction, commit, rollback, runWithAutoCompleteTransaction, createNoTransaction)**: REQ-DAL-2.4. DalTests covers success, typed error, exception under the auto-complete runner, exception under the rollback runner, and pool exhaustion. It checks idle-in-transaction sessions on the server and the pool's in-use count.
+- **DbTransaction guard branches** (DalCantCompleteTransactionOfNone, DalCantUseTransactionOfNoneInAutoCommit, commit or rollback throwing, BeginTransaction throwing with the connection disposed): I considered these. Each is a loud rejection of programmer misuse or a database fault that can't be provoked from the harness, and no production caller passes a None transaction into them (CommandRoute always builds a new transaction). Dan's statement and the REQ-DAL-1.x waivers both set loud-reject paths as untested by design.
+- **runWithAutoCompleteTransaction, failed rollback after a typed error**: here the rollback error replaces the operation's own error. It still fails loudly, so it is not a finding under the same rule.
+- **containsPattern**: REQ-SYS-1.4. It has four production call sites (StageEntryOrchestration description, AccountActivity description, ClassificationOrchestration rule name, ClassificationOrchestration source). Each has its own REQ-SYS-1.4 Theory test, in StageEntryFetching.fs, AccountActivity.fs and ClassificationRuleCrud.fs (lines 808 and 833). Those tests cover %, _ and backslash, with a decoy that would match if the character were not escaped (Tests.Helpers/LiteralSearch.fs).
+- **buildReadQuery and the 13 RowReader getters**: every one is used by domain modules (each has at least 3 callers outside the DAL), so they are covered through tested domain reads. Limit interpolation is covered by REQ-DAL-2.3's typed-int carve-out, which is waived.
+- **QueryParameter.convertParamToDbParam and buildParamsList**: private or internal, and every domain write goes through them. REQ-DAL-2.1 and 2.3 are waived.
+- **LookupCache (stringToIdCache, idToStringCache, Cache.fetch)**: the REQ-DAL-2.4 test in DalTests builds a fresh cache over each production table and column, then checks that it loads in full, falls back to the single-row read, returns DalNoOp on a miss, and releases its connection. I considered two behaviours the header comment documents but no REQ states: a failed load is retried on the next fetch, and nothing is invalidated during a route. They are internal machinery, reachable only within one short-lived CLI process. I also looked for a route that renames an entity and then reads the name back through the cache in the same route. Account output takes its own name from the model and its parent's name through fetchById, so I found no observable stale-read path.
+- **longUnboxing**: used by AccountDeactivation and by the DalTests idle-session probe.
+- **stringUnboxing**: its only caller is DevDataStage's check that the database is sonofleo_dev, and no test runs it. I considered raising this and decided against it. Any fault in it ends in failwith or in the stager refusing to stage, so it fails safe and loudly, never silently. DevDataStage is a dev tool outside this scope, not part of the application.
+- **DalError**: the ToMessage cases and the toMessage, toAppError and error helpers are plain data, each used 11 or more times outside the DAL.
+
+Nothing here is an observable behaviour without a governing REQ (or a waiver in the spec's own tables) and without a test or an accepted loud-reject rationale. No result contradicts Dan's statement for the DAL.
