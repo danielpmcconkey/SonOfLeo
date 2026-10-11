@@ -223,8 +223,8 @@ type RevisedRequirementsStagingTests(fixture: TestDataFixture) =
                     match outcome with
                     | Error (AsError (IngestionFileRejected (_, records))) ->
                         not records.IsEmpty
-                        && records |> List.forall (fun r ->
-                            match r.error with
+                        && records |> List.forall (fun (_, _, error) ->
+                            match error with
                             | AsError (IngestionBaseStageEntryGroupIdTooLong (value, 36)) -> value = group
                             | _ -> false)
                     | _ -> false

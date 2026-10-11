@@ -440,18 +440,24 @@ let persistConstructed
         return ()
     }
 
+type private RejectedRecord = { lineNumbers: int list; groupId: string option; error: IAppError }
+
 /// ingestFile accepts a file's records as one unit. Each record arrives with its line number, already read into a row
 /// or already rejected. Every record and every group is checked, and if any fails nothing is written and the file is
 /// rejected naming every failure in file order. Otherwise every entry is written and returned.
 let ingestFile
     (context: Context.Context)
     (sourceFile: SourceFile)
-    (records: (int * Result<BaseStageRawRow, DataIngestionError.IngestionRejectedRecord>) list)
+    (records: (int * Result<BaseStageRawRow, int list * string option * IAppError>) list)
     : Result<StageEntry list, IAppError> =
     result {
-        let rejected lineNumbers groupId error : DataIngestionError.IngestionRejectedRecord =
+        let rejected lineNumbers groupId error : RejectedRecord =
             { lineNumbers = lineNumbers; groupId = groupId; error = error }
-        let recordFailures = records |> List.choose (function _, Error r -> Some r | _, Ok _ -> None)
+        let recordFailures =
+            records
+            |> List.choose (function
+                | _, Error (lineNumbers, groupId, error) -> Some (rejected lineNumbers groupId error)
+                | _, Ok _ -> None)
         let goodRows = records |> List.choose (function lineNumber, Ok row -> Some(lineNumber, row) | _, Error _ -> None)
         // a group that lost a record would fail its group checks only for that reason, so it is not checked
         let groupsWithFailedRecords = recordFailures |> List.choose _.groupId |> Set.ofList
@@ -501,7 +507,10 @@ let ingestFile
             match recordFailures @ groupFailures @ sharedKeyFailures, constructed with
             | [], Ok entries -> Ok entries
             | failures, _ ->
-                let inFileOrder = failures |> List.sortBy (fun r -> r.lineNumbers |> List.min)
+                let inFileOrder =
+                    failures
+                    |> List.sortBy (fun r -> r.lineNumbers |> List.min)
+                    |> List.map (fun r -> r.lineNumbers, r.groupId, r.error)
                 DataIngestionError.error
                     (DataIngestionError.IngestionFileRejected(sourceFile |> SourceFile.value, inFileOrder))
         do! entries |> persistConstructed context

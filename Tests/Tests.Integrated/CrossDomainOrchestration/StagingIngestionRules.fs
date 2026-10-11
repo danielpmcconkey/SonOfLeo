@@ -350,17 +350,17 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
             | Error (AsError (IngestionFileRejected (rejectedPath, records))) ->
                 Assert.Equal<string>(path, rejectedPath)
                 (* exactly the two misspelt records are rejected, not the valid group beside them *)
-                Assert.Equal<Set<int>>(set [ 1; 2 ], records |> List.collect _.lineNumbers |> Set.ofList)
+                Assert.Equal<Set<int>>(set [ 1; 2 ], records |> List.collect (fun (lineNumbers, _, _) -> lineNumbers) |> Set.ofList)
                 (* and each is rejected for the documented property it lacks, not for some other
                    record-level fault on the same lines. The missing property's name is carried only
                    in the deserializer's detail, so the detail is compared whole. *)
                 let rowType = typeof<BaseStageRawRowInput>
-                for record in records do
-                    match record.error with
+                for lineNumbers, _, error in records do
+                    match error with
                     | AsError (JsonDeserializationFailed (typeName, detail, _)) ->
                         Assert.Equal(rowType.ToString(), typeName)
                         Assert.Equal($"Missing field for record type {rowType.FullName}: {documented}", detail)
-                    | e -> Assert.Fail $"Wrong record error on lines {record.lineNumbers}. {e.ToMessage()}"
+                    | e -> Assert.Fail $"Wrong record error on lines {lineNumbers}. {e.ToMessage()}"
             | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
             | Ok _ -> Assert.Fail "Expected failure; got success")
 

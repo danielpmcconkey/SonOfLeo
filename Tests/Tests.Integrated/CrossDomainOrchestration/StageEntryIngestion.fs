@@ -115,7 +115,7 @@ module StageTestData =
         |> StageEntryOrchestration.ingestFile context sourceFile
         |> Result.mapError (fun e ->
             match e with
-            | AsError (IngestionFileRejected(_, first :: _)) -> first.error
+            | AsError (IngestionFileRejected(_, (_, _, firstError) :: _)) -> firstError
             | _ -> e)
 
     /// Ingest, dedup and account classification are three separate steps in Src, and classification now sweeps every
@@ -977,9 +977,9 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                     match outcome with
                     | Error (AsError (IngestionFileRejected (filePath, records))) ->
                         Assert.Equal("/tmp/test-shared-key-in-one-file.jsonl", filePath)
-                        let record = Assert.Single(records)
-                        Assert.Equal<int list>([ 1; 2; 5; 6 ], record.lineNumbers |> List.sort)
-                        match record.error with
+                        let lineNumbers, _, error = Assert.Single(records)
+                        Assert.Equal<int list>([ 1; 2; 5; 6 ], lineNumbers |> List.sort)
+                        match error with
                         | AsError (IngestionGroupsShareSourceAndReference (firstGroup, secondGroup, source, reference)) ->
                             Assert.Equal<string list>([ "grp-key-a"; "grp-key-b" ], [ firstGroup; secondGroup ] |> List.sort)
                             Assert.Equal("TestBank", source)

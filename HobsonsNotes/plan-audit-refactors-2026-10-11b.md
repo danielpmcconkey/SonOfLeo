@@ -519,6 +519,34 @@ Written by the session that did this plan. Fill it in as you go (§0 step 4).
 ### 5.2 Per item
 (one entry per numbered item: what changed, commits, tests touched)
 
+**A1. Domain types out of the error modules** (#002–#005, #071). Four
+commits, one per row.
+- #002 `ActivityShapeProblem` is in `PositionsComponent` after
+  `ActivityKind`, with `toString` carrying the old message fragments;
+  `PositionsActivityShapeInvalid` carries `string * LocalDate * string *
+  string`; the compile-order todo is gone. Tests: `LotsAndActivity.fs`
+  REQ-POS-12.6 and route `PositionsSliceTwoRoutes.fs` REQ-POS-13.1 compare
+  the fourth field to `ActivityShapeProblem.toString <case>`.
+- #003 `OrphanedLineReason` is in `CashFlowComponent` with a `toString`
+  (the reason half of each old sentence; the message keeps the line and
+  agreement IDs in front, so the text is unchanged).
+  `CashflowPaymentAgreementLinksOrphaned` carries `(Guid * Guid * string)
+  list`. Tests in `InvoiceMatching.fs`, `LinkageAndMatching.fs`,
+  `Cancellation.fs` compare to `OrphanedLineReason.toString <case>`.
+- #004 `StageLineProtection` is in `ClassificationComponent` (top of the
+  file); `describeProtection` became its public `toString`. Both error
+  cases carry `Guid * string`. `StageEntryOrchestration.protectionsOf`
+  keeps the typed value, and the edit check still compares
+  `<> RecordedInClassificationRun` on it. `StageEntryUpdate.fs` matches the
+  case, then compares the string to the `toString`.
+- #005 `IngestionRejectedRecord` is deleted. `IngestionFileRejected`
+  carries `string * (int list * string option * IAppError) list`;
+  `ingestFile` takes the tuple as each record's error, and keeps a private
+  `RejectedRecord` while it sorts. `IngestionRoutes` builds the tuple.
+  Tests changed destructuring only (`StageEntryIngestion.fs`,
+  `RevisedRequirementsStaging.fs`, `StagingIngestionRules.fs`, route
+  `IngestionRoutes.fs`).
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 

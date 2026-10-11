@@ -34,8 +34,7 @@ let private ingestRawEntries payload _ =
                     do! confirmDirectoryExists input.processedDir
                     let! sourceFile = toBeProcessedPath |> SourceFile.create
                     let! linesStr = readTextFileLines toBeProcessedPath
-                    let rejected lineNumbers groupId error : DataIngestionError.IngestionRejectedRecord =
-                        { lineNumbers = lineNumbers; groupId = groupId; error = error }
+                    let rejected lineNumbers groupId (error: IAppError) = lineNumbers, groupId, error
                     // blank lines are not records, but they are counted, so a line number matches what an editor shows
                     let records =
                         linesStr

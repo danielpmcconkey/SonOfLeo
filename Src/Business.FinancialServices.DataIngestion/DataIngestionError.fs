@@ -3,10 +3,6 @@ module Business.FinancialServices.DataIngestion.DataIngestionError
 open System
 open App.Utility.IAppError
 
-/// IngestionRejectedRecord is one failure in a rejected file: the line or lines it concerns (counted from 1, blank lines
-/// included), the group they belong to when that is known, and the error itself.
-type IngestionRejectedRecord = { lineNumbers: int list; groupId: string option; error: IAppError }
-
 type DataIngestionError = 
     | IngestionBaseStageEntryGroupIdIsEmpty of string
     | IngestionBaseStageEntryGroupIdTooLong of string * int
@@ -35,7 +31,9 @@ type DataIngestionError =
     | IngestionSourceNameNotFound of string
     | IngestionSourceNameAlreadyExists of string
     | IngestionStagedButFileNotMoved of string * string * string
-    | IngestionFileRejected of string * IngestionRejectedRecord list
+    // each failure: the line or lines it concerns (counted from 1, blank lines included), the group they belong to when
+    // that is known, and the error itself
+    | IngestionFileRejected of string * (int list * string option * IAppError) list
     | IngestionPostedStageEntryCannotBeModified of Guid
     | IngestionManualUpdateCannotSetStatus of string
     
@@ -76,13 +74,13 @@ type DataIngestionError =
             | IngestionManualUpdateCannotSetStatus status ->
                 $"The manual update cannot set a staged entry's status to {status}; only batch post does that."
             | IngestionFileRejected (filePath, records) ->
-                let describe (record: IngestionRejectedRecord) =
+                let describe (lineNumbers: int list, groupId: string option, error: IAppError) =
                     let lines =
-                        match record.lineNumbers with
+                        match lineNumbers with
                         | [ one ] -> $"line {one}"
                         | many -> many |> List.map string |> String.concat ", " |> sprintf "lines %s"
-                    let group = record.groupId |> Option.map (sprintf ", group %s") |> Option.defaultValue ""
-                    $"  {lines}{group}: {record.error.ToMessage()}"
+                    let group = groupId |> Option.map (sprintf ", group %s") |> Option.defaultValue ""
+                    $"  {lines}{group}: {error.ToMessage()}"
                 let problems = if records.Length = 1 then "1 problem" else $"{records.Length} problems"
                 (records |> List.map describe)
                 |> String.concat Environment.NewLine

@@ -100,7 +100,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
 
     /// Writes a one-defect file, asserts the route rejects it with the exact error, cleans up.
     /// The route's rejection of a file: every failing record, in file order. Fails the test on any other outcome.
-    static let rejectionOf fileName : DataIngestionError.IngestionRejectedRecord list =
+    static let rejectionOf fileName : (int list * string option * IAppError) list =
         match routeUiCommandForTesting "Ingestion" "IngestRawFileToStage" [] (ingestPayload fileName) with
         | Error (AsError (DataIngestionError.IngestionFileRejected (filePath, records))) ->
             Assert.Equal(Path.Combine(importDir, fileName), filePath)
@@ -115,8 +115,8 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             writeImportFile fileName rows
             let records = rejectionOf fileName
             Assert.NotEmpty records
-            for record in records do
-                Assert.Equal(expectedError, record.error.CaseName)
+            for _, _, error in records do
+                Assert.Equal(expectedError, error.CaseName)
         finally
             deleteImportFile fileName
 
@@ -226,7 +226,7 @@ type IngestionRouteTests(fixture: TestDataFixture) =
         try
             writeImportFile fileName rows
             let records = rejectionOf fileName
-            let actual = records |> List.map (fun r -> r.lineNumbers, r.groupId, r.error.CaseName)
+            let actual = records |> List.map (fun (lineNumbers, groupId, error) -> lineNumbers, groupId, error.CaseName)
             Assert.Equal<(int list * string option * string) list>(expected, actual)
             Assert.True(File.Exists(Path.Combine(importDir, fileName)), "the rejected file was moved")
             match stagedFrom (Path.Combine(importDir, fileName)) with
