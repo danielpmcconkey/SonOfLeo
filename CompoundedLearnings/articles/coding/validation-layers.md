@@ -16,6 +16,8 @@ Validation is layered. Each layer builds on the one below it. The layers are not
 - Components validate values; orchestrators validate entities and the world's state; both pass before persistence
 - `reconstitute` builds from the row it is given and nothing else — no DB calls, no clock, no config — so it checks only row-local rules
 - Composite validation ordering follows domain needs, not a rigid sequence
+- A sign or range rule whose error must name context the value doesn't know (the account, the date, the security) stays an orchestrator `confirm*`, even where a component type could enforce the bare rule. The component constructor can't see that context, and the error would lose what makes it useful for triage. Example: `confirmLot`, `confirmShape` in Positions. (2026-10-11, audit 2026-10-11a #067)
+- Known exception: `EntryDate.create` resolves its fiscal period from the database (resolved-findings ENTRYDATE-IO); `createWithFiscalPeriodId` is its infallible read path
 
 ## What doesn't
 - Making an entity `create` return a `Result` or throw to enforce a cross-field rule. That rule belongs to the orchestrator (write) and `reconstitute` (read).
