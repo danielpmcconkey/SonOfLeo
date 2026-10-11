@@ -1,7 +1,11 @@
 module Business.FinancialServices.DataIngestion.StageEntryComponent
 
 open System
+open NodaTime
 open App.Utility.IAppError
+open Business.FinancialServices
+open Business.FinancialServices.Ledger.AccountComponent
+open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.DataIngestionError
 
 type IngestionSourceId = private IngestionSourceId of Guid
@@ -115,3 +119,61 @@ type FetchStageEntrySort =
     | StatusDesc
     | DescriptionAsc
     | DescriptionDesc
+
+type BaseStageEntryGroupId = private BaseStageEntryGroupId of string
+
+module BaseStageEntryGroupId =
+    let maxLength = 36 // accommodates a uuid if needed
+    let value (BaseStageEntryGroupId gid) = gid
+    let create (raw: string) : Result<BaseStageEntryGroupId, IAppError> =
+        let trimmed = raw.Trim()
+        if String.IsNullOrWhiteSpace trimmed then
+            Error(IngestionBaseStageEntryGroupIdIsEmpty raw)
+        elif trimmed.Length > maxLength then
+            Error(IngestionBaseStageEntryGroupIdTooLong(raw, maxLength))
+        else
+            Ok(BaseStageEntryGroupId trimmed)
+
+type BaseStageRawRow =
+    private {
+        baseStageEntryGroupId: BaseStageEntryGroupId
+        entryDate: LocalDate
+        description: JournalEntryDescription
+        fiSource: JournalRefFinancialInstitution
+        fiReference: JournalExternalReferenceText
+        amount: Money.Money
+        entryType: JournalEntryLineType
+        accountId: AccountId option
+        memo: JournalEntryLineMemo option
+    }
+
+module BaseStageRawRow =
+    let baseStageEntryGroupId (row: BaseStageRawRow) = row.baseStageEntryGroupId
+    let entryDate (row: BaseStageRawRow) = row.entryDate
+    let description (row: BaseStageRawRow) = row.description
+    let fiSource (row: BaseStageRawRow) = row.fiSource
+    let fiReference (row: BaseStageRawRow) = row.fiReference
+    let amount (row: BaseStageRawRow) = row.amount
+    let entryType (row: BaseStageRawRow) = row.entryType
+    let accountId (row: BaseStageRawRow) = row.accountId
+    let memo (row: BaseStageRawRow) = row.memo
+    let create
+        (baseStageEntryGroupId: BaseStageEntryGroupId)
+        (entryDate: LocalDate)
+        (description: JournalEntryDescription)
+        (fiSource: JournalRefFinancialInstitution)
+        (fiReference: JournalExternalReferenceText)
+        (amount: Money.Money)
+        (entryType: JournalEntryLineType)
+        (accountId: AccountId option)
+        (memo: JournalEntryLineMemo option)
+        : BaseStageRawRow =
+        { baseStageEntryGroupId = baseStageEntryGroupId
+          entryDate = entryDate
+          description = description
+          fiSource = fiSource
+          fiReference = fiReference
+          amount = amount
+          entryType = entryType
+          accountId = accountId
+          memo = memo }

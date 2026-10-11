@@ -10,7 +10,6 @@
     <Compile Include="DataIngestionError.fs" />
     <Compile Include="DataIngestionAuditableAction.fs" />
     <Compile Include="StageEntryComponent.fs" />
-    <Compile Include="BaseStageEntry.fs" />
     <Compile Include="IngestionSource.fs" />
     <Compile Include="StageEntryStatusTransition.fs" />
     <Compile Include="StageEntryHeader.fs" />

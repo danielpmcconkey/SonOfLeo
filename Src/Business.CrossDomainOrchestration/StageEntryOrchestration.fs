@@ -15,7 +15,6 @@ open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.DataIngestion.BaseStageEntry
 open Business.FinancialServices.Classification.ClassificationComponent
 open Business.CrossDomainOrchestration.FetchFilters
 open Business.CrossDomainOrchestration.JournalEntryOrchestration
@@ -150,7 +149,11 @@ let private constructGroup
     : Result<StageEntry, IAppError> =
         let distinctHeadersList =
             rawRowsAtGroupId
-            |> List.groupBy(fun x -> x.entryDate, x.description, x.fiSource, x.fiReference)
+            |> List.groupBy(fun x ->
+                (x |> BaseStageRawRow.entryDate),
+                (x |> BaseStageRawRow.description),
+                (x |> BaseStageRawRow.fiSource),
+                (x |> BaseStageRawRow.fiReference))
         if distinctHeadersList |> List.length > 1
         then DataIngestionError.error (
             DataIngestionError.IngestionBaseStageGroupIdDistinctDataViolation (
@@ -166,7 +169,13 @@ let private constructGroup
                     |> List.map (fun row -> 
                         let lineId = StageEntryLineId.create ()
                         StageEntryLine.create
-                            lineId stageEntryId row.amount row.entryType row.accountId row.memo None
+                            lineId
+                            stageEntryId
+                            (row |> BaseStageRawRow.amount)
+                            (row |> BaseStageRawRow.entryType)
+                            (row |> BaseStageRawRow.accountId)
+                            (row |> BaseStageRawRow.memo)
+                            None
                         )
                 let! ingestionSource = fiSource |> IngestionSource.fetchByName context
                 let header =
@@ -188,7 +197,7 @@ let constructFromRaw
     : Result<StageEntry list, (BaseStageEntryGroupId * IAppError) list> =
     let constructed =
         rawRows
-        |> List.groupBy(_.baseStageEntryGroupId)
+        |> List.groupBy BaseStageRawRow.baseStageEntryGroupId
         |> List.map(fun group -> fst group, group |> constructGroup context sourceFile)
     match constructed |> List.choose (fun (groupId, built) -> match built with Error e -> Some(groupId, e) | Ok _ -> None) with
     | [] -> Ok (constructed |> List.choose (fun (_, built) -> match built with Ok entry -> Some entry | Error _ -> None))
@@ -465,14 +474,15 @@ let ingestFile
             goodRows
             |> List.filter (fun (_, row) ->
                 groupsWithFailedRecords
-                |> Set.contains (row.baseStageEntryGroupId |> BaseStageEntryGroupId.value)
+                |> Set.contains (row |> BaseStageRawRow.baseStageEntryGroupId |> BaseStageEntryGroupId.value)
                 |> not)
         let constructed = checkableRows |> List.map snd |> constructFromRaw context sourceFile
         let sharedKeyFailures =
             checkableRows
             |> List.map (fun (_, row) ->
-                (row.fiSource |> JournalRefFinancialInstitution.value, row.fiReference |> JournalExternalReferenceText.value),
-                row.baseStageEntryGroupId)
+                (row |> BaseStageRawRow.fiSource |> JournalRefFinancialInstitution.value,
+                 row |> BaseStageRawRow.fiReference |> JournalExternalReferenceText.value),
+                (row |> BaseStageRawRow.baseStageEntryGroupId))
             |> List.distinct
             |> List.groupBy fst
             |> List.choose (fun ((source, reference), keyedGroups) ->
@@ -481,7 +491,7 @@ let ingestFile
                     let lineNumbers =
                         checkableRows
                         |> List.filter (fun (_, row) ->
-                            row.baseStageEntryGroupId = first || row.baseStageEntryGroupId = second)
+                            (row |> BaseStageRawRow.baseStageEntryGroupId) = first || (row |> BaseStageRawRow.baseStageEntryGroupId) = second)
                         |> List.map fst
                     let shared =
                         DataIngestionError.IngestionGroupsShareSourceAndReference(
@@ -500,7 +510,7 @@ let ingestFile
                 |> List.map (fun (groupId, e) ->
                     let lineNumbers =
                         checkableRows
-                        |> List.filter (fun (_, row) -> row.baseStageEntryGroupId = groupId)
+                        |> List.filter (fun (_, row) -> (row |> BaseStageRawRow.baseStageEntryGroupId) = groupId)
                         |> List.map fst
                     rejected lineNumbers (Some (groupId |> BaseStageEntryGroupId.value)) e)
         let! entries =

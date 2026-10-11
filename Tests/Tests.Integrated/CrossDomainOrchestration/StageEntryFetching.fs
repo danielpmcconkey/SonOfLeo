@@ -674,24 +674,24 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                    and classification moves it to Classified: exactly two transitions. *)
                 let! staged = stageAll context
                 let! rows = StageTestData.buildTestRows context
-                let payrollRows = rows |> List.filter (fun r -> r.baseStageEntryGroupId |> BaseStageEntry.BaseStageEntryGroupId.value = "grp-007")
+                let payrollRows = rows |> List.filter (fun r -> r |> BaseStageRawRow.baseStageEntryGroupId |> BaseStageEntryGroupId.value = "grp-007")
                 let first = payrollRows |> List.head
-                let payroll = staged |> findByDescription (first.description |> JournalEntryDescription.value)
+                let payroll = staged |> findByDescription (first |> BaseStageRawRow.description |> JournalEntryDescription.value)
                 let! fetched =
                     { noFilter with stageEntryHeaderId = Some(payroll |> idOf) } |> fetchFiltered context None
                 let returned = Assert.Single(fetched)
 
-                Assert.Equal(first.description |> JournalEntryDescription.value, returned |> descriptionOf)
-                Assert.Equal(first.entryDate, returned |> entryDateOf)
-                Assert.Equal(first.fiSource |> JournalRefFinancialInstitution.value, returned |> sourceNameOf)
+                Assert.Equal(first |> BaseStageRawRow.description |> JournalEntryDescription.value, returned |> descriptionOf)
+                Assert.Equal((first |> BaseStageRawRow.entryDate), returned |> entryDateOf)
+                Assert.Equal(first |> BaseStageRawRow.fiSource |> JournalRefFinancialInstitution.value, returned |> sourceNameOf)
                 Assert.Equal<StagedEntryStatus option>(Some Classified, returned |> statusOf)
-                Assert.Equal(first.fiReference |> JournalExternalReferenceText.value, returned |> fiReferenceOf)
+                Assert.Equal(first |> BaseStageRawRow.fiReference |> JournalExternalReferenceText.value, returned |> fiReferenceOf)
                 Assert.Equal("/tmp/stg-test-checking.jsonl", returned |> sourceFileOf)
 
                 let lineKey (amount, lineType, accountId, memo) = amount |> Money.amount, lineType, accountId, memo
                 Assert.Equal<(decimal * string * AccountComponent.AccountId option * JournalEntryLineMemo option) list>(
                     payrollRows
-                    |> List.map (fun r -> lineKey (r.amount, r.entryType |> JournalEntryLineType.toString, r.accountId, r.memo))
+                    |> List.map (fun r -> lineKey ((r |> BaseStageRawRow.amount), r |> BaseStageRawRow.entryType |> JournalEntryLineType.toString, (r |> BaseStageRawRow.accountId), (r |> BaseStageRawRow.memo)))
                     |> List.sort,
                     returned
                     |> seLines

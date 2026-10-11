@@ -8,7 +8,6 @@ open Business.FinancialServices
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.DataIngestion.BaseStageEntry
 open Business.FinancialServices.DataIngestion.StageEntryStatusTransition
 open Business.CrossDomainOrchestration.FetchFilters
 open Business.CrossDomainOrchestration.StageEntryOrchestration
@@ -190,16 +189,9 @@ let ``convert [BaseStageRawRowInput] to [BaseStageRawRow]``
         let! entryType = rawInputRow.entryType |> JournalEntryLineType.fromString
         let! accountId = rawInputRow.accountCode |> ``convert AccountCodeString Option to AccountId Option`` context
         let! memo = rawInputRow.memo |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
-        return {
-            baseStageEntryGroupId = baseStageEntryGroupId
-            entryDate = entryDate
-            description = description
-            fiSource = fiSource
-            fiReference = fiReference
-            amount = amount
-            entryType = entryType
-            accountId = accountId
-            memo = memo } }
+        return
+            BaseStageRawRow.create
+                baseStageEntryGroupId entryDate description fiSource fiReference amount entryType accountId memo }
     
 let ``convert [BaseStageRawRowInput list] to [BaseStageRawRow list]``
     (context: Context.Context)

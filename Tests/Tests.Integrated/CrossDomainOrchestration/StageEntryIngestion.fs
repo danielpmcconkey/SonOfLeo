@@ -14,7 +14,6 @@ open Business.FinancialServices.Classification.ClassificationAuditableAction
 open Business.FinancialServices.CashFlow.CashFlowAuditableAction
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.DataIngestion.StageEntryComponent
-open Business.FinancialServices.DataIngestion.BaseStageEntry
 open Business.CrossDomainOrchestration.StageEntryOrchestration
 open Business.FinancialServices.Classification
 open Business.FinancialServices.Classification.ClassificationComponent
@@ -42,16 +41,7 @@ module StageTestData =
             let! lt = lineTypeStr |> JournalEntryLineType.fromString
             let! accountId = codeStr |> ``convert AccountCodeString Option to AccountId Option`` context
             let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter JournalEntryLineMemo.create
-            return {
-                baseStageEntryGroupId = groupId
-                entryDate = date
-                description = desc
-                fiSource = source
-                fiReference = ref
-                amount = money
-                entryType = lt
-                accountId = accountId
-                memo = memo }
+            return BaseStageRawRow.create groupId date desc source ref money lt accountId memo
         }
 
     let buildTestRows (context: Context.Context) =
@@ -200,7 +190,7 @@ module StageTestData =
             let! secondSourceFile = "/tmp/stg-test-checking-second.jsonl" |> SourceFile.create
             let! rows = buildTestRows context
             let inSecondFile (row: BaseStageRawRow) =
-                secondFileGroupIds |> List.contains (row.baseStageEntryGroupId |> BaseStageEntryGroupId.value)
+                secondFileGroupIds |> List.contains (row |> BaseStageRawRow.baseStageEntryGroupId |> BaseStageEntryGroupId.value)
             let firstRows, secondRows = rows |> List.partition (inSecondFile >> not)
             return!
                 [ sourceFile, firstRows; secondSourceFile, secondRows ]
@@ -246,8 +236,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! rows = StageTestData.buildTestRows context
                 let expectedReferences =
                     rows
-                    |> List.groupBy (fun r -> r.baseStageEntryGroupId)
-                    |> List.map (fun (_, groupRows) -> (List.head groupRows).fiReference |> JournalExternalReferenceText.value)
+                    |> List.groupBy (fun r -> (r |> BaseStageRawRow.baseStageEntryGroupId))
+                    |> List.map (fun (_, groupRows) -> List.head groupRows |> BaseStageRawRow.fiReference |> JournalExternalReferenceText.value)
                     |> List.sort
                 let actualReferences =
                     fullResult.stagedEntries
@@ -879,8 +869,8 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
                 let! rows = StageTestData.buildTestRows context
                 let expectedLines =
                     rows
-                    |> List.filter (fun r -> r.baseStageEntryGroupId |> BaseStageEntryGroupId.value = "grp-008")
-                    |> List.map (fun r -> r.amount, r.entryType |> JournalEntryLineType.toString, r.accountId, r.memo)
+                    |> List.filter (fun r -> r |> BaseStageRawRow.baseStageEntryGroupId |> BaseStageEntryGroupId.value = "grp-008")
+                    |> List.map (fun r -> (r |> BaseStageRawRow.amount), r |> BaseStageRawRow.entryType |> JournalEntryLineType.toString, (r |> BaseStageRawRow.accountId), (r |> BaseStageRawRow.memo))
                     |> List.sortBy (fun (_, lineType, _, _) -> lineType)
                 let actualLines =
                     dupEntry
