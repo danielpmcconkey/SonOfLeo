@@ -18,7 +18,7 @@ per entity. Generic requirements state policy and scope, not vague aspiration.
 
 ## 2. Legal data-state enforcement
 
-- **REQ-SYS-2.1** Every operation that constructs, persists, or reconstitutes an entity — create, update, and read-from-persistence alike — must enforce that entity's legal data-state rules (the "valid and invalid data states" section of that entity's spec). No operation may produce, persist, or return an entity in an illegal data state.
+- **REQ-SYS-2.1** Every operation that constructs, persists, or reconstitutes an entity — create, update, and read-from-persistence alike — must enforce that entity's legal data-state rules (the "valid and invalid data states" section of that entity's spec). On read-from-persistence, the rules decidable from the record as read are re-checked; rules that need other database state (sums across records, a referent's type or links, fiscal-period position) are enforced on write and trusted on read. No create or update may produce or persist an entity in an illegal data state. (Amended 2026-10-11 to match the read-path ruling of 2026-10-03, audit 2026-10-03a #311)
 - **REQ-SYS-2.1.1** Rejections determinable from the entity's own properties must occur before any database write.
 - **REQ-SYS-2.1.2** Rejections requiring database state may fall through to database constraints. The deliberate exceptions are a missing record (REQ-SYS-6.2) and a missing referent (REQ-SYS-6.3), which fail with typed not-found errors. (Amended 2026-10-03)
 - **REQ-SYS-2.2** stricken

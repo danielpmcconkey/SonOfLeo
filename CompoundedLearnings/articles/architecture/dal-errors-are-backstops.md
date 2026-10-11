@@ -49,8 +49,8 @@ operator rather than DAL backstops leaking through — see the `TestWriter` skil
 
 ## What works
 
-The DAL reports "no rows came back" as its own case, `DalNoOp`, for an `ExactlyOne` or
-`OneOrMany` expectation. Whichever layer first knows what an empty result means swaps it for
+The DAL reports "no rows came back" as its own case, `DalNoOp`, for an `ExactlyOne`
+expectation. Whichever layer first knows what an empty result means swaps it for
 the domain error with `whenNoRows`:
 
 ```fsharp

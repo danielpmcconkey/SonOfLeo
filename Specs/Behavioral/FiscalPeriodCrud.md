@@ -1,6 +1,6 @@
 # Fiscal Period CRUD
 
-Service-level behavioral specs for creating, reading, and updating fiscal periods. Cross-cutting policies (string trimming, data-state enforcement, audit timestamps, deletion) live in SystemWide.md and apply to everything below.
+Service-level behavioral specs for creating, reading, and updating fiscal periods. Cross-cutting policies live in SystemWide.md and apply to everything below.
 
 **Design note (from cli-requirements-from-leobloom-usage.md §4):** LeoBloom's period-closing machinery (seven spec files) was never exercised. SonOfLeo keeps the open/closed state for posting gating but defers closing tooling until wanted.
 

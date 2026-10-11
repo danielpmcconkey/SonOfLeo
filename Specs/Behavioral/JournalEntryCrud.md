@@ -1,6 +1,6 @@
 # Journal Entry CRUD
 
-Service-level behavioral specs for posting, reading, and voiding journal entries, together with their external references and comments. Cross-cutting policies (string trimming, data-state enforcement, audit timestamps, no-op rejection, deletion) live in SystemWide.md and apply to everything below.
+Service-level behavioral specs for posting, reading, and voiding journal entries, together with their external references and comments. Cross-cutting policies live in SystemWide.md and apply to everything below.
 
 **Design note — temporal model.** A journal entry's `entry_date` is a Calendar Date (LocalDate), not an Instant: GAAP recognizes a transaction by calendar date and the time of day is meaningless (cash-basis: the day the money moved). Posting and audit events (`created_at`, `modified_at`, and the void marker `voided_at`) are Instants. Period assignment is derived from the entry date: parse year and month, construct the PeriodKey, fetch the period, check `is_open`.
 
@@ -10,7 +10,7 @@ Service-level behavioral specs for posting, reading, and voiding journal entries
 
 Deduplication of imported source rows is the **importer's** concern, handled in the stage layer — it is not a ledger concern, so the synthetic composite dedup keys LeoBloom kept on the ledger do not exist here.
 
-**Design note — voiding and reversal.** Voiding is a soft-delete marker: a voided entry remains in the ledger (it is never edited or hard-deleted) but is excluded from all balance computations. Reversal is **not** a separate mechanism — a reversal is an ordinary offsetting entry plus a comment linking it to the original. A posted entry is not immutable (see REQ-JE-4.2).
+**Design note — voiding and reversal.** Voiding is a soft-delete marker: a voided entry remains in the ledger (its posted fields, REQ-JE-4.1, are never edited, and it is never hard-deleted) but is excluded from all balance computations. Reversal is **not** a separate mechanism — a reversal is an ordinary offsetting entry plus a comment linking it to the original. A posted entry is not immutable (see REQ-JE-4.2).
 
 
 ## 1. Valid and invalid data states
@@ -95,7 +95,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 - **REQ-JE-3.2** The system must be able to retrieve a journal entry by the caller providing that entry's ID.
 - **REQ-JE-3.3** The system must be able to retrieve all journal entries for a given fiscal period by the caller providing a PeriodKey.
 - **REQ-JE-3.4** The system must be able to retrieve all journal entry lines for a given account, optionally restricted to lines of non-voided entries. Note: this requirement is retained alongside account activity (REQ-AC-3.12) because the capability exists and may serve a future need. (Amended 2026-10-03)
-- **REQ-JE-3.5** The system must be able to retrieve the journal entries carrying a matching external reference, by the caller providing a source FI, a reference value, or both. When both are provided, a single external reference must match both. The result is a set (external references are not unique across entries, per REQ-JE-1.48). (Either-or lookup added 2026-09-26)
+- **REQ-JE-3.5** The system must be able to retrieve the journal entries carrying a matching external reference, by the caller providing a source FI, a reference value, or both. When both are provided, a single external reference must match both. The result is a set (external references are not unique across entries, per REQ-JE-1.48). (Either-or lookup added 2026-09-26) Source FI and reference value each match exactly (case-sensitive equality), not partially. (2026-10-11)
 - **REQ-JE-3.5.1** When neither a source FI nor a reference value is provided, the lookup must fail with a typed error.
 - **REQ-JE-3.6** *(Withdrawn 2026-10-03 — see the Withdrawn table.)*
 - **REQ-JE-3.6.1** *(Withdrawn 2026-10-03 — see the Withdrawn table.)*
@@ -130,7 +130,7 @@ Deduplication of imported source rows is the **importer's** concern, handled in 
 
 - **REQ-JE-5.1** The system must provide a means to attach a comment to a journal entry, optionally naming a secondary, related journal entry (REQ-JE-1.52). The secondary link records only that the entries are related; any specific relation is stated in the comment's text. (Amended 2026-10-05)
 - **REQ-JE-5.2** When a comment is created, the system must generate a unique UUID and set its created/modified timestamps (per REQ-SYS-3.2).
-- **REQ-JE-5.3** The system must provide a means to amend a comment's text. Amending updates the modified-at timestamp (per REQ-SYS-3.3).
+- **REQ-JE-5.3** The system must provide a means to amend a comment's text. Amending updates the modified-at timestamp (per REQ-SYS-3.3). A comment's text and its secondary entry (REQ-JE-1.56) may be amended regardless of whether its primary entry is voided or that entry's fiscal period is closed (mirrors REQ-JE-4.9 and REQ-JE-5.5). (2026-10-11)
 - **REQ-JE-5.4** stricken
 - **REQ-JE-5.5** A comment may be appended to an existing journal entry, even if the JE is voided or if the JE's fiscal period is closed.
 - **REQ-JE-5.6** A comment's primary journal entry link is fixed once created. The primary relationship a comment records is a historical fact and must not be re-pointed.
@@ -161,7 +161,7 @@ construction pattern) but deliberately not verified by tests.
 | REQ-JE-1.50 | Same as REQ-JE-1.2 — system-generated UUID plus primary key constraint. | Dan, 2026-07-03 |
 | REQ-JE-1.51 | The primary entry ID is a non-nullable identifier with a not-null foreign key, and the primary entry's existence is checked before the comment is written (tested under REQ-JE-5.8). (Reason restated 2026-10-03) | Dan, 2026-07-03 |
 | REQ-JE-1.3 | A null is loud: the interface contract's description field is non-optional, so the deserializer rejects a null or missing value, and a null reaching the constructor throws. Same treatment as REQ-JE-1.1/1.9. The same waiver covers the null clauses of REQ-JE-1.42, 1.44 and 1.54, whose remaining clauses are tested. | Dan, 2026-10-03 |
-| REQ-JE-1.14 | Enforced by the type definition — `voidedAt` is `Instant option` on the header type. Void behavior tested under REQ-JE-4.3/4.7 | Dan, 2026-08-02 |
+| REQ-JE-1.14 | Enforced by the type definition — the void marker is an optional Instant on the journal entry header, so no other state can be represented. Void behaviour tested under REQ-JE-4.3/4.7. (Reason restated 2026-10-11 without code names) | Dan, 2026-08-02 |
 | REQ-JE-2.14 | Enforced structurally — no creation input carries a void marker; it appears only on the entry the system returns. Reconstituting a stored entry legitimately carries the void marker; reconstitution is not creation. (Reason restated 2026-10-05) | Dan, 2026-08-02 |
 | REQ-JE-5.6 | Enforced structurally — no comment update input accepts a primary journal entry, so the link has no path to change and a test of the update cannot fail. Same shape as REQ-JE-2.14 and REQ-JE-4.1. | Hobson, 2026-10-05 (delegated by Dan) |
 | REQ-JE-4.1 | A negative existence claim over the entire API surface ("no function exposes an update path for these fields") cannot be proven by a unit test; enforced by code review and periodic adversarial audit of the public orchestrator surface. | Dan, 2026-06-22 |

@@ -15,8 +15,10 @@ its lowest possible level" needs no exception.
   "A caller posting a journal entry with a bad amount gets an error that names the amount" is
   a *different* vector with a different actor, and its lowest layer is the route — because the
   route is the lowest place a caller exists at all.
-- One InterfaceBridge case per (input field, converter) pair, asserting the exact `AppError`
-  case. It proves the converter is reached and that the error identifies the right field.
+- One InterfaceBridge case per (input field, converter) pair where skipping the converter would
+  let bad input through silently (see the Example). It proves the converter is reached.
+  Where the route would still reject loudly without it, writing nothing, there is no
+  silent failure to guard, and no case is needed (amended 2026-10-11, see below).
 - Judging error legibility per caller. `AccountCodeDoesntMatchAccountId` answers "post this
   journal entry" fine. As an answer to "create this account" it is ambiguous — the account's
   own code, or the parent's? Same error case, different quality of answer, different vector.
@@ -35,3 +37,12 @@ called — an over-max amount and a 1001-character description reached staging u
 Every one of those constructors had passing isolated tests, so the constructor vector was
 covered. The user-interaction vector was not, and nothing else could have caught it. Contract
 and converter in `989013e4`, tests in `ff85df4`.
+
+## Amended 2026-10-11 (Hobson)
+The later loud-failure ruling (2026-09-28, `Skills/SonOfLeoRequirementsAudit/resolved-findings.md`
+LOUD-FAILURE) narrows the per-pair rule. A vector still counts as a user interaction, and a
+route is still the lowest layer where a caller exists. But a route-level case earns its place
+only when the failure it guards is silent, as in the Example: bad values reaching staging
+unchallenged. A route that rejects an unknown key or a malformed value with an error, and
+writes nothing, fails loudly either way; which error it names is message quality, not a
+vector. Audit 2026-10-11a #022/#023.

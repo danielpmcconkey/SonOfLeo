@@ -73,7 +73,8 @@ addressed by name at the boundary; ledger accounts by account code (REQ-NGUI-1.4
   more Persons), a tax treatment, an account group (a reporting label), an active period, and
   optionally a link to a ledger account.
 - **Holding.** A Security held in an Investment Account. Carries the basis method the institution
-  applies to it.
+  applies to it. An account's cash is a Holding like any other: of its core money-market fund or
+  cash sweep. (Cash added 2026-10-11)
 - **Account Snapshot.** What the institution reported for one Investment Account on one date:
   one line per Holding held, and, for a Roth account, the contribution basis.
 - **Lot.** One open tax lot of a snapshot line, as the institution reported it: when it was
@@ -81,12 +82,14 @@ addressed by name at the boundary; ledger accounts by account code (REQ-NGUI-1.4
   lots. (2026-10-10)
 - **Activity.** One thing the institution reported happening in an Investment Account on a date:
   a contribution, a purchase, a dividend, a fee. (2026-10-10)
+- **Activity coverage.** The dates for which an Investment Account's activity has been supplied,
+  kept as merged ranges. A date outside them has no record of activity either way. (2026-10-11)
 
 References: an Investment Account references Persons (owners) and optionally a ledger Account; a
 Holding references an Investment Account and a Security; an Account Snapshot references an
 Investment Account; each snapshot line references a Holding of that account; each Lot belongs to
 one snapshot line; an Activity references an Investment Account and, optionally, a Holding of
-that account.
+that account; activity coverage belongs to one Investment Account.
 
 ### Pre-ledger balances
 
@@ -145,6 +148,8 @@ references a Property.
 - **REQ-POS-5.5** Changing an Investment Account's tax treatment away from 'Roth' is rejected while any of its Account Snapshots carries a contribution basis. The error names the account and the earliest and latest such snapshot dates. (2026-10-05)
   - *Why not clear the basis instead:* a contribution basis is a figure the institution reported, recorded verbatim (design note above). Clearing it would destroy evidence; keeping it on a non-Roth account would break REQ-POS-6.4. (2026-10-05)
 - **REQ-POS-5.6** *(Withdrawn 2026-10-10 — see the Withdrawn table.)*
+- **REQ-POS-5.7** Changing a Holding's basis method is rejected while any line of that Holding carries a Lot. The error names the account, the security, and the earliest and latest snapshot dates whose line carries one. (2026-10-11)
+  - *Why:* a Lot's cost is read through its Holding's basis method (design note above), and a Holding keeps one method with no history. Changing it would silently reinterpret every recorded Lot. If an institution ever changes the election, the method will be recorded per snapshot line instead. (2026-10-11)
 
 ## 6. Valid and invalid data states — Account Snapshot
 
@@ -175,9 +180,10 @@ references a Property.
 ## 7. Account Snapshot operations
 
 - **REQ-POS-7.1** The system must provide a means to record one or more Account Snapshots in a single atomic operation. An Investment Account and snapshot date may appear at most once in one operation; a repeat is rejected with a typed error naming both.
-- **REQ-POS-7.2** Recording an Account Snapshot for an Investment Account and date that already has one replaces the existing snapshot entirely: its provenance, contribution basis and every line, with each line's Lots. (Lots added 2026-10-10) This is a deliberate exception to REQ-SYS-6.1, made under REQ-SYS-6.1.1.
+- **REQ-POS-7.2** Recording an Account Snapshot for an Investment Account and date that already has one replaces the existing snapshot entirely: its provenance, contribution basis and every line, with each line's Lots. (Lots added 2026-10-10) This is a deliberate exception to REQ-SYS-6.1, made under REQ-SYS-6.1.1. A correction must re-supply the date's Lots: a line supplied without Lots replaces the old line's Lots with none (REQ-POS-6.10). (2026-10-11)
   - *Why:* re-recording a week's figures is how a corrected or re-downloaded report is applied, and the institution's latest statement of a date's figures is the authority. Rejecting it would make every correction a delete followed by a record. (2026-10-04)
-- **REQ-POS-7.3** Recording returns each Account Snapshot as stored, with whether it replaced an existing one.
+- **REQ-POS-7.3** Recording returns each Account Snapshot as stored, with whether it replaced an existing one and, when it did, how many Lots each line of the replaced snapshot carried, by security. (Lots replaced added 2026-10-11)
+  - *Why:* a re-record that drops a date's Lots discards evidence. The count lets the operator see it happen. (2026-10-11)
 - **REQ-POS-7.4** The system must provide a means to delete the Account Snapshot for a given Investment Account and date. A date with no snapshot fails with a typed not-found error naming the account and date.
 - **REQ-POS-7.5** The system must provide a read-only means to fetch the Account Snapshot for a given Investment Account and date (with every line's Lots; amended 2026-10-10), and a read-only means to list an Investment Account's snapshot dates, with each one's provenance, between two Calendar Dates inclusive, in date order. The end date may not be earlier than the begin date; otherwise the listing fails with a typed error naming both dates. (End-date rule added 2026-10-05)
 
@@ -222,7 +228,7 @@ from the data consumes.
 - **REQ-POS-11.2** The system must provide a means to create a Security; to update its name, ticker (set or clear) and each dimension's value (set or clear), the Security addressed by its current name; and a read-only means to list every Security ordered by name, each with its ticker and the name of its value in each dimension. Dimension Values are given by dimension and name.
 - **REQ-POS-11.3** The system must provide a means to create an Investment Account; to update its name, institution, account group, tax treatment, owners (given as the complete new set), active begin, active end (set or clear) and linked ledger Account (set or clear), the account addressed by its current name; and a read-only means to list every Investment Account ordered by name with everything REQ-POS-8.2 lists for an account except the snapshot fields, plus its active begin and active end. Owners are given by Person name and the ledger Account by code.
 - **REQ-POS-11.4** An update to an Investment Account's active period is rejected when any of its Account Snapshots, or any of its Activities (REQ-POS-12.8), would then fall outside it. The error names the earliest and latest offending snapshot dates, and the earliest and latest offending activity dates. (Activities added 2026-10-10)
-- **REQ-POS-11.5** The system must provide a means to create a Holding (Investment Account and Security by name, and basis method), to change a Holding's basis method subject to REQ-POS-5.2, and a read-only means to list Holdings, optionally limited to one Investment Account, ordered by account name and then Security name, each with its basis method.
+- **REQ-POS-11.5** The system must provide a means to create a Holding (Investment Account and Security by name, and basis method), to change a Holding's basis method subject to REQ-POS-5.2 and REQ-POS-5.7, and a read-only means to list Holdings, optionally limited to one Investment Account, ordered by account name and then Security name, each with its basis method.
 - **REQ-POS-11.6** The system must provide a means to create a Property; to update its name, use, owners (given as the complete new set), acquisition date, disposal date (set or clear), purchase basis, asset Accounts (given as the complete new set; amended 2026-10-05, formerly one Account set or cleared) and mortgage Accounts (given as the complete new set), the Property addressed by its current name; and a read-only means to list every Property ordered by name, with its owners' names and its linked Accounts' codes and names.
 - **REQ-POS-11.7** An update to a Property's acquisition or disposal date is rejected when any of its Valuations would then fall outside the range REQ-POS-10.3 allows. The error names the earliest and latest offending valuation dates.
 - **REQ-POS-11.8** The system must provide a means to record a Valuation. Recording a Valuation for a Property and date that already has one replaces its value and basis; this is a deliberate exception to REQ-SYS-6.1, made under REQ-SYS-6.1.1, for the reason given at REQ-POS-7.2. The system must provide a means to delete a Valuation, and a read-only means to list a Property's Valuations in date order.
@@ -248,7 +254,7 @@ from the data consumes.
 - **REQ-POS-12.5** The Security, when given, must be held in the Activity's own Investment Account: a Security with no Holding in that account fails the operation with a typed error naming the account and the security. The system must not create the Holding. (2026-10-10)
   - *Why:* as for snapshot lines (REQ-POS-6.5). A Holding long since sold still exists, so history can name it. (2026-10-10)
 - **REQ-POS-12.6** An Activity of kind 'Purchase', 'Sale', 'Reinvestment', 'AdjustmentIn' or 'AdjustmentOut' must name a Security and carry a quantity. An Activity of kind 'Dividend', 'Interest' or 'CapitalGainDistribution' may name a Security (the one that paid it) and must not carry a quantity. Any other Activity may name a Security, and carries a quantity exactly when it does. An Activity that breaks this rule is rejected with a typed error naming the account, the activity date, the kind and what is missing or not allowed. (2026-10-10)
-  - *Why a contribution may name no Security:* money paid into an account's cash, rather than straight into a fund, moves no units of anything the account holds. (2026-10-10)
+  - *Why a contribution may name no Security:* institutions report money paid into an account's cash without naming the cash Holding, and rarely report the settlement legs that move units in and out of it. The Activity records what was reported; the cash Holding's units are on the snapshot (§1). (2026-10-10; reworded 2026-10-11, cash is a Holding)
 - **REQ-POS-12.7** Quantity, when present, is a Quantity greater than zero. Price may be null; when non-null it is a Price, and it may be present only when a quantity is. Amount is a Money value that is not negative. (2026-10-10)
   - *Why unsigned:* the kind says which way units and money moved. Institutions sign their figures inconsistently with one another, and the supplier normalises them. (2026-10-10)
   - *Why quantity times price is not checked against amount:* an activity's amount can include commissions, fees or accrued interest that its quantity and price do not. (2026-10-10)
@@ -264,6 +270,9 @@ from the data consumes.
 - **REQ-POS-13.3** One operation may not supply two ranges for the same Investment Account that overlap. A repeat is rejected with a typed error naming the account and both ranges. (2026-10-10)
 - **REQ-POS-13.4** Recording returns, for each account and range, how many Activities were removed and how many recorded. (2026-10-10)
 - **REQ-POS-13.5** The system must provide a read-only means to list an Investment Account's Activities between two Calendar Dates inclusive, each with everything REQ-POS-12.1 lists, ordered by activity date and then in the order supplied (REQ-POS-12.9). The end date may not be earlier than the begin date; otherwise the listing fails with a typed error naming both dates. (2026-10-10)
+- **REQ-POS-13.6** Recording adds each supplied range to its Investment Account's activity coverage, merged with any covered range it overlaps or adjoins. A range supplied with no Activities is covered. (2026-10-11)
+  - *Why:* a stretch with no Activity means nothing happened only if it was supplied. A cash contribution moves no units, so the roll-forward (§14) cannot show a missing stretch; only a record of what was supplied can. Kept from before history is back-loaded, so the back-load records what it covered. (2026-10-11)
+- **REQ-POS-13.7** The system must provide a read-only means to list, for an Investment Account and two Calendar Dates inclusive, the stretches between them not in its activity coverage, in date order. The end date may not be earlier than the begin date; otherwise the listing fails with a typed error naming both dates. (2026-10-11)
 
 ## 14. Unit roll-forward
 
@@ -276,6 +285,7 @@ up here.
   - *Why after the first date and on or before the second:* a snapshot reports the account at the end of its date, so that date's activity is already in it. (2026-10-10)
   - *Why expected and difference are not Quantities:* a missing activity can make the expected quantity negative, and a difference has a sign. Both are exact decimals. (2026-10-10)
 - **REQ-POS-14.3** A non-zero difference is returned as data, not raised as an error. The roll-forward makes no judgment. (2026-10-10)
+  - *Why a cash Holding usually differs:* an account's cash is a Holding (§1), but the settlement legs that move its units are seldom reported as Activity, so its row differs by them. Nothing derives them (design note: activity is history). (2026-10-11)
 
 ## 15. Pre-ledger balances
 

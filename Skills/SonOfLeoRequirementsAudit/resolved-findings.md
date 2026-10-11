@@ -47,6 +47,7 @@ different rule by the same code.
 - **Date:** 2026-06-13
 - **Scope:** Whether "perfectly reconstituted" is too strong given precision constraints
 - **Ruling:** Any application of the system that writes a value to the database must do so such that any subsequent read returns a byte-perfect entity. The temporal precision and money 2dp constraints are deliberately planned for and coded against — they aren't edge cases, they're the design. "Perfectly" is accurate.
+- **Note (Hobson, 2026-10-11):** Read "byte-perfect" as equal in value. Decimal scale (trailing zeros) is representation, not value; DECIMAL-SCALE governs that case. Do not cite AMB-6 to re-raise it, or to require byte-level equality in a test. (Audit 2026-10-11a #042.)
 
 ## AMB-11: REQ-DAL-3.2.1 Escape Valve Unbounded
 - **Status:** overruled
@@ -78,8 +79,9 @@ different rule by the same code.
 ## IE-2: REQ-DAL-3.6 Mixes Requirement and DBA Advisory
 - **Status:** overruled
 - **Date:** 2026-07-06
-- **Scope:** Whether REQs can contain non-assertable language
+- **Scope:** Whether a REQ may carry explanatory or advisory prose alongside what it requires (e.g. REQ-DAL-3.6's note to database administrators)
 - **Ruling:** As long as the language doesn't create ambiguity or encourage test writers to write bullshit tests, additional elaboration is fine. 
+- **Note (Hobson, 2026-10-11):** Scope narrowed to the question ruled on; it read "Whether REQs can contain non-assertable language". This ruling does not exempt any REQ from the three-state rule (tested, waived or unenforceable; see the SS-3 note). (Audit 2026-10-11a #043.)
 
 ## SS-3: todo Comments Are Not Directives
 - **Status:** overruled
@@ -174,6 +176,7 @@ different rule by the same code.
 - **Date:** 2026-08-03
 - **Scope:** Whether JE composite checks (min 2 lines, debit=credit balance) must run before any DB write per REQ-SYS-2.1.1
 - **Ruling:** It is impossible to validate that we have 2+ *valid* lines until each line has been constructed and persisted — a line's validity depends on DB state (account existence, period state). Pre-write validation would mean either (a) validating twice, or (b) validating against unvalidated input, both of which are worse than the current design. The transaction bracket ensures atomicity; a failed composite check rolls back everything. REQ-SYS-2.1.1 ("determinable from the entity's own properties") does not apply because line validity is not determinable from properties alone. Vetoed repeatedly. Do not re-flag.
+- **Note (Hobson, 2026-10-11):** Account existence is resolved before any write (REQ-JE-2.4) and is not covered here. This ruling covers only the composite checks its Scope names; atomicity is now REQ-SYS-8.1 and REQ-JE-2.12. (Audit 2026-10-11a #044.)
 
 ## DAL-EFFICACY: DAL Test Efficacy Not Applicable
 - **Status:** overruled
@@ -243,3 +246,10 @@ different rule by the same code.
 - **Date:** 2026-10-05
 - **Scope:** Whether a report read in orchestration may run its own SQL joining tables across schemas, rather than composing each domain module's query and reconstitute
 - **Ruling:** Dan, 2026-10-05: a report read may be built from one cross-schema SELECT in orchestration (precedent AccountActivity, AccountBalance). Source: audit 2026-10-04a #113.
+
+## LOUD-FAILURE: A Loud Failure Earns No Requirement and No Test
+- **Status:** overruled
+- **Date:** 2026-09-28 (recorded here 2026-10-11)
+- **Scope:** Whether a failure that is already loud (a thrown exception, a non-zero exit, or a typed error that rejects bad input and writes nothing) needs a requirement or a test: a finding that asks to spec, test or tidy one
+- **Ruling:** Dan, 2026-09-28, on config-refusal requirements that dressed loud failures up as tidy ones: "bubblewrap around an anvil".
+- **Note (Hobson, 2026-10-11):** Applied since as: name the concrete failure and ask whether it is loud or silent. Loud gets no requirement and no test. Only a silent failure (wrong data written, a wrong answer returned) earns one. Dan applied it by name to the slice 2 empty-request guards (HobsonsNotes/plan-positions-2b-2026-10-10.md, Out of scope). It does not excuse a live requirement whose breach would be silent, even when the rule is enforced by a typed rejection: the test is of the rule, not the error. (Audit 2026-10-11a #050.)

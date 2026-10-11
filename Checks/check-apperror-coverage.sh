@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # SLOW
-# Tracks the coverage goal: every error case of every IAppError implementation in Src/ is
-# referenced by at least one test. REPORT-ONLY for missing cases — exits 0 however many are
-# untested. Flip to gating by replacing the final `exit 0` with `exit $((missing > 0))`.
+# Inventory: lists every error case of every IAppError implementation in Src/ that no test
+# references. REPORT-ONLY — exits 0 however many are listed. Many are untested on purpose:
+# a loud rejection earns no test (resolved-findings.md LOUD-FAILURE), so this is not a
+# coverage goal and should not be made gating.
 # Fails (exit 1) when it discovers no error DUs or no cases: that means the discovery below
 # has gone stale, not that coverage is perfect.
 # Discovery: every Src file containing `interface IAppError with`; the cases are the `| Case`

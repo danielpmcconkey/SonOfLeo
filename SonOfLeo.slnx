@@ -25,5 +25,4 @@
     <Project Path="Tests\Tests.Helpers\Tests.Helpers.fsproj" />
   </Folder>
   <Project Path="DevDataStage/DevDataStage.fsproj" />
-  <Project Path="LeoBloomMigrator\LeoBloomMigrator.fsproj" Type="Classic F#" />
 </Solution>
