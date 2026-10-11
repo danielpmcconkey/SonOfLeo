@@ -142,7 +142,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getNumeric "market_value"),
     (row |> RowReader.getNumericOption "reported_cost_basis")
 
-let query
+let private query
     (context: Context.Context)
     (cteList: string list option)
     (select: string)

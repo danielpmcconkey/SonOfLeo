@@ -136,7 +136,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getDate "snapshot_date"),
     (row |> RowReader.getUuid "holding_id")
 
-let query
+let private query
     (context: Context.Context)
     (cteList: string list option)
     (select: string)

@@ -112,7 +112,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
-let query
+let private query
     (context: Context.Context)
     (cteList: string list option)
     (select: string)
