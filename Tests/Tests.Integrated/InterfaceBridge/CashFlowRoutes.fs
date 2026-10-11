@@ -271,4 +271,96 @@ type CashFlowRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CF-14.2 REQ-CF-14.8 an agreement update renaming a Master Agreement and one of its Payment Agreements returns, and the fetch by the new name reads back, the new names wherever they are carried: the agreement, each Payment Agreement's master agreement name, the renamed Payment Agreement, and the Invoices on it`` () =
-        Assert.Fail "Not yet implemented"
+        (* An agreement of the test's own with two legs, and an Instance with an Invoice on the leg to be renamed. The
+           update renames the agreement and that leg in one go. *)
+        let name = $"CF-14.2 route rename {Guid.NewGuid():N}"
+        let newName = $"CF-14.2 route renamed {Guid.NewGuid():N}"
+        let renamedLeg = $"{name} first leg"
+        let newLegName = $"{newName} first leg"
+        let keptLeg = $"{name} second leg"
+        let today = Calendar.today ()
+        let leg (legName: string) : Contracts.CreatePaymentAgreementFieldsInput =
+            { paymentAgreementName = legName
+              debitAccountCode = "F-2230"
+              creditAccountCode = "F-1280"
+              expectedAmount = Some 100.00M
+              daysDueAfterInvoiceDate = Some 0
+              memo = None }
+        let create : Contracts.CreateAgreementInput =
+            { agreementName = name
+              direction = "Outgo"
+              cadence = { cadenceType = Contracts.Daily; nextInstance = today.PlusDays(60) }
+              counterparty = "Route rename test counterparty"
+              activeBegin = today.PlusDays(-30)
+              activeEnd = None
+              memo = None
+              paymentAgreements = [ leg renamedLeg; leg keptLeg ] }
+        let instance : Contracts.CreateInstanceInput =
+            { masterAgreementName = name
+              instanceDate = today
+              invoices =
+                [ { paymentAgreementName = renamedLeg
+                    externalInvoiceId = None
+                    invoiceDate = today
+                    dueDate = today
+                    amount = 100.00M
+                    invoiceState = "InvoiceReceived"
+                    blocker = None
+                    memo = None
+                    payments = [] } ] }
+        let update : Contracts.UpdateAgreementInput =
+            { agreementName = name
+              agreementNameUpdate = FieldUpdate.SetTo newName
+              directionUpdate = FieldUpdate.NoChange
+              cadenceUpdate = FieldUpdate.NoChange
+              counterpartyUpdate = FieldUpdate.NoChange
+              activeBeginUpdate = FieldUpdate.NoChange
+              activeEndUpdate = FieldUpdate.NoChange
+              memoUpdate = FieldUpdate.NoChange
+              paymentAgreementUpdates =
+                [ { paymentAgreementName = renamedLeg
+                    paymentAgreementNameUpdate = FieldUpdate.SetTo newLegName
+                    debitAccountCodeUpdate = FieldUpdate.NoChange
+                    creditAccountCodeUpdate = FieldUpdate.NoChange
+                    expectedAmountUpdate = FieldUpdate.NoChange
+                    daysDueAfterInvoiceDateUpdate = FieldUpdate.NoChange
+                    memoUpdate = FieldUpdate.NoChange } ]
+              newPaymentAgreements = [] }
+        let namesCarried (agreement: Contracts.AgreementReturn) =
+            agreement.masterAgreement.agreementName,
+            agreement.paymentAgreements
+            |> List.map (fun (pa: Contracts.PaymentAgreementReturn) -> pa.masterAgreementName, pa.paymentAgreementName)
+            |> List.sort,
+            agreement.invoices |> List.map (fun (i: Contracts.InvoiceReturn) -> i.paymentAgreementName)
+        let expected = newName, List.sort [ newName, newLegName; newName, keptLeg ], [ newLegName ]
+        let cleanUpFailures = ResizeArray<string>()
+        try
+            result {
+                let! _ = create |> Json.toJson |> Result.bind (routeUiCommandForTesting "CashFlow" "CreateAgreement" [])
+                let! _ = instance |> Json.toJson |> Result.bind (routeUiCommandForTesting "CashFlow" "CreateInstance" [])
+                let! updatedJson = update |> Json.toJson |> Result.bind (routeUiCommandForTesting "CashFlow" "UpdateAgreement" [])
+                let! updated = Json.fromJson<Contracts.AgreementReturn> updatedJson
+                let! fetchedJson =
+                    ({ agreementName = newName } : Contracts.FetchAgreementSummaryInput)
+                    |> Json.toJson
+                    |> Result.bind (routeUiCommandForTesting "CashFlow" "FetchAgreementSummary" [])
+                let! fetched = Json.fromJson<Contracts.AgreementReturn> fetchedJson
+                Assert.Equal(expected, namesCarried updated)
+                Assert.Equal(expected, namesCarried fetched)
+            }
+            |> railroadWrapper
+        finally
+            match
+                ({ agreementIds = None; activeAgreementsOnly = false } : Business.CrossDomainOrchestration.FetchFilters.AgreementFilter)
+                |> Business.CrossDomainOrchestration.AgreementOrchestration.fetchFiltered (fresh ()) AnyQuantityIsAcceptable
+            with
+            | Ok agreements ->
+                for a in agreements do
+                    let master = a |> Business.CrossDomainOrchestration.AgreementOrchestration.masterAgreement
+                    let stored = master |> MasterAgreement.agreementName |> AgreementName.value
+                    if stored = name || stored = newName then
+                        match Cleanup.cleanUpMasterAgreementTree (Some(master |> MasterAgreement.agreementID |> MasterAgreementId.value)) with
+                        | Ok () -> ()
+                        | Error e -> cleanUpFailures.Add(e.ToMessage())
+            | Error e -> cleanUpFailures.Add(e.ToMessage())
+        Assert.Empty(cleanUpFailures)

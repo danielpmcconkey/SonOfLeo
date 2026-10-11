@@ -118,14 +118,7 @@ let ``convert [Payment] to [PaymentReturn]`` (payment: Payment.Payment) : Paymen
     createdAt = payment |> Payment.createdAt
     modifiedAt = payment |> Payment.modifiedAt }
 
-let ``convert [Invoice] to [InvoiceReturn]``
-    (context: Context.Context)
-    (invoice: Invoice.Invoice)
-    : Result<InvoiceReturn, IAppError> =
-    result {
-        let! paymentAgreementName =
-            invoice |> Invoice.paymentAgreementId |> ``convert [PaymentAgreementId] to [PaymentAgreementNameString]`` context
-        return {
+let private invoiceReturnUnderPaymentAgreementName (paymentAgreementName: string) (invoice: Invoice.Invoice) : InvoiceReturn = {
             invoiceId = invoice |> Invoice.invoiceId |> InvoiceId.value
             instanceId = invoice |> Invoice.instanceId |> InstanceId.value
             paymentAgreementName = paymentAgreementName
@@ -138,7 +131,16 @@ let ``convert [Invoice] to [InvoiceReturn]``
             memo = invoice |> Invoice.memo |> Option.map InvoiceMemo.value
             cancellationReasonNote = invoice |> Invoice.cancellationReasonNote |> Option.map CancellationReasonNote.value
             createdAt = invoice |> Invoice.createdAt
-            modifiedAt = invoice |> Invoice.modifiedAt } }
+            modifiedAt = invoice |> Invoice.modifiedAt }
+
+let ``convert [Invoice] to [InvoiceReturn]``
+    (context: Context.Context)
+    (invoice: Invoice.Invoice)
+    : Result<InvoiceReturn, IAppError> =
+    invoice
+    |> Invoice.paymentAgreementId
+    |> ``convert [PaymentAgreementId] to [PaymentAgreementNameString]`` context
+    |> Result.map (fun paymentAgreementName -> invoice |> invoiceReturnUnderPaymentAgreementName paymentAgreementName)
 
 let ``convert [Instance] to [InstanceReturn]`` (instance: Instance.Instance) : InstanceReturn = {
     instanceId = instance |> Instance.instanceId |> InstanceId.value
@@ -207,15 +209,12 @@ let ``convert [MasterAgreement] to [MasterAgreementReturn]``
         createdAt = masterAgreement |> MasterAgreement.createdAt
         modifiedAt = masterAgreement |> MasterAgreement.modifiedAt }
 
-let ``convert [PaymentAgreement] to [PaymentAgreementReturn]``
+let private paymentAgreementReturnUnderMasterAgreementName
     (context: Context.Context)
+    (masterAgreementName: string)
     (paymentAgreement: PaymentAgreement.PaymentAgreement)
     : Result<PaymentAgreementReturn, IAppError> =
     result {
-        let! masterAgreementName =
-            paymentAgreement
-            |> PaymentAgreement.masterAgreementID
-            |> ``convert [MasterAgreementId] to [AgreementNameString]`` context
         let debitAccountId = paymentAgreement |> PaymentAgreement.debitAccount |> DebitAccount.value
         let creditAccountId = paymentAgreement |> PaymentAgreement.creditAccount |> CreditAccount.value
         let! debitAccountCode = debitAccountId |> ``convert AccountId to AccountCodeString`` context
@@ -240,6 +239,16 @@ let ``convert [PaymentAgreement] to [PaymentAgreementReturn]``
             createdAt = paymentAgreement |> PaymentAgreement.createdAt
             modifiedAt = paymentAgreement |> PaymentAgreement.modifiedAt } }
 
+let ``convert [PaymentAgreement] to [PaymentAgreementReturn]``
+    (context: Context.Context)
+    (paymentAgreement: PaymentAgreement.PaymentAgreement)
+    : Result<PaymentAgreementReturn, IAppError> =
+    paymentAgreement
+    |> PaymentAgreement.masterAgreementID
+    |> ``convert [MasterAgreementId] to [AgreementNameString]`` context
+    |> Result.bind (fun masterAgreementName ->
+        paymentAgreement |> paymentAgreementReturnUnderMasterAgreementName context masterAgreementName)
+
 let ``convert [AgreementListing] to [AgreementListingReturn]``
     (context: Context.Context)
     (listing: AgreementOrchestration.AgreementListing)
@@ -257,6 +266,8 @@ let ``convert [Agreement] to [AgreementReturn]``
     (context: Context.Context)
     (agreement: AgreementOrchestration.Agreement)
     : Result<AgreementReturn, IAppError> =
+    // names come from the entities in hand, not the lookup caches: a cache reads committed rows on its own connection,
+    // so inside a renaming transaction it still holds the old name
     result {
         let masterAgreement =
             agreement
@@ -265,15 +276,21 @@ let ``convert [Agreement] to [AgreementReturn]``
         let! paymentAgreements =
             agreement
             |> AgreementOrchestration.paymentAgreements
-            |> List.map (``convert [PaymentAgreement] to [PaymentAgreementReturn]`` context)
+            |> List.map (paymentAgreementReturnUnderMasterAgreementName context masterAgreement.agreementName)
             |> convertListOfResultsToResultsList
+        let paymentAgreementNames =
+            paymentAgreements
+            |> List.map (fun (paymentAgreement: PaymentAgreementReturn) ->
+                paymentAgreement.paymentAgreementId, paymentAgreement.paymentAgreementName)
+            |> Map.ofList
         let instances =
             agreement |> AgreementOrchestration.instances |> List.map ``convert [Instance] to [InstanceReturn]``
-        let! invoices =
+        let invoices =
             agreement
             |> AgreementOrchestration.invoices
-            |> List.map (``convert [Invoice] to [InvoiceReturn]`` context)
-            |> convertListOfResultsToResultsList
+            |> List.map (fun invoice ->
+                let paymentAgreementName = paymentAgreementNames[invoice |> Invoice.paymentAgreementId |> PaymentAgreementId.value]
+                invoice |> invoiceReturnUnderPaymentAgreementName paymentAgreementName)
         let payments =
             agreement |> AgreementOrchestration.payments |> List.map ``convert [Payment] to [PaymentReturn]``
         return {
