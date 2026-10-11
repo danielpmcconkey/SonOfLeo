@@ -175,7 +175,8 @@ type InvestmentActivityRecordingTests(fixture: TestDataFixture) =
                 let currentDate = today context
                 let! _ = record context [ range PF.alexBrokerage currentDate currentDate [ interest currentDate 1.00M ] ]
                 let! stored = listed context PF.alexBrokerage currentDate currentDate
-                Assert.Equal(1, stored.Length)
+                Assert.Equal<ActivitySummary list>(
+                    [ currentDate, "Interest", "Interest on cash", None, None, None, None, 1.00M ], stored)
                 record context [ range PF.alexBrokerage currentDate (currentDate.PlusDays(1)) [] ]
                 |> expectError
                     (function AsError (PositionsActivityRangeEndsAfterCurrentDate (a, b, e)) -> Some(a, b, e) | _ -> None)
@@ -307,4 +308,22 @@ type InvestmentActivityRecordingTests(fixture: TestDataFixture) =
                 (function AsError (PositionsActivityListEndBeforeBegin (b, e)) -> Some(b, e) | _ -> None)
                 (fun found -> Assert.Equal((p.d3, day p.d3 -1), found))
             |> Ok)
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-13.3 two ranges for one account that share a day are rejected with a typed error naming the account and both ranges, and the account's stored activity is unchanged`` () =
+        // the fixture has one Sam 401k activity on each of d1 + 1 to d1 + 6; the ranges share d1 + 3
+        runCommandRouteAndAutoRollback PositionsRecordInvestmentActivity (fun context ->
+            result {
+                record context
+                    [ range PF.sam401k (day p.d1 1) (day p.d1 3) [ interest (day p.d1 2) 1.00M ]
+                      range PF.sam401k (day p.d1 3) (day p.d1 5) [ interest (day p.d1 4) 2.00M ] ]
+                |> expectError
+                    (function AsError (PositionsActivityRangesOverlap (a, first, second)) -> Some(a, first, second) | _ -> None)
+                    (fun found ->
+                        Assert.Equal((PF.sam401k, (day p.d1 1, day p.d1 3), (day p.d1 3, day p.d1 5)), found))
+                let! stored = listed context PF.sam401k (day p.d1 1) (day p.d1 6)
+                Assert.Equal<ActivitySummary list>(
+                    [ for offset in 1 .. 6 do yield! sam401kFixtureActivity |> byDate (day p.d1 offset) ], stored)
+            })
         |> railroadWrapper

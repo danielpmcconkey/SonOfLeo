@@ -194,7 +194,11 @@ type PositionsSliceTwoRoutesTests(fixture: TestDataFixture) =
                     returned |> List.map (fun r -> r.accountName, r.beginDate, r.endDate, r.removed, r.recorded))
                 let! firstStored = listActivity first p.d1 p.d2
                 let! secondStored = listActivity second p.d1 p.d2
-                Assert.Equal((1, 3), (firstStored.Length, secondStored.Length))
+                let interestOn date (amount: decimal) = date, "Interest", "Interest on cash", None, None, None, amount
+                Assert.Equal<(LocalDate * string * string * string option * decimal option * decimal option * decimal) list>(
+                    [ interestOn p.d1 3.00M ], firstStored |> List.map activityOf)
+                Assert.Equal<(LocalDate * string * string * string option * decimal option * decimal option * decimal) list>(
+                    [ interestOn p.d1 1.00M; interestOn p.d1 2.00M; interestOn p.d2 3.00M ], secondStored |> List.map activityOf)
             }
             |> railroadWrapper
         finally
