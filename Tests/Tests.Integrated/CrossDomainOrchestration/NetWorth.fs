@@ -371,8 +371,62 @@ type NetWorthTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-8.5 the net worth result lists Asset and Liability accounts by account code, each Property's mortgage accounts by account code, and Investment Accounts and Properties by name, each from a fixture set whose stored order differs from it`` () =
-        Assert.Fail "Not yet implemented"
+        (* In a rolled-back transaction, each made after the fixture's own so it is stored last but sorts among them: an
+           Asset account F-1005 and a Liability account F-2005; an Investment Account named between Alex Roth IRA and Joint
+           Brokerage, with a snapshot of no lines on d2; and a Property named before 12 Example Street, whose two mortgage
+           accounts are made and linked F-2392 first, then F-2391. *)
+        runCommandRouteAndAutoRollback PositionsCreateProperty (fun context ->
+            result {
+                let account code name accountType subtype =
+                    createTestAccountFromPrimitives context code name accountType p.accountsActiveBegin None (Some subtype) None None
+                    |> Result.map snd
+                let! _ = account "F-1005" "Order test cash" "Asset" "Cash"
+                let! _ = account "F-2005" "Order test loan" "Liability" "LongTermLiability"
+                let! laterMortgageId = account "F-2392" "Order test second mortgage" "Liability" "LongTermLiability"
+                let! earlierMortgageId = account "F-2391" "Order test first mortgage" "Liability" "LongTermLiability"
+                let! sam = PositionsLookups.personIdOf context PF.sam
+                let! orderAccount =
+                    InvestmentAccountOrchestration.constructNewAndPersist
+                        context (toAccountName "Example Order Brokerage") (toInstitution "Example Brokerage")
+                        (toAccountGroup "Brokerage") TaxTreatment.Taxable [ sam ] (toActivityPeriod p.accountsActiveBegin None) None
+                let! _ =
+                    AccountSnapshotOrchestration.recordSnapshots
+                        context
+                        [ orderAccount |> Business.FinancialServices.Positions.InvestmentAccount.investmentAccountId,
+                          p.d2, Reported, None, [] ]
+                let! _ =
+                    RealEstateOrchestration.constructNewAndPersist
+                        context (toPropertyName "01 Example Lane") Rental [ sam ]
+                        (toOwnedPeriod p.rentalAcquired None) (toPurchaseBasis 100000.00M) [] [ laterMortgageId; earlierMortgageId ]
+                let! result = computeNetWorth context p.monthEnd3
+                Assert.Contains("F-1005", result.assetAccounts |> codes)
+                Assert.Equal<string list>(result.assetAccounts |> codes |> List.sort, result.assetAccounts |> codes)
+                Assert.Contains("F-2005", result.liabilityAccounts |> codes)
+                Assert.Equal<string list>(result.liabilityAccounts |> codes |> List.sort, result.liabilityAccounts |> codes)
+                Assert.Equal<(string * string * decimal) list>(
+                    [ "F-2391", "Order test first mortgage", 0.00M; "F-2392", "Order test second mortgage", 0.00M ],
+                    (result |> property "01 Example Lane").mortgageAccounts |> rows)
+                Assert.Equal<(string * decimal) list>(
+                    [ PF.alexBrokerage, 1620.00M; PF.alexRoth, 1500.00M; "Example Order Brokerage", 0.00M
+                      PF.jointBrokerage, 5500.00M; PF.sam401k, 4000.00M; PF.samHsa, 300.00M ],
+                    result.investmentAccounts |> List.map (fun a -> a.investmentAccountName, a.marketValue |> amount))
+                Assert.Equal<(string * decimal) list>(
+                    [ "01 Example Lane", 100000.00M; PF.residence, 420000.00M; PF.rental, 250000.00M ],
+                    result.properties |> List.map (fun x -> x.propertyName, x.value |> amount))
+            })
+        |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-8.5 the net worth result gives tax-treatment totals in the order Taxable, TaxDeferred, Roth, Hsa and account-group totals by group name, each from a fixture set whose stored order differs from it, and on a date where more than one component is absent names them in the order counted ledger assets, investments, property values, liabilities, mortgages of owned Properties`` () =
-        Assert.Fail "Not yet implemented"
+    member _.``REQ-RPT-8.5 the net worth result gives tax-treatment totals in the order Taxable, TaxDeferred, Roth, Hsa and account-group totals by group name, each from a fixture set whose stored order differs from it`` () =
+        (* The included accounts by name are Alex Brokerage (Taxable, Brokerage), Alex Roth IRA (Roth, Retirement), Joint
+           Brokerage (Taxable, Brokerage), Sam 401k (TaxDeferred, Retirement) and Sam HSA (Hsa, Health): in that order
+           the treatments first appear Taxable, Roth, TaxDeferred, Hsa and the groups Brokerage, Retirement, Health. *)
+        netWorthAsOf p.monthEnd3
+        |> Result.map (fun result ->
+            Assert.Equal<(TaxTreatment * decimal) list>(
+                [ Taxable, 7120.00M; TaxDeferred, 4000.00M; Roth, 1500.00M; Hsa, 300.00M ],
+                result.investmentsByTaxTreatment |> List.map (fun (t, m) -> t, m |> amount))
+            Assert.Equal<(string * decimal) list>(
+                [ "Brokerage", 7120.00M; "Health", 300.00M; "Retirement", 5500.00M ],
+                result.investmentsByAccountGroup |> List.map (fun (g, m) -> g, m |> amount)))
+        |> railroadWrapper

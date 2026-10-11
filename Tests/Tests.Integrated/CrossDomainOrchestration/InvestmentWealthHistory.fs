@@ -237,8 +237,89 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-9.2 for each grouping (account, account group, tax treatment, a dimension), the grouping values within every point are ordered by name, from a fixture whose stored order differs, with unassigned last even after a value whose name sorts after it`` () =
-        Assert.Fail "Not yet implemented"
+        (* In a rolled-back transaction: a Region value "Western", whose name sorts after "Unassigned", and a Security in
+           it held by a Taxable Brokerage account named after every fixture account, 200.00 on d2. Accounts are read by
+           name and their lines by Security name, so values first appear: account groups Brokerage, Retirement, Health;
+           tax treatments Taxable, Roth, TaxDeferred, Hsa; regions International, Domestic, then unassigned before
+           Western. At the end of month -4 Joint Brokerage and the new account have no holdings, so they are added after
+           the others with 0.00; at the end of month -3 Old Brokerage is. *)
+        runCommandRouteAndAutoRollback PositionsCreateInvestmentAccount (fun context ->
+            result {
+                let! western = DimensionValueOrchestration.constructNewAndPersist context Region (toDimensionValueName "Western")
+                let westernId = western |> Business.FinancialServices.Positions.DimensionValue.dimensionValueId
+                let! security =
+                    SecurityOrchestration.constructNewAndPersist
+                        context (toSecurityName "Example Western Fund") None [ Region, westernId ]
+                let securityId = security |> Business.FinancialServices.Positions.Security.securityId
+                let! sam = PositionsLookups.personIdOf context PF.sam
+                let! account =
+                    InvestmentAccountOrchestration.constructNewAndPersist
+                        context (toAccountName "Western Example Brokerage") (toInstitution "Example Brokerage")
+                        (toAccountGroup "Brokerage") TaxTreatment.Taxable [ sam ] (toActivityPeriod p.accountsActiveBegin None) None
+                let accountId = account |> Business.FinancialServices.Positions.InvestmentAccount.investmentAccountId
+                let! _ = HoldingOrchestration.constructNewAndPersist context accountId securityId (Some AverageCost)
+                let! _ =
+                    recordSnapshots context
+                        [ accountId, p.d2, Reported, None, [ securityId, toQuantity 2M, toPrice 100.00M, toMoney 200.00M, None, [] ] ]
+                let named values = values |> List.map (fun (n, v) -> GroupName n, v)
+                let expected =
+                    [ ByAccount,
+                      [ named
+                            [ PF.alexBrokerage, 1500.00M; PF.alexRoth, 1500.00M; PF.jointBrokerage, 0.00M
+                              PF.oldBrokerage, 1000.00M; PF.sam401k, 4000.00M; PF.samHsa, 300.00M
+                              "Western Example Brokerage", 0.00M ]
+                        named
+                            [ PF.alexBrokerage, 1620.00M; PF.alexRoth, 1500.00M; PF.jointBrokerage, 5500.00M
+                              PF.oldBrokerage, 0.00M; PF.sam401k, 4000.00M; PF.samHsa, 300.00M
+                              "Western Example Brokerage", 200.00M ] ]
+                      ByAccountGroup,
+                      [ named [ "Brokerage", 2500.00M; "Health", 300.00M; "Retirement", 5500.00M ]
+                        named [ "Brokerage", 7320.00M; "Health", 300.00M; "Retirement", 5500.00M ] ]
+                      ByTaxTreatment,
+                      [ named [ "Hsa", 300.00M; "Roth", 1500.00M; "TaxDeferred", 4000.00M; "Taxable", 2500.00M ]
+                        named [ "Hsa", 300.00M; "Roth", 1500.00M; "TaxDeferred", 4000.00M; "Taxable", 7320.00M ] ]
+                      // end of month -4: EXTMX 1,000.00 + 500.00 + 2,000.00; EXINX 500.00 + 1,000.00; Bond 3,000.00, Stable Value 300.00
+                      // end of month -3: EXTMX 1,100.00 + 500.00 + 5,500.00 + 2,000.00; EXINX 520.00; Bond and Stable Value as before
+                      ByDimension Region,
+                      [ named [ "Domestic", 3500.00M; "International", 1500.00M; "Western", 0.00M ] @ [ Unassigned, 3300.00M ]
+                        named [ "Domestic", 9100.00M; "International", 520.00M; "Western", 200.00M ] @ [ Unassigned, 3300.00M ] ] ]
+                let! _ =
+                    expected
+                    |> List.map (fun (grouping, points) ->
+                        history context p.monthEnd4 p.monthEnd3 grouping
+                        |> Result.map (fun found ->
+                            Assert.Equal<(WealthGroup * decimal) list list>(
+                                points, found |> List.map (fun x -> x.totals |> List.map (fun (g, m) -> g, m |> Money.amount)))))
+                    |> convertListOfResultsToResultsList
+                return ()
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-9.2 REQ-RPT-9.3 grouped by owners, the grouping values within every point, including a jointly owned group beside a sole owner's group, are ordered by their owners' names`` () =
-        Assert.Fail "Not yet implemented"
+        (* In a rolled-back transaction: an account of Jordan's named between Alex Roth IRA and Joint Brokerage, 200.00 of
+           Total Market on d2. Accounts are read by name, so owner sets first appear Alex, Jordan, then Alex and Sam, then
+           Sam. *)
+        runCommandRouteAndAutoRollback PositionsCreateInvestmentAccount (fun context ->
+            result {
+                let! jordan = PositionsLookups.personIdOf context PF.jordan
+                let! account =
+                    InvestmentAccountOrchestration.constructNewAndPersist
+                        context (toAccountName "Custodial Example Account") (toInstitution "Example Brokerage")
+                        (toAccountGroup "Custodial") TaxTreatment.Taxable [ jordan ] (toActivityPeriod p.accountsActiveBegin None) None
+                let accountId = account |> Business.FinancialServices.Positions.InvestmentAccount.investmentAccountId
+                let! totalMarketId = PositionsLookups.securityIdOf context PF.totalMarket
+                let! _ = HoldingOrchestration.constructNewAndPersist context accountId totalMarketId (Some AverageCost)
+                let! _ =
+                    recordSnapshots context
+                        [ accountId, p.d2, Reported, None, [ totalMarketId, toQuantity 2M, toPrice 100.00M, toMoney 200.00M, None, [] ] ]
+                let! points = history context p.monthEnd3 p.monthEnd2 ByOwners
+                // end of month -2: Alex alone 1,810.00 + 1,500.00; Sam alone 4,227.79 + 0.00
+                Assert.Equal<(WealthGroup * decimal) list list>(
+                    [ [ GroupOwners [ PF.alex ], 3120.00M; GroupOwners [ PF.alex; PF.sam ], 5500.00M
+                        GroupOwners [ PF.jordan ], 200.00M; GroupOwners [ PF.sam ], 4300.00M ]
+                      [ GroupOwners [ PF.alex ], 3310.00M; GroupOwners [ PF.alex; PF.sam ], 5500.00M
+                        GroupOwners [ PF.jordan ], 200.00M; GroupOwners [ PF.sam ], 4227.79M ] ],
+                    points |> List.map (fun x -> x.totals |> List.map (fun (g, m) -> g, m |> Money.amount)))
+            })
+        |> railroadWrapper
