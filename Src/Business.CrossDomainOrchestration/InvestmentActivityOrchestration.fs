@@ -131,8 +131,31 @@ let private recordRange
               recorded = activities |> List.length }
     }
 
-/// Replaces each account's activity dated in its range with the activities given, or, on the first failure, returns
-/// its error; the caller's transaction makes that all or none.
+// Coverage stays merged: the rows the range overlaps or adjoins are deleted, and one new row spans them and the range.
+let private addCoverage
+    (context: Context.Context)
+    (instant: Instant)
+    ((investmentAccountId, beginDate, endDate): InvestmentAccountId * LocalDate * LocalDate)
+    : Result<unit, IAppError> =
+    result {
+        let! touching =
+            InvestmentActivityCoverage.fetchByInvestmentAccountBetween
+                context investmentAccountId (beginDate.PlusDays(-1)) (endDate.PlusDays(1))
+        let mergedBegin = touching |> List.map InvestmentActivityCoverage.beginDate |> List.fold min beginDate
+        let mergedEnd = touching |> List.map InvestmentActivityCoverage.endDate |> List.fold max endDate
+        do!
+            touching
+            |> List.map (InvestmentActivityCoverage.investmentActivityCoverageId >> InvestmentActivityCoverage.delete context)
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        return!
+            InvestmentActivityCoverage.create
+                (InvestmentActivityCoverageId.create ()) investmentAccountId mergedBegin mergedEnd instant instant
+            |> InvestmentActivityCoverage.persist context
+    }
+
+/// Replaces each account's activity dated in its range with the activities given and adds each range to its account's
+/// activity coverage, or, on the first failure, returns its error; the caller's transaction makes that all or none.
 let recordActivity (context: Context.Context) (ranges: ActivityRange list) : Result<RecordedRange list, IAppError> =
     let currentDate = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
     result {
@@ -154,7 +177,15 @@ let recordActivity (context: Context.Context) (ranges: ActivityRange list) : Res
                 accountId, accountNameOf account, beginDate, endDate)
             |> InvestmentActivity.confirmRangesDontOverlap
         let! securityNames = securityNamesById context
-        return! accountsAndRanges |> List.map (recordRange context securityNames) |> convertListOfResultsToResultsList
+        let! recorded = accountsAndRanges |> List.map (recordRange context securityNames) |> convertListOfResultsToResultsList
+        do!
+            ranges
+            |> List.map (fun (accountId, beginDate, endDate, _) -> accountId, beginDate, endDate)
+            |> List.sortBy (fun (_, beginDate, _) -> beginDate)
+            |> List.map (addCoverage context (context |> Context.getInitiationInstant))
+            |> convertListOfResultsToResultsList
+            |> Result.map ignore
+        return recorded
     }
 
 /// The account's activities dated in the range, both ends included, in date order and, within a date, in the order
@@ -185,3 +216,4 @@ let listActivity
                     |> InvestmentActivity.holdingId
                     |> Option.bind (fun id -> securityNameOfHolding |> Map.tryFind id |> Option.flatten) })
     }
+
