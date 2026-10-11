@@ -300,8 +300,44 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-JE-3.5 a lookup by source FI returns the entries whose source FI equals it exactly, and no entry whose source FI differs only in letter case or merely contains it`` () =
-        Assert.Fail "Not yet implemented"
+        // In a rolled-back transaction: one entry from each of three institutions, all with the same reference value.
+        let p = fixture.Data.positions
+        Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
+            result {
+                let entry fi =
+                    EntityFunctions.createTestJournalEntryFromPrimitives
+                        context $"Exact FI lookup {fi}" None p.ledgerEntryDate
+                        [ (p.positionsCash1275Id, 10.00M, "Debit", None); (p.positionsEquity3040Id, 10.00M, "Credit", None) ]
+                        [ fi, "EXACT-FI-REF" ] []
+                    |> Result.map snd
+                let! exactId = entry "Exact Example Bank"
+                let! _ = entry "exact example bank"
+                let! _ = entry "Exact Example Bank Online"
+                let! fi = "Exact Example Bank" |> JournalRefFinancialInstitution.create
+                let! fetched = fetchByReference context (Some fi) None
+                Assert.Equal<JournalEntryHeaderId list>(
+                    [ exactId ], fetched |> List.map (header >> JournalEntryHeader.journalEntryHeaderId))
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-JE-3.5 a lookup by reference value returns the entries whose reference value equals it exactly, and no entry whose reference value differs only in letter case or merely contains it`` () =
-        Assert.Fail "Not yet implemented"
+        // In a rolled-back transaction: three entries from one institution, each with its own reference value.
+        let p = fixture.Data.positions
+        Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
+            result {
+                let entry reference =
+                    EntityFunctions.createTestJournalEntryFromPrimitives
+                        context $"Exact reference lookup {reference}" None p.ledgerEntryDate
+                        [ (p.positionsCash1275Id, 10.00M, "Debit", None); (p.positionsEquity3040Id, 10.00M, "Credit", None) ]
+                        [ "Exact Reference Example Bank", reference ] []
+                    |> Result.map snd
+                let! exactId = entry "Exact-Ref-077"
+                let! _ = entry "EXACT-REF-077"
+                let! _ = entry "Exact-Ref-0770"
+                let! reference = "Exact-Ref-077" |> JournalExternalReferenceText.create
+                let! fetched = fetchByReference context None (Some reference)
+                Assert.Equal<JournalEntryHeaderId list>(
+                    [ exactId ], fetched |> List.map (header >> JournalEntryHeader.journalEntryHeaderId))
+            })
+        |> railroadWrapper
