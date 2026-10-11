@@ -97,8 +97,12 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
                     | Ok _ -> ()
                     | Error e -> Assert.Fail(e.ToMessage())
                 | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
-                | Ok _ -> // clean-up on aisle four
-                    Assert.Fail "Expected failure; got success. You have data to clean up"
+                | Ok returnPayload ->
+                    idToCleanUp <-
+                        fromJson<JournalEntryReturn> returnPayload
+                        |> Result.toOption
+                        |> Option.map (fun r -> r.header.id |> JournalEntryHeaderId.fromGuid)
+                    Assert.Fail "Expected failure; got success"
             }
             |> railroadWrapper
         finally
@@ -211,11 +215,16 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
         try
             result {
                 let! payload = input |> toJson<JournalEntryInput>
-                do!
-                    isCorrectErrorString // todo: post-refactor, check on the IAppError CaseName property
-                        (routeUiCommandForTesting "JournalEntry" "PostNew" [] payload)
-                        expectedError
-                        (Some "Record should be cleaned up.")
+                let () =
+                    match routeUiCommandForTesting "JournalEntry" "PostNew" [] payload with
+                    | Error e when e.CaseName = expectedError -> ()
+                    | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                    | Ok returnPayload ->
+                        idToCleanUp <-
+                            fromJson<JournalEntryReturn> returnPayload
+                            |> Result.toOption
+                            |> Option.map (fun r -> r.header.id |> JournalEntryHeaderId.fromGuid)
+                        Assert.Fail "Expected failure; got success"
                 return ()
             }
             |> railroadWrapper
@@ -517,35 +526,66 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
     [<InlineData("voidedJe", "JournalEntryVoidingNoOp")>]
     [<InlineData("closedPeriod", "JournalEntryVoidingFiscalPeriodIsClosed")>]
     member _.``REQ-JE-4.4 Void validates input and state`` (scenario: string, expectedError: string)=
-        let jeIdToUse =
-            match scenario with
-            | "bogusId" -> Guid.NewGuid()
-            | "voidedJe" -> fixture.Data.voidedJeId |> JournalEntryHeaderId.value
-            | "closedPeriod" -> fixture.Data.jeInClosedPeriodId |> JournalEntryHeaderId.value
-            | _ -> fixture.Data.basicJeId |> JournalEntryHeaderId.value
+        let today = Calendar.today()
         let commentTextToUse =
             match scenario with
             | "commentEmpty" -> ""
             | "commentTooLong" -> String.replicate 201 "0123456789" + "X"
             | _ -> "Valid void reason"
-        let secondaryIdToUse =
-            match scenario with
-            | "sameIds" -> Some jeIdToUse
-            | "bogusSecondary" -> Some(Guid.NewGuid())
-            | _ -> None
-        let voidInput: JournalEntryVoidInput =
-            { id = jeIdToUse
-              reason = { secondaryJournalEntryId = secondaryIdToUse; commentText = commentTextToUse } }
-        result {
-            let! payload = voidInput |> toJson<JournalEntryVoidInput>
-            do!
-                isCorrectErrorString
-                    (routeUiCommandForTesting "JournalEntry" "Void" [] payload)
-                    expectedError
-                    (Some "This probably caused other tests to fail.")
-            return ()
-        }
-        |> railroadWrapper
+        let voidThroughRoute (jeId: Guid) (secondaryId: Guid option) (commentText: string) =
+            let voidInput: JournalEntryVoidInput =
+                { id = jeId; reason = { secondaryJournalEntryId = secondaryId; commentText = commentText } }
+            voidInput |> toJson<JournalEntryVoidInput> |> Result.bind (routeUiCommandForTesting "JournalEntry" "Void" [])
+        let mutable jeToCleanUp = None
+        let mutable periodToCleanUp = None
+        try
+            let context = Context.create NoTransaction FetchOnly
+            result {
+                // the closed-period case needs a period of its own: month -6 is the only month before the fixture's
+                // ledger that a new period may still start in. It is opened, given the entry, then closed.
+                let entryDate = if scenario = "closedPeriod" then today.PlusMonths(-6) else today
+                let! () =
+                    if scenario = "closedPeriod" then
+                        result {
+                            let! periodKey =
+                                $"{entryDate.Year}-{entryDate.Month:D2}" |> FiscalPeriodKey.fromString
+                            let! period = periodKey |> FiscalPeriodCreation.constructNewAndPersist context
+                            periodToCleanUp <- Some(period |> FiscalPeriod.fiscalPeriodId)
+                            return ()
+                        }
+                    else Ok()
+                let! _, ownJeId =
+                    createTestJournalEntryFromPrimitives
+                        context
+                        $"REQ-JE-4.4 JE for {scenario}"
+                        None
+                        entryDate
+                        [ (fixture.Data.entertainment5650Id, 75.00M, "Debit", None)
+                          (fixture.Data.creditCard2220Id, 75.00M, "Credit", None) ]
+                        []
+                        []
+                jeToCleanUp <- Some ownJeId
+                let ownJeUuid = ownJeId |> JournalEntryHeaderId.value
+                let! () =
+                    match scenario, periodToCleanUp with
+                    | "closedPeriod", Some periodId -> periodId |> FiscalPeriod.closeFiscalPeriod context |> Result.map ignore
+                    | "voidedJe", _ -> voidThroughRoute ownJeUuid None "First void" |> Result.map ignore
+                    | _ -> Ok()
+                let jeIdToUse = if scenario = "bogusId" then Guid.NewGuid() else ownJeUuid
+                let secondaryIdToUse =
+                    match scenario with
+                    | "sameIds" -> Some jeIdToUse
+                    | "bogusSecondary" -> Some(Guid.NewGuid())
+                    | _ -> None
+                do!
+                    isCorrectErrorString (voidThroughRoute jeIdToUse secondaryIdToUse commentTextToUse) expectedError None
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            match cleanUpJournalEntryId jeToCleanUp |> Result.bind (fun () -> cleanUpFiscalPeriodId periodToCleanUp) with
+            | Ok() -> ()
+            | Error e -> Assert.Fail(e.ToMessage())
 
     [<Theory>]
     [<InlineData("commentEmpty", "JournalEntryCommentIsEmpty")>]
@@ -654,11 +694,15 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
               reference = { financialInstitution = fiToUse; referenceText = refTextToUse } }
         result {
             let! payload = input |> toJson<JournalEntryAddExternalReferenceInput>
-            do!
-                isCorrectErrorString
-                    (routeUiCommandForTesting "JournalEntry" "AddExternalReference" [] payload)
-                    expectedError
-                    None
+            let () =
+                match routeUiCommandForTesting "JournalEntry" "AddExternalReference" [] payload with
+                | Error e when e.CaseName = expectedError -> ()
+                | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                | Ok returnPayload ->
+                    let removed =
+                        fromJson<JournalEntryExternalReferenceReturn> returnPayload
+                        |> Result.bind (fun r -> Some r.id |> cleanUpJournalEntryExtReferenceId)
+                    Assert.Fail $"Expected failure; got success. Reference removed: {removed |> Result.isOk}"
             return ()
         }
         |> railroadWrapper
@@ -723,11 +767,15 @@ type JournalEntryRouteTests(fixture: TestDataFixture) =
               comment = { secondaryJournalEntryId = None; commentText = commentTextToUse } }
         result {
             let! payload = input |> toJson<JournalEntryAddCommentInput>
-            do!
-                isCorrectErrorString
-                    (routeUiCommandForTesting "JournalEntry" "AddComment" [] payload)
-                    expectedError
-                    None
+            let () =
+                match routeUiCommandForTesting "JournalEntry" "AddComment" [] payload with
+                | Error e when e.CaseName = expectedError -> ()
+                | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                | Ok returnPayload ->
+                    let removed =
+                        fromJson<JournalEntryCommentReturn> returnPayload
+                        |> Result.bind (fun r -> Some r.id |> cleanUpJournalEntryCommentId)
+                    Assert.Fail $"Expected failure; got success. Comment removed: {removed |> Result.isOk}"
             return ()
         }
         |> railroadWrapper
