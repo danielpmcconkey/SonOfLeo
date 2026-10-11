@@ -183,6 +183,26 @@ type UnitRollForwardTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
+    member _.``REQ-POS-14.2 a Security on neither snapshot whose only units-moving activities are dated on the first snapshot date and on the day after the second has no row`` () =
+        // d1 and d3 + 1 are re-recorded with the fixture's own Total Market activity on them, plus International's
+        runCommandRouteAndAutoRollback PositionsRecordInvestmentActivity (fun context ->
+            result {
+                let! _ = addHolding context PF.sam401k PF.international
+                let! _ =
+                    recordRange context PF.sam401k p.d1 p.d1
+                        [ activity p.d1 "Purchase" (Some PF.totalMarket) (Some 4M) 400.00M
+                          activity p.d1 "Purchase" (Some PF.international) (Some 3M) 75.00M ]
+                let after = day p.d3 1
+                let! _ =
+                    recordRange context PF.sam401k after after
+                        [ activity after "Sale" (Some PF.totalMarket) (Some 6M) 630.00M
+                          activity after "Sale" (Some PF.international) (Some 1M) 25.00M ]
+                let! rows = rollForwardRows context PF.sam401k p.d1 p.d3
+                Assert.Equal<Row list>(sam401kRows, rows)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-POS-14.2 REQ-POS-12.2 every units-in activity's quantity is totalled under units in and every units-out activity's quantity under units out, each against the Security it names`` () =
         // the window's activity replaced: the six units-in kinds on Total Market and the six units-out kinds on the
         // Bond Fund, each with its own power of two, so any kind counted in the wrong direction or not at all changes
