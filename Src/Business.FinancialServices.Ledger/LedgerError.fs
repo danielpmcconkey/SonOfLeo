@@ -31,6 +31,7 @@ type LedgerError =
     | AccountSubtypeInvalid of string
     | AccountTypeInvalid of string
     | AccountUpdateNoOp
+    | FetchFilterDateRangeEndBeforeBegin of LocalDate * LocalDate
     | FiscalPeriodEnsureStartAfterEnd of string * string
     | FiscalPeriodDatesDontMatchKey of string * LocalDate * LocalDate
     | FiscalPeriodInvalidKeyString of string
@@ -105,6 +106,7 @@ type LedgerError =
             | AccountSubtypeInvalid subtype -> $"Provided string of '{subtype}' is not a valid account subtype."
             | AccountTypeInvalid typeString -> $"Provided string of '{typeString}' is not a valid account type."
             | AccountUpdateNoOp -> "Updating the account record failed because at least one updatable parameter must be set."
+            | FetchFilterDateRangeEndBeforeBegin(beginDate, endDate) -> $"The date range's end date ({endDate}) cannot be earlier than its begin date ({beginDate})."
             | FiscalPeriodEnsureStartAfterEnd(startKey, endKey) ->
                 $"Cannot ensure fiscal periods from {startKey} to {endKey}: the start month is later than the end month."
             | FiscalPeriodDatesDontMatchKey(key, startDate, endDate) -> $"Fiscal Period {key} is stored with start date {startDate} and end date {endDate}, which are not the first and last days of its month."

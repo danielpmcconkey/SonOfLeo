@@ -783,4 +783,13 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-STG-10.2 a staged entry fetch whose date range ends the day before it begins fails with a typed error naming both dates`` () =
-        Assert.Fail "Not yet implemented"
+        let endInclusive = today.PlusDays(-1)
+        let context = Context.create App.DataAccessLayer.DbTransaction.NoTransaction FetchOnly
+        let fetched =
+            { noFilter with temporalFilter = Some(DateRange { beginDate = today; endInclusive = endInclusive }) }
+            |> fetchFiltered context None
+        match fetched with
+        | Error (AsError (LedgerError.FetchFilterDateRangeEndBeforeBegin(returnedBegin, returnedEnd))) ->
+            Assert.Equal((today, endInclusive), (returnedBegin, returnedEnd))
+        | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+        | Ok _ -> Assert.Fail "Expected failure; got success"

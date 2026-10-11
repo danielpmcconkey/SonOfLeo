@@ -357,4 +357,22 @@ type AccountActivityTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-AC-3.12.1 an account activity fetch whose entry date range ends the day before it begins fails with a typed error naming both dates`` () =
-        Assert.Fail "Not yet implemented"
+        let beginDate = App.Utility.Calendar.today ()
+        let endInclusive = beginDate.PlusDays(-1)
+        let filter: AccountActivityFilter =
+            { accountId = None
+              temporalFilter = Some(DateRange { beginDate = beginDate; endInclusive = endInclusive })
+              source = None
+              accountType = None
+              accountSubtype = None
+              accountParentId = None
+              journalEntryId = None
+              amount = None
+              description = None
+              unVoidedOnly = false }
+        let context = Context.create NoTransaction FetchOnly
+        match AccountActivity.fetchFiltered context filter None with
+        | Error (AsError (LedgerError.FetchFilterDateRangeEndBeforeBegin(returnedBegin, returnedEnd))) ->
+            Assert.Equal((beginDate, endInclusive), (returnedBegin, returnedEnd))
+        | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+        | Ok _ -> Assert.Fail "Expected failure; got success"

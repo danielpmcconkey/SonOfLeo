@@ -97,6 +97,8 @@ let getDateRangeFromTemporalFilter
     (temporalFilter: TemporalFilter)
     : Result<FilterDateRange, IAppError>=
     match temporalFilter with
+    | DateRange dr when dr.endInclusive < dr.beginDate ->
+        LedgerError.error (LedgerError.FetchFilterDateRangeEndBeforeBegin(dr.beginDate, dr.endInclusive))
     | DateRange dr -> Ok dr
     | FiscalPeriodIdentifier fpId ->
         fpId
