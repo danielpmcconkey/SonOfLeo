@@ -142,6 +142,19 @@ type PersonMaintenanceTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
+    member _.``REQ-PER-2.2 REQ-SYS-6.1 an update that sets a Person's name to the name it already holds, with a new past birthdate, succeeds and stores that name and the new birthdate`` () =
+        runCommandRouteAndAutoRollback PersonUpdate (fun context ->
+            result {
+                let newBirth = LocalDate(1983, 11, 2)
+                let! updated =
+                    updatePerson context PositionsFixture.jordan (SetTo(toPersonName PositionsFixture.jordan)) (SetTo newBirth)
+                Assert.Equal((PositionsFixture.jordan, newBirth), updated |> summary)
+                let! fetched = fetchPersonByName context PositionsFixture.jordan
+                Assert.Equal((PositionsFixture.jordan, newBirth), fetched |> summary)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-PER-2.2 REQ-PER-1.3 renaming a Person to another Person's name is rejected with a typed error naming the name, and neither Person changes`` () =
         runCommandRouteAndAutoRollback PersonUpdate (fun context ->
             result {
