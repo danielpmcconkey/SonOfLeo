@@ -354,7 +354,8 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! agreementId, legIds, _ = s.agreement "CF-9.5 delete only"
-                let! instanceId, invoices = s.instance agreementId [ (legIds[0], None, [ PostedPay 100.00M ]) ]
+                let! instanceId, invoices =
+                    s.instance agreementId [ (legIds[0], None, [ PostedPay 100.00M ]); (legIds[1], None, [ PostedPay 100.00M ]) ]
                 let invoiceId, paymentIds = invoices[0]
                 let! fulfilledBefore = s.isFulfilled instanceId
                 Assert.True(fulfilledBefore)
@@ -410,7 +411,8 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! agreementId, legIds, _ = s.agreement "CF-9.10 add completing"
-                let! instanceId, invoices = s.instance agreementId [ (legIds[0], None, [ PostedPay 60.00M ]) ]
+                let! instanceId, invoices =
+                    s.instance agreementId [ (legIds[0], None, [ PostedPay 60.00M ]); (legIds[1], None, [ PostedPay 100.00M ]) ]
                 let invoiceId, _ = invoices[0]
                 let! completing = s.newPayment (PostedPay 40.00M)
                 let! _ =
@@ -555,7 +557,9 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! agreementId, legIds, _ = s.agreement "CF-9.10 amount raised"
-                let! instanceId, invoices = s.instance agreementId [ (legIds[0], None, [ PostedPay 60.00M; PostedPay 40.00M ]) ]
+                let! instanceId, invoices =
+                    s.instance agreementId
+                        [ (legIds[0], None, [ PostedPay 60.00M; PostedPay 40.00M ]); (legIds[1], None, [ PostedPay 100.00M ]) ]
                 let invoiceId, _ = invoices[0]
                 let! before = s.statesOf invoiceId
                 let! fulfilledBefore = s.isFulfilled instanceId
@@ -570,28 +574,6 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let! after = s.statesOf invoiceId
                 let! fulfilled = s.isFulfilled instanceId
                 Assert.Equal((PartiallyPaid, PartiallyPosted), after)
-                Assert.False(fulfilled)
-            })
-
-    [<Fact>]
-    member _.``REQ-CF-9.10 adding a new unpaid Invoice to a fulfilled Instance makes the Instance no longer fulfilled, with no call other than the add`` () =
-        rolledBack (fun s ->
-            result {
-                let! agreementId, legIds, _ = s.agreement "CF-9.10 invoice added"
-                let! instanceId, _ = s.instance agreementId [ (legIds[0], None, [ PostedPay 100.00M ]) ]
-                let! fulfilledBefore = s.isFulfilled instanceId
-                Assert.True(fulfilledBefore)
-                let! amount = Money.fromDecimal 100.00M
-                let date = s.firstOfThisMonth
-                let added =
-                    (legIds[1], None, InvoiceDate.create date, DueDate.create (date.PlusDays(30)),
-                     InvoiceAmount.create amount, InvoiceReceived, None, None, [])
-                let update: InstanceOrchestration.InstanceCompositeUpdate =
-                    { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
-                      invoiceCompositeUpdates = []
-                      newInvoices = [ added ] }
-                let! _ = update |> InstanceOrchestration.updateInstanceComposite s.Context
-                let! fulfilled = s.isFulfilled instanceId
                 Assert.False(fulfilled)
             })
 
@@ -611,6 +593,30 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 Assert.True(fulfilled)
             })
 
-    [<Fact>]
-    member _.``REQ-CF-4.9 REQ-CF-9.10 for each of a Payment paying it in full and one paying it in part, adding an Invoice carrying that Payment on the one Payment Agreement of an Instance still without an Invoice, when its other Invoice is FullyPaid, makes the Instance fulfilled exactly when the new Invoice is FullyPaid, with no call other than the add`` () =
-        Assert.Fail "Not yet implemented"
+    [<Theory>]
+    [<InlineData(100, true)>]
+    [<InlineData(40, false)>]
+    [<InlineData(0, false)>]
+    member _.``REQ-CF-4.9 REQ-CF-9.10 for each of a Payment paying it in full, one paying it in part and none, adding an Invoice carrying that Payment on the one Payment Agreement of an Instance still without an Invoice, when its other Invoice is FullyPaid, makes the Instance fulfilled exactly when the new Invoice is FullyPaid, with no call other than the add`` (paid: int, expectedFulfilled: bool) =
+        rolledBack (fun s ->
+            result {
+                let! agreementId, legIds, _ = s.agreement "CF-4.9 last leg invoiced"
+                let! instanceId, _ = s.instance agreementId [ (legIds[0], None, [ PostedPay 100.00M ]) ]
+                let! fulfilledBefore = s.isFulfilled instanceId
+                Assert.False(fulfilledBefore)
+                let! amount = Money.fromDecimal 100.00M
+                let! payments =
+                    if paid = 0 then Ok []
+                    else [ PostedPay(decimal paid) ] |> List.map s.newPayment |> convertListOfResultsToResultsList
+                let date = s.firstOfThisMonth
+                let added =
+                    (legIds[1], None, InvoiceDate.create date, DueDate.create (date.PlusDays(30)),
+                     InvoiceAmount.create amount, InvoiceReceived, None, None, payments)
+                let update: InstanceOrchestration.InstanceCompositeUpdate =
+                    { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
+                      invoiceCompositeUpdates = []
+                      newInvoices = [ added ] }
+                let! _ = update |> InstanceOrchestration.updateInstanceComposite s.Context
+                let! fulfilled = s.isFulfilled instanceId
+                Assert.Equal(expectedFulfilled, fulfilled)
+            })
