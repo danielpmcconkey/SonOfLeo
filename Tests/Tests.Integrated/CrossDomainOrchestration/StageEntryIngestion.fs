@@ -529,15 +529,21 @@ type StageEntryIngestionTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback IngestRawEntries (fun context ->
             result {
                 let! fullResult = StageTestData.runPipeline context
-                // grp-009 and grp-010 share source+ref, in two files; one should be flagged as duplicate
-                let ddEntries = fullResult.stagedEntries |> List.filter (fun se ->
-                    se |> stageEntryHeader |> StageEntryHeader.description |> JournalEntryDescription.value = "DD DoorDash Order 9917223")
-                Assert.Equal(2, ddEntries |> List.length)
-                let dupCount =
-                    ddEntries
-                    |> List.filter (fun se -> se |> stageEntryHeader |> StageEntryHeader.currentStatus = Some Duplicate)
-                    |> List.length
-                Assert.Equal(1, dupCount)
+                // grp-009 and grp-010 share source and fi_reference; grp-010 arrives in the second, later file, so it is
+                // the repeat the dedup pass must flag, and grp-009 is the original it must leave alone
+                let sharing =
+                    fullResult.stagedEntries
+                    |> List.filter (fun se -> se |> stageEntryHeader |> StageEntryHeader.fiReference |> JournalExternalReferenceText.value = "REF-DD-002")
+                let fileOf se = se |> stageEntryHeader |> StageEntryHeader.sourceFile |> SourceFile.value
+                let duplicateTransitionsOf se =
+                    se |> statusTransitions |> List.filter (fun t -> t |> StageEntryStatusTransition.toStatus = Duplicate) |> List.length
+                // the repeat is now Duplicate; the original has never been
+                Assert.Equal<(string * bool * int) list>(
+                    [ "/tmp/stg-test-checking-second.jsonl", true, 1; "/tmp/stg-test-checking.jsonl", false, 0 ],
+                    sharing
+                    |> List.map (fun se ->
+                        fileOf se, (se |> stageEntryHeader |> StageEntryHeader.currentStatus = Some Duplicate), se |> duplicateTransitionsOf)
+                    |> List.sortBy (fun (file, _, _) -> file))
             })
         |> railroadWrapper
 

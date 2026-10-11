@@ -1077,6 +1077,77 @@ type IngestionRouteTests(fixture: TestDataFixture) =
             | Ok () -> ()
             | Error e -> failwith (e.ToMessage())
 
+    [<Theory>]
+    [<InlineData("entryDate")>]
+    [<InlineData("ingestionSource")>]
+    [<InlineData("fiReference")>]
+    [<InlineData("sourceFile")>]
+    [<InlineData("lineTypeSwap")>]
+    member _.``REQ-STG-6.2 for each of entry date, ingestion source by name, FI reference, source file and a balanced swap of line types, an UpdateStageEntry payload setting it stores the new value, read back by the entry's ID`` (field: string) =
+        let fileName = $"ingestion-route-stg-6-2-{field}.jsonl"
+        let reference = $"REF-STG-6-2-{field}"
+        let mutable idsToCleanUp = []
+        try
+            result {
+                let! ingested = twoValidGroups reference $"{reference}-other" |> ingestThroughRoute fileName
+                idsToCleanUp <- ingested |> headerIdsToCleanUp
+                let toUpdate = ingested.stagedEntries |> List.find (fun entry -> entry.stageEntryHeader.fiReference = reference)
+                let headerId = toUpdate.stageEntryHeader.stageEntryHeaderId
+                let newDate = Calendar.today().PlusDays(-1)
+                let newReference = $"{reference}-changed"
+                let newSourceFile = $"/tmp/{fileName}.changed"
+                let unchanged : UpdateStageEntryInput =
+                    { stageEntryHeaderId = headerId
+                      sourceFileUpdate = NoChange
+                      entryDate = NoChange
+                      description = NoChange
+                      ingestionSource = NoChange
+                      fiReference = NoChange
+                      status = NoChange
+                      lines = []
+                      linesToAdd = []
+                      lineIdsToRemove = [] }
+                let swapped (line: StageEntryLineReturn) =
+                    { stageEntryLineId = line.stageEntryLineId
+                      amount = NoChange
+                      lineType = SetTo(if line.lineType = "Debit" then "Credit" else "Debit")
+                      accountCode = NoChange
+                      memo = NoChange }
+                let update =
+                    match field with
+                    | "entryDate" -> { unchanged with entryDate = SetTo newDate }
+                    | "ingestionSource" -> { unchanged with ingestionSource = SetTo "TestSavings" }
+                    | "fiReference" -> { unchanged with fiReference = SetTo newReference }
+                    | "sourceFile" -> { unchanged with sourceFileUpdate = SetTo newSourceFile }
+                    | _ -> { unchanged with lines = toUpdate.lines |> List.map swapped }
+                let! payload = update |> toJson<UpdateStageEntryInput>
+                let! _ = routeUiCommandForTesting "Ingestion" "UpdateStageEntry" [] payload
+                let! refetched = refetchStageEntry headerId
+                let stored = refetched |> stageEntryHeader
+                let linesOf entry =
+                    entry |> seLines |> List.map (fun l -> l |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value, l |> StageEntryLine.lineType |> JournalEntryLineType.toString) |> List.sort
+                let () =
+                    match field with
+                    | "entryDate" -> Assert.Equal(newDate, stored |> StageEntryHeader.entryDate)
+                    | "ingestionSource" ->
+                        Assert.Equal("TestSavings", stored |> StageEntryHeader.ingestionSource |> IngestionSource.name |> JournalRefFinancialInstitution.value)
+                    | "fiReference" -> Assert.Equal(newReference, stored |> StageEntryHeader.fiReference |> JournalExternalReferenceText.value)
+                    | "sourceFile" -> Assert.Equal(newSourceFile, stored |> StageEntryHeader.sourceFile |> SourceFile.value)
+                    | _ ->
+                        Assert.Equal<(Guid * string) list>(
+                            toUpdate.lines
+                            |> List.map (fun line -> line.stageEntryLineId, (if line.lineType = "Debit" then "Credit" else "Debit"))
+                            |> List.sort,
+                            refetched |> linesOf)
+                return ()
+            }
+            |> railroadWrapper
+        finally
+            deleteImportFile fileName
+            match cleanUpStageEntryHeaderIdList idsToCleanUp with
+            | Ok () -> ()
+            | Error e -> failwith (e.ToMessage())
+
     (* The contract has no journal entry ID fields, so the serializer cannot write them. The payload is edited by hand to
        carry real posted IDs from the fixture, on the header, on a line update and on an added line. *)
     [<Fact>]
