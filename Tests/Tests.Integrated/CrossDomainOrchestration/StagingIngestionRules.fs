@@ -1103,6 +1103,42 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 Assert.Equal(Some StagedEntryStatus.Reviewed, reviewedAfter |> statusOf)
             })
 
-    [<Fact>]
-    member _.``REQ-STG-9.10 for each pair of memos (two different texts; no memo and a text), two staged lines of one entry with the same account, line type and amount each record the journal entry line carrying their own memo, whichever order they are supplied in`` () =
-        Assert.Fail "Not yet implemented"
+    [<Theory>]
+    [<InlineData("first leg memo", "second leg memo", false)>]
+    [<InlineData("first leg memo", "second leg memo", true)>]
+    [<InlineData(null, "second leg memo", false)>]
+    [<InlineData(null, "second leg memo", true)>]
+    member _.``REQ-STG-9.10 for each pair of memos (two different texts; no memo and a text), two staged lines of one entry with the same account, line type and amount each record the journal entry line carrying their own memo, whichever order they are supplied in`` (firstMemo: string, secondMemo: string, reversed: bool) =
+        rolledBack fixture IngestPostStageEntries (fun s ->
+            result {
+                let twins = [ (50.00M, "Debit", Some "F-2230", Option.ofObj firstMemo, None)
+                              (50.00M, "Debit", Some "F-2230", Option.ofObj secondMemo, None) ]
+                let start = Clock.now ()
+                let! entry =
+                    createStageEntryForTest s.Context "/tmp/staging-rules-test.dat" $"Staging rules MemoTwins-{newTag ()}"
+                        (newTag ()) s.card (Calendar.today ())
+                        ((if reversed then twins |> List.rev else twins) @ [ (100.00M, "Credit", Some "F-1280", None, None) ])
+                        [ (None, "Ingested", start, "StageIngestion")
+                          (Some "Ingested", "Classified", start.Plus(Duration.FromTicks(100L)), "Operator") ]
+                s.advance ()
+                do! post s.Context
+                let! readBack = refetch s.Context entry
+                let! journalEntry = postedFrom s.Context entry
+                let memoOfJournalLine =
+                    journalEntry
+                    |> JE.jeLines
+                    |> List.map (fun j -> j |> JournalEntryLine.journalEntryLineId, j |> JournalEntryLine.memo |> Option.map JournalEntryLineMemo.value)
+                    |> Map.ofList
+                let pairedMemos =
+                    readBack
+                    |> seLines
+                    |> List.filter (fun l -> l |> StageEntryLine.lineType = Debit)
+                    |> List.map (fun l ->
+                        l |> StageEntryLine.memo |> Option.map JournalEntryLineMemo.value,
+                        l |> StageEntryLine.journalEntryLineId |> Option.map (fun id -> memoOfJournalLine[id]))
+                    |> List.sortBy fst
+                Assert.Equal<(string option * string option option) list>(
+                    [ Option.ofObj firstMemo, Some(Option.ofObj firstMemo); Option.ofObj secondMemo, Some(Option.ofObj secondMemo) ]
+                    |> List.sortBy fst,
+                    pairedMemos)
+            })

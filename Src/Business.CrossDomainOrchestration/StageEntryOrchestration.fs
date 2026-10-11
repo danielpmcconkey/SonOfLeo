@@ -739,9 +739,14 @@ let private isSameLine
     let journalAmount = journalEntryLine |> JournalEntryLine.amount
     let stageLineType = stageEntryLine |> StageEntryLine.lineType
     let journalLineType = journalEntryLine |> JournalEntryLine.lineType
-    stageAccountId = Some journalAccountId && Money.isEqual stageAmount journalAmount && stageLineType = journalLineType
+    let stageMemo = stageEntryLine |> StageEntryLine.memo
+    let journalMemo = journalEntryLine |> JournalEntryLine.memo
+    stageAccountId = Some journalAccountId
+    && Money.isEqual stageAmount journalAmount
+    && stageLineType = journalLineType
+    && stageMemo = journalMemo
 
-/// pairStageLinesToJournalEntryLines matches on account, line type, and amount rather than trusting the two lists to
+/// pairStageLinesToJournalEntryLines matches on account, line type, amount and memo rather than trusting the two lists to
 /// arrive in the same order. A matched journal entry line leaves the pool, so two identical staged lines still pair
 /// one to one.
 let rec private pairStageLinesToJournalEntryLines
