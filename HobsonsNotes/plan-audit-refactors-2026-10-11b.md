@@ -629,6 +629,8 @@ setup only (`Model/Ledger/Account.fs`, `JournalEntryFetching.fs`, route
 REQ-AC-1.5 resolve helper unwraps to keep its Guid assertions. `DalTests.fs`
 is untouched.
 
+**B2. `Src/README.md`.** The LookupCache row carries the plan's text.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 
