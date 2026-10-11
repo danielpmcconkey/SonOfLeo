@@ -70,16 +70,25 @@ let ``REQ-DAL-2.2 an update requiring exactly one row that touches none returns 
 
 [<Fact>]
 let ``REQ-DAL-2.2 an update requiring exactly one row that touches two returns DalResultantRowsDidntMatchExpectation carrying the expectation and the count`` () =
+    // the two rows are the test's own, in a table that lives only inside the rolled-back transaction
     runCommandRouteAndAutoRollback FiscalPeriodCreate (fun context ->
-        let touchesTwo =
-            "update ledger.account set code = code where unique_id in (select unique_id from ledger.account order by code limit 2);"
-        match executeNonQuery (context |> Context.getDatabaseTransaction) touchesTwo [] ExactlyOne with
-        | Error (AsError (DalResultantRowsDidntMatchExpectation (expectation, actual))) ->
-            Assert.Equal("ExactlyOne", expectation)
-            Assert.Equal(2, actual)
-        | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
-        | Ok _ -> Assert.Fail "Expected failure; got success"
-        Ok())
+        let transaction = context |> Context.getDatabaseTransaction
+        result {
+            do!
+                executeNonQuery
+                    transaction
+                    "create temporary table dal_two_rows (id int) on commit drop; insert into dal_two_rows (id) values (1), (2);"
+                    []
+                    AnyQuantityIsAcceptable
+            let () =
+                match executeNonQuery transaction "update dal_two_rows set id = id where id in (1, 2);" [] ExactlyOne with
+                | Error (AsError (DalResultantRowsDidntMatchExpectation (expectation, actual))) ->
+                    Assert.Equal("ExactlyOne", expectation)
+                    Assert.Equal(2, actual)
+                | Error e -> Assert.Fail $"Wrong error. {e.ToMessage()}"
+                | Ok _ -> Assert.Fail "Expected failure; got success"
+            return ()
+        })
     |> railroadWrapper
 
 [<Fact>]
