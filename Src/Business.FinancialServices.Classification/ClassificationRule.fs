@@ -64,14 +64,14 @@ let create
 /// StoredFieldMatch is how a field match is written to the database. Stored rule JSON outlives changes to the domain
 /// types, so it is plain strings and numbers under fixed names, and every value goes back through its smart constructor
 /// on read.
-type StoredFieldMatch =
+type private StoredFieldMatch =
     { field: string
       pattern: string option
       lineType: string option
       numericOperator: string option
       amount: decimal option }
 
-type StoredRuleGroup =
+type private StoredRuleGroup =
     { connector: string
       chainOne: StoredFieldMatch list
       chainTwo: StoredFieldMatch list option }
