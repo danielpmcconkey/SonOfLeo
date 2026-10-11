@@ -1936,7 +1936,11 @@ Instead, create tuples of the primitives that the domain types would need to cre
         <element xsi:type="archimate:Principle" name="Encapsulation conventions are enforced" id="id-7b218b67c2d84de7b4743a67457b7b06"/>
         <element xsi:type="archimate:Constraint" name="The UI tier issues no SQL" id="id-a8ee7ba6b73c41a3b56bc7baa7e34be1"/>
         <element xsi:type="archimate:Constraint" name="Entity, component, and composite type definitions are private" id="id-390b6abd1d6d4a268701e744a49c7b4d">
-          <documentation>This is to encapsulate instantiation within the module</documentation>
+          <documentation>This is to encapsulate instantiation within the module
+
+Dan, 2026-10-11: &quot;entity types are private to prevent someone from instantiating them w/out the primary module and then persisting a non-validated entity in the database. if there's no persistence tied to that type, then it's acceptible to be public. However, we should default to private with module-specific create functions unless we have a reason not to. If it's just &quot;we couldn't be arsed to do it right&quot; that's not good enough. If it's &quot;this thing only exists as a return type&quot; then that's fine&quot;
+
+In practice (Hobson, 2026-10-11): a record that only exists as an operation's return value, with no persistence tied to it, may be public. That covers report and view rows and the results write operations hand back. A type that is an input to a write is private, with a create function.</documentation>
         </element>
         <element xsi:type="archimate:Constraint" name="Access to Entity, component, or composite type fields is strictly through accessor functions" id="id-5dcad732319f42889c30d26f24d6de9f"/>
         <element xsi:type="archimate:Constraint" name="Accessor functions should carry the same name as the field they are accessing" id="id-bd5123156b4b4a98a9f4c64ec38d36bf"/>

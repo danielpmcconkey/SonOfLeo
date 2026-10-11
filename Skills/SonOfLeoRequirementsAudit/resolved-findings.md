@@ -240,6 +240,7 @@ different rule by the same code.
 - **Scope:** Whether read-only report and view output records (rows, lines and composites returned by a report or view read) must be private with accessor functions, rather than public records the UI tier reads by field
 - **Ruling:** Dan, 2026-10-05: public report row types follow the precedent in Business.CrossDomainOrchestration.TrialBalanceReport (public row records read by field). Read-only report and view outputs are exempt from the private/accessor constraint. Source: audit 2026-10-04a #112.
 - **Not covered (Hobson, 2026-10-11):** where report and view records are defined, and what their fields are typed as. Those fall under the type-placement, primitive and ID rules like any other type. Audit 2026-10-11a cited this ruling to pass single-domain records defined in orchestration.
+- **Extended (Dan, 2026-10-11):** the exemption rests on there being no persistence tied to the type. Records that write operations return, and that exist only as a return type, are covered too. Inputs to writes are not; they are private with a create function. Full ruling in the model's 'Entity, component, and composite type definitions are private'. (Audit 2026-10-11b #064–#066.)
 
 ## REPORT-SQL: A Report Read May Be One Cross-Schema SELECT
 - **Status:** overruled
