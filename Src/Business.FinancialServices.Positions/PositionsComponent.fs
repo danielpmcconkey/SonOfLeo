@@ -301,6 +301,21 @@ module ActivityKind =
         | ActivityKind.Interest
         | ActivityKind.CapitalGainDistribution -> NoUnits
 
+/// What is wrong with an Activity whose kind fixes whether it names a Security and carries a quantity.
+type ActivityShapeProblem =
+    | SecurityMissing
+    | QuantityMissing
+    | QuantityNotAllowed
+    | QuantityWithoutSecurity
+
+module ActivityShapeProblem =
+    let toString problem =
+        match problem with
+        | SecurityMissing -> "names no Security, and one is required"
+        | QuantityMissing -> "carries no quantity, and one is required"
+        | QuantityNotAllowed -> "carries a quantity, which this kind never does"
+        | QuantityWithoutSecurity -> "carries a quantity without naming a Security"
+
 type ActivityDescription = private ActivityDescription of string
 module ActivityDescription =
     let maxLength = 500

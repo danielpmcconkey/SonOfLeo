@@ -203,7 +203,7 @@ let ``REQ-POS-12.6 a Purchase naming no Security, a Sale carrying no quantity, a
             Assert.Equal(account, a)
             Assert.Equal(activityDate, d)
             Assert.Equal(kindName, k)
-            Assert.Equal(problem, p)
+            Assert.Equal(problem |> ActivityShapeProblem.toString, p)
         | other -> Assert.Fail $"{kindName}: wrong error: {other}"
 
 [<Fact>]

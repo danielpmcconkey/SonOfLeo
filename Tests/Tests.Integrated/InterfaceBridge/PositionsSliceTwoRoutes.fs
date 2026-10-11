@@ -9,6 +9,7 @@ open App.Utility.IAppError
 open App.Utility.Json
 open App.Utility.Result
 open Business.FinancialServices.Ledger.LedgerError
+open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsError
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.UnitRollForward
@@ -244,7 +245,9 @@ type PositionsSliceTwoRoutesTests(fixture: TestDataFixture) =
                       rangeOf second p.d1 p.d2 [ activity p.d1 "Purchase" "Bought" (Some PF.totalMarket) None None 10.00M ] ]
                 |> expectError
                     (function AsError (PositionsActivityShapeInvalid (a, d, k, problem)) -> Some(a, d, k, problem) | _ -> None)
-                    (fun found -> Assert.Equal((second, p.d1, "Purchase", QuantityMissing), found))
+                    (fun found ->
+                        let quantityMissing = PositionsComponent.ActivityShapeProblem.toString PositionsComponent.QuantityMissing
+                        Assert.Equal((second, p.d1, "Purchase", quantityMissing), found))
                 let! firstStored = listActivity first p.d1 p.d2
                 Assert.Empty(firstStored)
             }

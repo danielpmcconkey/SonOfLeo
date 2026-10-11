@@ -4,15 +4,6 @@ open System
 open NodaTime
 open App.Utility.IAppError
 
-/// What is wrong with an Activity whose kind fixes whether it names a Security and carries a quantity.
-// todo: ActivityShapeProblem belongs with the Activity kind in PositionsComponent. It is declared here only because an error
-// case carries it and PositionsError compiles first.
-type ActivityShapeProblem =
-    | SecurityMissing
-    | QuantityMissing
-    | QuantityNotAllowed
-    | QuantityWithoutSecurity
-
 type PositionsError =
     | PositionsAccountGroupIsEmpty of string
     | PositionsAccountGroupTooLong of string * int
@@ -34,7 +25,7 @@ type PositionsError =
     | PositionsActivityRangeListIsEmpty
     | PositionsActivityRangesOverlap of string * (LocalDate * LocalDate) * (LocalDate * LocalDate)
     | PositionsActivitySecurityNotHeld of string * string
-    | PositionsActivityShapeInvalid of string * LocalDate * string * ActivityShapeProblem
+    | PositionsActivityShapeInvalid of string * LocalDate * string * string
     | PositionsActivitySourceIsEmpty of string
     | PositionsActivitySourceTooLong of string * int
     | PositionsAssetAccountAlreadyLinked of string * string
@@ -174,14 +165,7 @@ type PositionsError =
             | PositionsActivityRangeListIsEmpty -> "At least one account's activity range must be given to record."
             | PositionsActivityRangesOverlap(account, (firstBegin, firstEnd), (secondBegin, secondEnd)) -> $"Investment Account \"{account}\" is given two overlapping activity ranges in one request: {firstBegin} to {firstEnd}, and {secondBegin} to {secondEnd}."
             | PositionsActivitySecurityNotHeld(account, security) -> $"Investment Account \"{account}\" has no Holding of \"{security}\", so an activity cannot name it. Create the Holding first."
-            | PositionsActivityShapeInvalid(account, date, kind, problem) ->
-                let what =
-                    match problem with
-                    | SecurityMissing -> "names no Security, and one is required"
-                    | QuantityMissing -> "carries no quantity, and one is required"
-                    | QuantityNotAllowed -> "carries a quantity, which this kind never does"
-                    | QuantityWithoutSecurity -> "carries a quantity without naming a Security"
-                $"The {kind} activity of Investment Account \"{account}\" dated {date} {what}."
+            | PositionsActivityShapeInvalid(account, date, kind, problem) -> $"The {kind} activity of Investment Account \"{account}\" dated {date} {problem}."
             | PositionsActivitySourceIsEmpty raw -> $"Activity source cannot be empty when given. Provided source is \"{raw}\"."
             | PositionsActivitySourceTooLong(raw, max) -> $"Activity source cannot exceed {max} characters. Provided source is \"{raw}\"."
             | PositionsAssetAccountAlreadyLinked(code, property) -> $"Ledger account {code} is already an asset account of Property \"{property}\"."

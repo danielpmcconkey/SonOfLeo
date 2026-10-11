@@ -118,7 +118,9 @@ let confirmShape
         error (PositionsActivityAmountNegative(accountLabel, activityDate, kindName, amount |> Money.amount))
     | _ ->
         match shapeProblem kind namesSecurity (quantity |> Option.isSome) with
-        | Some problem -> error (PositionsActivityShapeInvalid(accountLabel, activityDate, kindName, problem))
+        | Some problem ->
+            let problemText = problem |> ActivityShapeProblem.toString
+            error (PositionsActivityShapeInvalid(accountLabel, activityDate, kindName, problemText))
         | None -> Ok()
 
 /// Confirms one account's range: its end not before its begin, nor after the current date.
