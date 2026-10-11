@@ -2092,6 +2092,8 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:CompositionRelationship" id="id-7ac8c4f901804eb0910c7368adb8f9df" source="id-30a03788e5be455c88954787a3153e59" target="id-05d26ab59cae4a77850a00c0bca2fd44"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-07c13c926ad549978a453b44bf41b91a" source="id-05d26ab59cae4a77850a00c0bca2fd44" target="id-62701f7bfdd8465b9d0dc0b395062bae"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-056c4f99955c43f4b4874910463d93d8" source="id-50a756b0340a425c860eefa704bca796" target="id-98eeedd15ea9461e987d5a877ef678a9"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-7e48b3690b004fcd99ac49e02cb0e812" source="id-711461035eb14920a1028dd0df286572" target="id-91c7bf1a8685498ab8c137da9d992670"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-172b26eea9d14862bec78e3c775fe1b3" source="id-95893e658c8d42d6b78c81de40715146" target="id-74ac2d5b128a4791a4f515963911c30e"/>
     <element xsi:type="archimate:ServingRelationship" id="id-1a5bb1468ddc484fbe8c167b303db482" source="id-b0888d3ca8444c7bb03350365e3bceee" target="id-73beb61a7786474da68c3b4428d515ee"/>
     <element xsi:type="archimate:ServingRelationship" id="id-d177b13d3bca41db976769bf04e8a4e4" source="id-b0888d3ca8444c7bb03350365e3bceee" target="id-a14775aac4f448c7ae9a6ca867898800"/>
     <element xsi:type="archimate:ServingRelationship" id="id-5578257a43c44675bcde606bc44194d7" source="id-dce47c12a92646c9ab1b65c898f9fb84" target="id-248203dd619a4da0be876a5b9b7c7434"/>
