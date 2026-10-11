@@ -145,3 +145,11 @@ let update (context: Context.Context) (fieldUpdates: PersonFieldUpdates) : Resul
             |> whenNoRows (PersonIdDoesntExist uuid)
         return! fieldUpdates.personIdToUpdate |> fetchById context
     }
+
+let private idToNameCache = App.DataAccessLayer.LookupCache.idToStringCache "general.person" "person_name"
+
+/// Route-lifetime lookup from an ID to a person's name; see App.DataAccessLayer.LookupCache.
+let idToName (context: Context.Context) (id: PersonId) : Result<PersonName, IAppError> =
+    id |> PersonId.value
+    |> idToNameCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.bind PersonName.create

@@ -117,3 +117,11 @@ let fetchAllByName (context: Context.Context) (name: JournalRefFinancialInstitut
     let predicate = "src.source_name = @source_name"
     let parameters = [ { name = "@source_name"; value = CharString(name |> JournalRefFinancialInstitution.value) } ]
     query context (Some predicate) None parameters AnyQuantityIsAcceptable
+
+let private idToNameCache = App.DataAccessLayer.LookupCache.idToStringCache "ingestion.source" "source_name"
+
+/// Route-lifetime lookup from an ID to an ingestion source's name; see App.DataAccessLayer.LookupCache.
+let idToName (context: Context.Context) (id: IngestionSourceId) : Result<JournalRefFinancialInstitution, IAppError> =
+    id |> IngestionSourceId.value
+    |> idToNameCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.bind JournalRefFinancialInstitution.create

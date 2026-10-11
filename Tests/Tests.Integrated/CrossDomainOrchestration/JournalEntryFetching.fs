@@ -107,8 +107,9 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let periodKey = $"{today.Year}-{monthF}"
         let context = Context.create NoTransaction FetchOnly
         result {
-            let! fpUuid = periodKey |> Business.FinancialServices.Ledger.FiscalPeriod.keyToId.fetch (context |> Context.getDatabaseTransaction)
-            let fpId = fpUuid |> FiscalPeriodId.fromGuid
+            let! fpId =
+                periodKey |> FiscalPeriodKey.fromString
+                |> Result.bind (Business.FinancialServices.Ledger.FiscalPeriod.keyToId context)
             let expected =
                 fixture.Data.journalEntries
                 |> List.filter(fun x -> x |> header |> JournalEntryHeader.entryDate |> EntryDate.fiscalPeriodId = fpId)
@@ -134,8 +135,10 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         let periodKey = $"{farDate.Year}-{monthF}"
         let context = Context.create NoTransaction FetchOnly
         result {
-            let! uuid = periodKey |> Business.FinancialServices.Ledger.FiscalPeriod.keyToId.fetch (context |> Context.getDatabaseTransaction)
-            let! fp = uuid |> FiscalPeriodId.fromGuid |> FiscalPeriod.fetchById context
+            let! fpId =
+                periodKey |> FiscalPeriodKey.fromString
+                |> Result.bind (Business.FinancialServices.Ledger.FiscalPeriod.keyToId context)
+            let! fp = fpId |> FiscalPeriod.fetchById context
             let! entries = fp |> fetchByPeriod context
             Assert.Equal(0, entries |> List.length)
             return ()

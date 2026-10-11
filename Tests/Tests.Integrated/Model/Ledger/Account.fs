@@ -97,7 +97,8 @@ type AccountTests(fixture: TestDataFixture) =
                         genericAccountReference
                 let! incumbent = create incumbentCode
                 let! created = create lowered
-                let resolve code = code |> Account.codeToId.fetch (context |> Context.getDatabaseTransaction)
+                let resolve code =
+                    code |> AccountCode.create |> Result.bind (Account.codeToId context) |> Result.map AccountId.value
                 let! incumbentResolved = resolve incumbentCode
                 let! loweredResolved = resolve lowered
                 Assert.Equal(incumbent |> Account.accountId |> AccountId.value, incumbentResolved)
@@ -411,8 +412,8 @@ type AccountTests(fixture: TestDataFixture) =
             |> List.find(fun a -> a |> Account.accountId = fixture.Data.mortgage2210Id)
         let expectedCode = expectedAccount |> Account.code
         result {
-            let! id = expectedCode |> AccountCode.value |> Business.FinancialServices.Ledger.Account.codeToId.fetch (context |> Context.getDatabaseTransaction)
-            let! account = id |> AccountId.fromGuid |> Account.fetchById context
+            let! id = expectedCode |> Business.FinancialServices.Ledger.Account.codeToId context
+            let! account = id |> Account.fetchById context
             Assert.Equal(expectedCode, account |> Account.code)
             Assert.Equal(expectedAccount |> Account.accountId, account |> Account.accountId)
             Assert.Equal(expectedAccount |> Account.accountName, account |> Account.accountName)

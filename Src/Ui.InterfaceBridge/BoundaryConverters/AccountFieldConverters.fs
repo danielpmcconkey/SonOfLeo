@@ -14,31 +14,24 @@ open Business.CrossDomainOrchestration.AccountBalance
 open Ui.InterfaceBridge
 open Ui.InterfaceBridge.InterfaceContracts.AccountContracts
 
-let fallibleConverterAccountCodeStringToAccountUuid context codeString =
+let fallibleConverterAccountCodeToAccountId context codeString =
     result {
         // see if the string represents a valid code first; the code is looked up trimmed, as it is stored
         let! accountCode = codeString |> AccountCode.create
-        let code = accountCode |> AccountCode.value
         // now see if it matches an account ID
         return!
-            code |> Account.codeToId.fetch (context |> Context.getDatabaseTransaction)
-            |> whenNoRows (LedgerError.AccountCodeDoesntMatchAccountId code)
+            accountCode |> Account.codeToId context
+            |> whenNoRows (LedgerError.AccountCodeDoesntMatchAccountId(accountCode |> AccountCode.value))
     }
-
-let fallibleConverterAccountCodeToAccountId context codeString =
-    result {
-        let! uuid = codeString |> fallibleConverterAccountCodeStringToAccountUuid context
-        return uuid |> AccountId.fromGuid
-    }
-
-let ``convert AccountId to AccountCodeString`` (context: Context.Context) (id: AccountId) : Result<string, IAppError> =
-    id |> AccountId.value |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction)
-
-let ``convert AccountId to AccountNameString`` (context: Context.Context) (id: AccountId) : Result<string, IAppError> =
-    id |> AccountId.value |> Account.idToName.fetch (context |> Context.getDatabaseTransaction)
 
 let ``convert AccountId to AccountCode`` (context: Context.Context) (id: AccountId) : Result<AccountCode, IAppError> =
-    id |> ``convert AccountId to AccountCodeString`` context |> Result.bind AccountCode.create
+    id |> Account.idToCode context
+
+let ``convert AccountId to AccountCodeString`` (context: Context.Context) (id: AccountId) : Result<string, IAppError> =
+    id |> Account.idToCode context |> Result.map AccountCode.value
+
+let ``convert AccountId to AccountNameString`` (context: Context.Context) (id: AccountId) : Result<string, IAppError> =
+    id |> Account.idToName context |> Result.map AccountName.value
 
 let ``convert AccountId Option to AccountCode Option``
     (context: Context.Context)
@@ -46,11 +39,9 @@ let ``convert AccountId Option to AccountCode Option``
     : Result<AccountCode option, IAppError> =
     let fallibleConverter =
         (fun id ->
-        let uuid = id |> AccountId.value
-        uuid
-        |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction)
-        |> whenNoRows (LedgerError.AccountIdDoesntMatch uuid)
-        |> Result.bind AccountCode.create)
+        id
+        |> Account.idToCode context
+        |> whenNoRows (LedgerError.AccountIdDoesntMatch(id |> AccountId.value)))
     idOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountId Option to AccountCodeString Option``
@@ -85,7 +76,9 @@ let ``convert AccountCodeString Option to AccountUuidOption``
     (context: Context.Context)
     (code: string option)
     : Result<Guid option, IAppError> =
-    code |> convertOptionToDesiredTypeWithFallibleConverter (fallibleConverterAccountCodeStringToAccountUuid context)
+    code
+    |> convertOptionToDesiredTypeWithFallibleConverter (fallibleConverterAccountCodeToAccountId context)
+    |> Result.map (Option.map AccountId.value)
 
 let ``convert Account to AccountReturn`` (context: Context.Context) (a: Account.Account) : Result<AccountReturn, IAppError> =
     result {
@@ -142,7 +135,7 @@ let ``convert AccountUuId Option to AccountCode Option``
     (uuidOption: Guid option)
     : Result<AccountCode option, IAppError> =
     let fallibleConverter =
-        (fun id -> id |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction) |> Result.bind AccountCode.create)
+        (fun id -> id |> AccountId.fromGuid |> Account.idToCode context)
     uuidOption |> convertOptionToDesiredTypeWithFallibleConverter fallibleConverter
 
 let ``convert AccountTypeString Option to AccountType Option``

@@ -339,3 +339,11 @@ let delete (context: Context.Context) (propertyId: PropertyId) : Result<unit, IA
                 (context |> Context.getDatabaseTransaction) queryStatement [ propertyParameter propertyId ] ExactlyOne
             |> whenNoRows (PositionsPropertyIdDoesntExist(propertyId |> PropertyId.value))
     }
+
+let private idToNameCache = App.DataAccessLayer.LookupCache.idToStringCache "positions.property" "property_name"
+
+/// Route-lifetime lookup from an ID to a property's name; see App.DataAccessLayer.LookupCache.
+let idToName (context: Context.Context) (id: PropertyId) : Result<PropertyName, IAppError> =
+    id |> PropertyId.value
+    |> idToNameCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.bind PropertyName.create

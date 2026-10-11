@@ -9,24 +9,17 @@ open Business.FinancialServices.CashFlow
 open Business.FinancialServices.CashFlow.CashFlowError
 open Business.FinancialServices.CashFlow.CashFlowComponent
 
-let private fallibleConverterAgreementNameStringToMasterAgreementUuid context nameString =
-    result {
-        // see if the string represents a valid name first, then look up the trimmed name it gives
-        let! name = nameString |> AgreementName.create
-        return!
-            name
-            |> AgreementName.value
-            |> MasterAgreement.nameToId.fetch (context |> Context.getDatabaseTransaction)
-            |> whenNoRows (CashflowAgreementNameDoesntMatchId nameString)
-    }
-
 let ``convert [AgreementNameString] to [MasterAgreementId]``
     (context: Context.Context)
     (nameString: string)
     : Result<MasterAgreementId, IAppError> =
     result {
-        let! uuid = nameString |> fallibleConverterAgreementNameStringToMasterAgreementUuid context
-        return uuid |> MasterAgreementId.fromGuid
+        // see if the string represents a valid name first, then look up the trimmed name it gives
+        let! name = nameString |> AgreementName.create
+        return!
+            name
+            |> MasterAgreement.nameToId context
+            |> whenNoRows (CashflowAgreementNameDoesntMatchId nameString)
     }
 
 let ``convert [MasterAgreementId] to [AgreementNameString]``
@@ -34,27 +27,20 @@ let ``convert [MasterAgreementId] to [AgreementNameString]``
     (masterAgreementId: MasterAgreementId)
     : Result<string, IAppError> =
     masterAgreementId
-    |> MasterAgreementId.value
-    |> MasterAgreement.idToName.fetch (context |> Context.getDatabaseTransaction)
-
-let private fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid context nameString =
-    result {
-        // see if the string represents a valid name first, then look up the trimmed name it gives
-        let! name = nameString |> PaymentAgreementName.create
-        return!
-            name
-            |> PaymentAgreementName.value
-            |> PaymentAgreement.nameToId.fetch (context |> Context.getDatabaseTransaction)
-            |> whenNoRows (CashflowPaymentAgreementNameDoesntMatchId nameString)
-    }
+    |> MasterAgreement.idToName context
+    |> Result.map AgreementName.value
 
 let ``convert [PaymentAgreementNameString] to [PaymentAgreementId]``
     (context: Context.Context)
     (nameString: string)
     : Result<PaymentAgreementId, IAppError> =
     result {
-        let! uuid = nameString |> fallibleConverterPaymentAgreementNameStringToPaymentAgreementUuid context
-        return uuid |> PaymentAgreementId.fromGuid
+        // see if the string represents a valid name first, then look up the trimmed name it gives
+        let! name = nameString |> PaymentAgreementName.create
+        return!
+            name
+            |> PaymentAgreement.nameToId context
+            |> whenNoRows (CashflowPaymentAgreementNameDoesntMatchId nameString)
     }
 
 let ``convert [PaymentAgreementNameString option] to [PaymentAgreementId option]``
@@ -70,8 +56,8 @@ let ``convert [PaymentAgreementId] to [PaymentAgreementNameString]``
     (paymentAgreementId: PaymentAgreementId)
     : Result<string, IAppError> =
     paymentAgreementId
-    |> PaymentAgreementId.value
-    |> PaymentAgreement.idToName.fetch (context |> Context.getDatabaseTransaction)
+    |> PaymentAgreement.idToName context
+    |> Result.map PaymentAgreementName.value
 
 let ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]``
     (context: Context.Context)

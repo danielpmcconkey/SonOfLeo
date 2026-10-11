@@ -414,3 +414,11 @@ let update
         """
         do! executeNonQuery (context |> Context.getDatabaseTransaction) queryStatement parameters ExactlyOne
     }
+
+let private idToNameCache = App.DataAccessLayer.LookupCache.idToStringCache "classification.classification_rule" "rule_name"
+
+/// Route-lifetime lookup from an ID to a classification rule's name; see App.DataAccessLayer.LookupCache.
+let idToName (context: Context.Context) (id: ClassificationRuleId) : Result<ClassificationRuleName, IAppError> =
+    id |> ClassificationRuleId.value
+    |> idToNameCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.bind ClassificationRuleName.create

@@ -20,12 +20,12 @@ let ``convert TemporalFilterInput to TemporalFilter``
     | TemporalFilterInput.PeriodKey periodKey ->
         result {
             // make sure it's a valid string for even being a period key
-            let! _ = periodKey |> FiscalPeriodKey.fromString
-            let! uuid =
-                periodKey
-                |> Business.FinancialServices.Ledger.FiscalPeriod.keyToId.fetch (context |> Context.getDatabaseTransaction)
+            let! key = periodKey |> FiscalPeriodKey.fromString
+            let! fiscalPeriodId =
+                key
+                |> Business.FinancialServices.Ledger.FiscalPeriod.keyToId context
                 |> Result.mapError(fun _ -> FiscalPeriodNoPeriodMatchingKey periodKey)
-            return uuid |> FiscalPeriodId.fromGuid |> TemporalFilter.FiscalPeriodIdentifier
+            return fiscalPeriodId |> TemporalFilter.FiscalPeriodIdentifier
         }
 let ``convert TemporalFilterInput Option To TemporalFilter Option``
     (context: Context.Context)

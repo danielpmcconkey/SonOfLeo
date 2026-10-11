@@ -296,3 +296,11 @@ let update
             | None -> Ok()
         return! accountId |> fetchById context
     }
+
+let private idToNameCache = App.DataAccessLayer.LookupCache.idToStringCache "positions.investment_account" "account_name"
+
+/// Route-lifetime lookup from an ID to an investment account's name; see App.DataAccessLayer.LookupCache.
+let idToName (context: Context.Context) (id: InvestmentAccountId) : Result<InvestmentAccountName, IAppError> =
+    id |> InvestmentAccountId.value
+    |> idToNameCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.bind InvestmentAccountName.create

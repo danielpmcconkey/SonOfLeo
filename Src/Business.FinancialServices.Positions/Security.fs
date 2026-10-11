@@ -176,3 +176,11 @@ let update (context: Context.Context) (fieldUpdates: SecurityFieldUpdates) : Res
             |> whenNoRows (PositionsSecurityIdDoesntExist uuid)
         return! fieldUpdates.securityIdToUpdate |> fetchById context
     }
+
+let private idToNameCache = App.DataAccessLayer.LookupCache.idToStringCache "positions.security" "security_name"
+
+/// Route-lifetime lookup from an ID to a security's name; see App.DataAccessLayer.LookupCache.
+let idToName (context: Context.Context) (id: SecurityId) : Result<SecurityName, IAppError> =
+    id |> SecurityId.value
+    |> idToNameCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.bind SecurityName.create

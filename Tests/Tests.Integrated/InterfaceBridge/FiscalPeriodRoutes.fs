@@ -69,8 +69,9 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
                 let! resultPayload = routeUiCommandForTesting "FiscalPeriod" "Create" [] payload
                 let! fp = fromJson<FiscalPeriodReturn> resultPayload
                 let returnedKey = fp.periodKey
-                let! uuid = returnedKey |> Business.FinancialServices.Ledger.FiscalPeriod.keyToId.fetch (context |> Context.getDatabaseTransaction)
-                let id = uuid |> FiscalPeriodId.fromGuid
+                let! id =
+                    returnedKey |> FiscalPeriodKey.fromString
+                    |> Result.bind (Business.FinancialServices.Ledger.FiscalPeriod.keyToId context)
                 keyToCleanUp <- Some returnedKey
                 Assert.Equal(expected, returnedKey)
                 let! fetched = id |> FiscalPeriod.fetchById context

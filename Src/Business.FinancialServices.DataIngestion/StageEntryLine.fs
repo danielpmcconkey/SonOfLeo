@@ -74,10 +74,9 @@ let confirmAccountId
     : Result<unit, IAppError> =
     match accountIdOption with
     | None -> Ok ()
-    | Some accountCode ->
-        let uuid = accountCode |> AccountId.value
-        uuid |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction)
-        |> whenNoRows (LedgerError.AccountIdDoesntMatch uuid)
+    | Some accountId ->
+        accountId |> Account.idToCode context
+        |> whenNoRows (LedgerError.AccountIdDoesntMatch(accountId |> AccountId.value))
         |> Result.map ignore
 
 let persist (context: Context.Context) (stageEntryLine: StageEntryLine) : Result<unit, IAppError> =

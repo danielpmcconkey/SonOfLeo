@@ -147,3 +147,11 @@ let update (context: Context.Context) (fieldUpdates: DimensionValueFieldUpdates)
             |> whenNoRows (PositionsDimensionValueIdDoesntExist uuid)
         return! fieldUpdates.dimensionValueIdToUpdate |> fetchById context
     }
+
+let private idToNameCache = App.DataAccessLayer.LookupCache.idToStringCache "positions.dimension_value" "value_name"
+
+/// Route-lifetime lookup from an ID to a dimension value's name (never name to ID: a name is unique only within its dimension); see App.DataAccessLayer.LookupCache.
+let idToName (context: Context.Context) (id: DimensionValueId) : Result<DimensionValueName, IAppError> =
+    id |> DimensionValueId.value
+    |> idToNameCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.bind DimensionValueName.create

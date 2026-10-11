@@ -350,6 +350,16 @@ let update
         return! paymentAgreementID |> fetchById context
     }
 
+let private nameToIdCache = App.DataAccessLayer.LookupCache.stringToIdCache "cashflow.payment_agreement" "payment_agreement_name"
+let private idToNameCache = App.DataAccessLayer.LookupCache.idToStringCache "cashflow.payment_agreement" "payment_agreement_name"
+
 /// Route-lifetime lookups between a Payment Agreement's ID and its name; see App.DataAccessLayer.LookupCache.
-let nameToId = App.DataAccessLayer.LookupCache.stringToIdCache "cashflow.payment_agreement" "payment_agreement_name"
-let idToName = App.DataAccessLayer.LookupCache.idToStringCache "cashflow.payment_agreement" "payment_agreement_name"
+let nameToId (context: Context.Context) (name: PaymentAgreementName) : Result<PaymentAgreementId, IAppError> =
+    name |> PaymentAgreementName.value
+    |> nameToIdCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.map PaymentAgreementId.fromGuid
+
+let idToName (context: Context.Context) (id: PaymentAgreementId) : Result<PaymentAgreementName, IAppError> =
+    id |> PaymentAgreementId.value
+    |> idToNameCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.bind PaymentAgreementName.create

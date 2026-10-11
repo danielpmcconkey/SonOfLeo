@@ -189,5 +189,10 @@ let reopenFiscalPeriod
     : Result<FiscalPeriod, IAppError> =
     update context fpId true
 
+let private keyToIdCache = App.DataAccessLayer.LookupCache.stringToIdCache "ledger.fiscal_period" "period_key"
+
 /// Route-lifetime lookup from a fiscal period's key to its ID; see App.DataAccessLayer.LookupCache.
-let keyToId = App.DataAccessLayer.LookupCache.stringToIdCache "ledger.fiscal_period" "period_key"
+let keyToId (context: Context.Context) (periodKey: FiscalPeriodKey) : Result<FiscalPeriodId, IAppError> =
+    periodKey |> FiscalPeriodKey.value
+    |> keyToIdCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.map FiscalPeriodId.fromGuid

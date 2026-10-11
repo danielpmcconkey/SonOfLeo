@@ -15,11 +15,9 @@ let ``convert FiscalPeriodKeyString to FiscalPeriodId``
     : Result<FiscalPeriodId, IAppError> =
     result {
         let! periodKey = key |> FiscalPeriodKey.fromString
-        let keyValue = periodKey |> FiscalPeriodKey.value
         return!
-            keyValue |> FiscalPeriod.keyToId.fetch (context |> Context.getDatabaseTransaction)
-            |> whenNoRows (LedgerError.FiscalPeriodNoPeriodMatchingKey keyValue)
-            |> Result.map FiscalPeriodId.fromGuid
+            periodKey |> FiscalPeriod.keyToId context
+            |> whenNoRows (LedgerError.FiscalPeriodNoPeriodMatchingKey(periodKey |> FiscalPeriodKey.value))
     }
 
 let ``convert [FiscalPeriodKeyString] to FiscalPeriod``

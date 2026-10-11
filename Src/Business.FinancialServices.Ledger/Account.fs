@@ -292,7 +292,22 @@ let update
         return! accountId |> fetchById context
     }
 
+let private codeToIdCache = App.DataAccessLayer.LookupCache.stringToIdCache "ledger.account" "code"
+let private idToCodeCache = App.DataAccessLayer.LookupCache.idToStringCache "ledger.account" "code"
+let private idToNameCache = App.DataAccessLayer.LookupCache.idToStringCache "ledger.account" "account_name"
+
 /// Route-lifetime lookups between an account's ID and its code or name; see App.DataAccessLayer.LookupCache.
-let codeToId = App.DataAccessLayer.LookupCache.stringToIdCache "ledger.account" "code"
-let idToCode = App.DataAccessLayer.LookupCache.idToStringCache "ledger.account" "code"
-let idToName = App.DataAccessLayer.LookupCache.idToStringCache "ledger.account" "account_name"
+let codeToId (context: Context.Context) (code: AccountCode) : Result<AccountId, IAppError> =
+    code |> AccountCode.value
+    |> codeToIdCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.map AccountId.fromGuid
+
+let idToCode (context: Context.Context) (accountId: AccountId) : Result<AccountCode, IAppError> =
+    accountId |> AccountId.value
+    |> idToCodeCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.bind AccountCode.create
+
+let idToName (context: Context.Context) (accountId: AccountId) : Result<AccountName, IAppError> =
+    accountId |> AccountId.value
+    |> idToNameCache.fetch (context |> Context.getDatabaseTransaction)
+    |> Result.bind AccountName.create

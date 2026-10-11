@@ -81,11 +81,10 @@ let private confirmLinesAccountCodes
                 DataIngestionError.error (
                     DataIngestionError.IngestionNoneAccount (x |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
             | _, Some accountId ->
-                let accountUuid = accountId |> AccountId.value
                 let lookupResult =
-                    accountUuid |> Account.idToCode.fetch (context |> Context.getDatabaseTransaction) // we don't need the code; we just check that the ID is in the DB this way 
+                    accountId |> Account.idToCode context // we don't need the code; we just check that the ID is in the DB this way
                 lookupResult
-                |> whenNoRows (LedgerError.AccountIdDoesntMatch accountUuid)
+                |> whenNoRows (LedgerError.AccountIdDoesntMatch(accountId |> AccountId.value))
                 |> Result.map ignore
             )
         |> convertListOfResultsToResultsList

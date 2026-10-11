@@ -610,6 +610,25 @@ unwraps it once for the parameter and the not-found error;
 `Model/Ledger/FiscalPeriod.fs` and `FiscalPeriodCreation.fs` build keys with
 `FiscalPeriodKey.fromString`. No assertion changed.
 
+**B1. Typed accessors over private caches** (#081). One commit. Every raw
+`Cache<…>` binding is private; each entity module exposes typed accessors
+taking `Context`: `Account.codeToId`/`idToCode`/`idToName`,
+`FiscalPeriod.keyToId`, `MasterAgreement` and `PaymentAgreement`
+`nameToId`/`idToName`, and new id → name accessors on `Person`,
+`InvestmentAccount`, `Security`, `DimensionValue` (no name → id),
+`Property`, `ClassificationRule` and `IngestionSource` (to
+`JournalRefFinancialInstitution`). A stored value that fails its type's
+`create` comes back as that error. Callers (`StageEntryLine`,
+`AgreementOrchestration`, `StageEntryOrchestration`,
+`ClassificationOrchestration`, the account, fiscal period, shared and cash
+flow lookup converters) pass and receive domain types; their not-found
+mappings and messages are as before. The account converter's Guid-returning
+helper folded into `fallibleConverterAccountCodeToAccountId`. Tests changed
+setup only (`Model/Ledger/Account.fs`, `JournalEntryFetching.fs`, route
+`AccountRoutes.fs` and `FiscalPeriodRoutes.fs` cleanup lookups); the
+REQ-AC-1.5 resolve helper unwraps to keep its Guid assertions. `DalTests.fs`
+is untouched.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 
