@@ -36,7 +36,6 @@ type RecordedRange = {
     recorded: int
 }
 
-/// A stretch of dates, both included, that no activity coverage of the account covers.
 type ActivityCoverageGap = { firstUncoveredDate: LocalDate; lastUncoveredDate: LocalDate }
 
 let private accountNameOf account = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value

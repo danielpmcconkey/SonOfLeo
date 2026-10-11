@@ -304,8 +304,8 @@ let private listInvestmentActivityCoverageGaps payload _ =
                 InvestmentActivityOrchestration.listActivityCoverageGaps context accountId input.beginDate input.endDate
             return!
                 gaps
-                |> List.map ``convert [ActivityCoverageGap] to [ActivityCoverageGapReturn]``
-                |> Json.toJson<ActivityCoverageGapReturn list>
+                |> List.map ``convert [ActivityCoverageGap] to [InvestmentActivityCoverageGapReturn]``
+                |> Json.toJson<InvestmentActivityCoverageGapReturn list>
         })
 
 let private rollInvestmentAccountForward payload _ =
@@ -600,7 +600,7 @@ let positionsDomainCommandRoutes =
         description =
           "List the stretches between two dates, both included, for which an Investment Account's activity has never been supplied, in date order. An empty list means every date between them is covered. Read-only."
         inputContract = typeof<InvestmentActivityCoverageGapsInput>.Name
-        outputContract = typeof<ActivityCoverageGapReturn list>.Name
+        outputContract = typeof<InvestmentActivityCoverageGapReturn list>.Name
         handler = listInvestmentActivityCoverageGaps }
       { domain = "PreLedgerBalance"
         verb = "Record"

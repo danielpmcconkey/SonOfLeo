@@ -84,7 +84,7 @@ let private listActivity account beginDate endDate =
         { accountName = account; beginDate = beginDate; endDate = endDate }
 
 let private coverageGaps account beginDate endDate =
-    call<C.InvestmentActivityCoverageGapsInput, C.ActivityCoverageGapReturn list> "InvestmentActivity" "ListCoverageGaps"
+    call<C.InvestmentActivityCoverageGapsInput, C.InvestmentActivityCoverageGapReturn list> "InvestmentActivity" "ListCoverageGaps"
         { accountName = account; beginDate = beginDate; endDate = endDate }
 
 let private activityOf (a: C.InvestmentActivityReturn) =
@@ -408,7 +408,7 @@ type PositionsSliceTwoRoutesTests(fixture: TestDataFixture) =
                 let! gaps = coverageGaps name (day 0) (day 15)
                 Assert.Equal<(LocalDate * LocalDate) list>(
                     [ day 0, day 2; day 6, day 8; day 13, day 15 ],
-                    gaps |> List.map (fun (g: C.ActivityCoverageGapReturn) -> g.beginDate, g.endDate))
+                    gaps |> List.map (fun (g: C.InvestmentActivityCoverageGapReturn) -> g.beginDate, g.endDate))
             }
             |> railroadWrapper
         finally

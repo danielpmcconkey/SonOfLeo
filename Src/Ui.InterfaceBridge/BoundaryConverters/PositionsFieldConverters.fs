@@ -328,7 +328,7 @@ let ``convert [ActivityView] to [InvestmentActivityReturn]`` (view: ActivityView
       createdAt = activity |> InvestmentActivity.createdAt
       modifiedAt = activity |> InvestmentActivity.modifiedAt }
 
-let ``convert [ActivityCoverageGap] to [ActivityCoverageGapReturn]`` (gap: ActivityCoverageGap) : ActivityCoverageGapReturn =
+let ``convert [ActivityCoverageGap] to [InvestmentActivityCoverageGapReturn]`` (gap: ActivityCoverageGap) : InvestmentActivityCoverageGapReturn =
     { beginDate = gap.firstUncoveredDate; endDate = gap.lastUncoveredDate }
 
 // ---- Unit roll-forward ----
