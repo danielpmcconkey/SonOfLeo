@@ -505,6 +505,17 @@ Written by the session that did this plan. Fill it in as you go (§0 step 4).
 ### 5.1 Outcome
 (baseline first; final counts and check outputs at the end)
 
+**Baseline** (main at 2dcfebe, `sonofleo_test` rebuilt from scratch by
+`setup-throwaway-test-db.sh` on a local PostgreSQL 16, .NET SDK 10.0.112):
+
+- Build: 0 warnings, 0 errors.
+- `Tests.Isolated`: 530 passed, 0 failed.
+- `Tests.Integrated`: 1778 passed, 0 failed.
+- `Checks/run-all.sh`: 12 passed, 0 failed, 1 skipped (check-traceability
+  skips off main).
+- `traceability-audit.sh .`: Invariants 1 and 2 clean.
+- `validate.py`: VALID. `model_drift.py`: NO DRIFT.
+
 ### 5.2 Per item
 (one entry per numbered item: what changed, commits, tests touched)
 
