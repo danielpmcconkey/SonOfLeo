@@ -28,8 +28,8 @@ let ``convert [FieldMatch] to [FieldMatchContract]``
     | FieldMatch.Description pattern -> FieldMatchContract.Description (pattern |> StringSearchPattern.value)
     | FieldMatch.LineType pattern -> FieldMatchContract.LineType (pattern |> JournalEntryLineType.toString)
     | FieldMatch.Amount pattern ->
-        let numericSearchOperator = pattern.numericSearchOperator |> NumericSearchOperator.toString
-        let amount = pattern.amount |> Money.amount
+        let numericSearchOperator = pattern |> MoneySearchPattern.numericSearchOperator |> NumericSearchOperator.toString
+        let amount = pattern |> MoneySearchPattern.amount |> Money.amount
         FieldMatchContract.Amount {
             numericSearchOperator = numericSearchOperator
             amount = amount
@@ -82,9 +82,7 @@ let ``convert [FieldMatchContract] to [FieldMatch]``
         | FieldMatchContract.Amount pattern -> result {
             let! numericSearchOperator = pattern.numericSearchOperator |> NumericSearchOperator.fromString
             let! amount = pattern.amount |> Money.fromDecimal
-            return FieldMatch.Amount {
-                numericSearchOperator = numericSearchOperator
-                amount = amount } }
+            return FieldMatch.Amount (MoneySearchPattern.create numericSearchOperator amount) }
 
 let ``convert [FieldMatchChainContract] to [FieldMatchChain]``
     (fieldMatchChainContract: FieldMatchChainContract)
@@ -179,20 +177,20 @@ let ``convert [ClassificationRule list] to [ClassificationRuleReturn list]``
 let ``convert [MatchCandidate] to [MatchCandidateReturn]``
     (candidate: MatchCandidate)
     : MatchCandidateReturn = {
-        stageEntryHeaderId = candidate.headerIdOfCandidate |> StageEntryHeaderId.value
-        stageEntryLineId = candidate.lineIdOfCandidate |> StageEntryLineId.value
-        ingestionSource = candidate.ingestionSource |> JournalRefFinancialInstitution.value
-        description = candidate.description |> JournalEntryDescription.value
-        amount = candidate.amount |> Money.amount
-        lineType = candidate.lineType |> JournalEntryLineType.toString
-        memo = candidate.memo |> Option.map JournalEntryLineMemo.value }
+        stageEntryHeaderId = candidate |> MatchCandidate.headerIdOfCandidate |> StageEntryHeaderId.value
+        stageEntryLineId = candidate |> MatchCandidate.lineIdOfCandidate |> StageEntryLineId.value
+        ingestionSource = candidate |> MatchCandidate.ingestionSource |> JournalRefFinancialInstitution.value
+        description = candidate |> MatchCandidate.description |> JournalEntryDescription.value
+        amount = candidate |> MatchCandidate.amount |> Money.amount
+        lineType = candidate |> MatchCandidate.lineType |> JournalEntryLineType.toString
+        memo = candidate |> MatchCandidate.memo |> Option.map JournalEntryLineMemo.value }
 
 let ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
     (context: Context.Context)
     (prioritizedMatch: PrioritizedMatch)
     : Result<PrioritizedMatchReturn, IAppError> = result {
     let accountId, paymentAgreementId =
-        match prioritizedMatch.claimant with
+        match (prioritizedMatch |> PrioritizedMatch.claimant) with
         | ClassificationClaimant.Account accountId -> Some accountId, None
         | ClassificationClaimant.PaymentAgreement paymentAgreementId -> None, Some paymentAgreementId
     let! accountCode = accountId |> ``convert AccountId Option to AccountCodeString Option`` context
@@ -202,8 +200,8 @@ let ``convert [PrioritizedMatch] to [PrioritizedMatchReturn]``
     return {    accountCode = accountCode
                 accountName = accountName
                 paymentAgreementName = paymentAgreementName
-                ruleId = prioritizedMatch.ruleId |> ClassificationRuleId.value
-                priority = prioritizedMatch.priority |> RulePriority.value } }
+                ruleId = prioritizedMatch |> PrioritizedMatch.ruleId |> ClassificationRuleId.value
+                priority = prioritizedMatch |> PrioritizedMatch.priority |> RulePriority.value } }
 
 let ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]``
     (context: Context.Context)
@@ -232,8 +230,8 @@ let ``convert [ClassificationResult] to [ClassificationResultReturn]``
     (context: Context.Context)
     (classificationResults: ClassificationResult)
     : Result<ClassificationResultReturn, IAppError> = result {
-    let candidate = classificationResults.candidate |>  ``convert [MatchCandidate] to [MatchCandidateReturn]``
-    let! outcome = classificationResults.outcome |> ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]`` context
+    let candidate = classificationResults |> ClassificationResult.candidate |>  ``convert [MatchCandidate] to [MatchCandidateReturn]``
+    let! outcome = classificationResults |> ClassificationResult.outcome |> ``convert [ClassifierOutcome] to [ClassifierOutcomeReturn]`` context
     return {    candidate = candidate
                 outcome = outcome } }
 
@@ -318,13 +316,13 @@ let ``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]``
     : Result<PaymentAgreementDecisionReturn, IAppError> =
     result {
         let! paymentAgreementName =
-            decision.paymentAgreementId |> ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]`` context
+            (decision |> PaymentAgreementDecision.paymentAgreementId) |> ``convert [PaymentAgreementId option] to [PaymentAgreementNameString option]`` context
         return {
-            stageEntryLineId = decision.stageEntryLineId |> StageEntryLineId.value
+            stageEntryLineId = decision |> PaymentAgreementDecision.stageEntryLineId |> StageEntryLineId.value
             paymentAgreementName = paymentAgreementName
-            paymentAgreementLinkId = decision.paymentAgreementLinkId |> Option.map PaymentAgreementLinkId.value
-            ruleIds = decision.ruleIds |> List.map ClassificationRuleId.value
-            outcome = decision.outcome |> PaymentAgreementDecisionOutcome.toString } }
+            paymentAgreementLinkId = decision |> PaymentAgreementDecision.paymentAgreementLinkId |> Option.map PaymentAgreementLinkId.value
+            ruleIds = decision |> PaymentAgreementDecision.ruleIds |> List.map ClassificationRuleId.value
+            outcome = decision |> PaymentAgreementDecision.outcome |> PaymentAgreementDecisionOutcome.toString } }
 
 let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceDecision) : InvoiceDecisionReturn =
     let outcome =

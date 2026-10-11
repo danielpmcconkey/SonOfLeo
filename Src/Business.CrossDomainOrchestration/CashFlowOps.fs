@@ -13,6 +13,7 @@ open Business.FinancialServices.Ledger
 open Business.FinancialServices.DataIngestion
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.Classification
+open Business.FinancialServices.Classification.ClassificationComponent
 
 let rec private fillInstanceDatesToCutOff
     (nextDate: LocalDate)
@@ -108,7 +109,7 @@ let createUpcomingInstances
 let private claimingMatches
     (result: ClassificationComponent.ClassificationResult)
     : ClassificationComponent.PrioritizedMatch list =
-    match result.outcome with
+    match (result |> ClassificationResult.outcome) with
     | ClassificationComponent.NoMatch -> []
     | ClassificationComponent.OneMatch prioritizedMatch -> [ prioritizedMatch ]
     | ClassificationComponent.ManyMatchesClearWinner (winner, _) -> [ winner ]
@@ -117,7 +118,7 @@ let private claimingMatches
 let private claimedPaymentAgreementId
     (prioritizedMatch: ClassificationComponent.PrioritizedMatch)
     : CashFlowComponent.PaymentAgreementId option =
-    match prioritizedMatch.claimant with
+    match (prioritizedMatch |> PrioritizedMatch.claimant) with
     | ClassificationComponent.ClassificationClaimant.PaymentAgreement paymentAgreementId -> Some paymentAgreementId
     | ClassificationComponent.ClassificationClaimant.Account _ -> None
 
@@ -138,9 +139,9 @@ let private matchesClaimingPaymentAgreement
 // equal-priority rules that all name the same payment agreement agree with each other; only a tie across different
 // claimants is one code may not break
 let private isTiedClaimant (result: ClassificationComponent.ClassificationResult) : bool =
-    match result.outcome with
+    match (result |> ClassificationResult.outcome) with
     | ClassificationComponent.ManyMatchesTied ties ->
-        ties |> List.map _.claimant |> List.distinct |> List.length > 1
+        ties |> List.map PrioritizedMatch.claimant |> List.distinct |> List.length > 1
     | _ -> false
 
 let private decisionFor
@@ -151,12 +152,9 @@ let private decisionFor
     let ruleIds =
         result
         |> matchesClaimingPaymentAgreement paymentAgreementId
-        |> List.map (fun prioritizedMatch -> prioritizedMatch.ruleId)
-    { stageEntryLineId = result.candidate.lineIdOfCandidate
-      paymentAgreementId = Some paymentAgreementId
-      paymentAgreementLinkId = None
-      ruleIds = ruleIds
-      outcome = outcome }
+        |> List.map (fun prioritizedMatch -> (prioritizedMatch |> PrioritizedMatch.ruleId))
+    let lineId = result |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate
+    PaymentAgreementDecision.create lineId (Some paymentAgreementId) None ruleIds outcome
 
 /// pivotClaimsByPaymentAgreement flips the classifier's row-focused answer -- "which rules did this row match" -- onto
 /// the rule axis: "which rows claimed this payment agreement". Two staged entries claiming one payment agreement is the
@@ -170,9 +168,7 @@ let pivotClaimsByPaymentAgreement
     |> List.map(fun (paymentAgreementId, pairs) ->
         let claimants = pairs |> List.map snd
         let cluster: ClassificationComponent.PaymentAgreementClaimCluster =
-            { paymentAgreementId = paymentAgreementId
-              claimants = claimants
-              containsUnwrittenTies = claimants |> List.exists isTiedClaimant }
+            PaymentAgreementClaimCluster.create paymentAgreementId claimants (claimants |> List.exists isTiedClaimant)
         cluster)
 
 let private fetchAgreementsWithDirection
@@ -224,7 +220,7 @@ let private selectLegsOfClaimedEntries
             |> List.collect (fun result ->
                 result |> paymentAgreementsClaimedBy |> List.map (fun paymentAgreementId -> paymentAgreementId, result))
             |> List.groupBy (fun (paymentAgreementId, result) ->
-                paymentAgreementId, result.candidate.headerIdOfCandidate)
+                paymentAgreementId, (result |> ClassificationResult.candidate |> MatchCandidate.headerIdOfCandidate))
             |> List.map (fun ((paymentAgreementId, _), claims) -> result {
                 let! survivors =
                     match claims with
@@ -241,9 +237,9 @@ let private selectLegsOfClaimedEntries
                             |> List.filter (fun (_, result) ->
                                 let lineAccountId =
                                     linesById
-                                    |> Map.tryFind result.candidate.lineIdOfCandidate
+                                    |> Map.tryFind (result |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate)
                                     |> Option.bind StageEntryLine.accountId
-                                lineAccountId = Some accountId && result.candidate.lineType = lineType)
+                                lineAccountId = Some accountId && (result |> ClassificationResult.candidate |> MatchCandidate.lineType) = lineType)
                             |> Ok
                 match survivors with
                 | [ single ] -> return [ single ], []
@@ -267,16 +263,23 @@ let private writeLinkagesForClaimClusters
         let! linksAndDecisionsByCluster =
             clusters
             |> List.map (fun cluster -> result {
-                let paymentAgreementId = cluster.paymentAgreementId
-                match cluster.claimants with
-                | [ claimant ] when cluster.containsUnwrittenTies |> not ->
-                    let lineId = claimant.candidate.lineIdOfCandidate
+                let paymentAgreementId = (cluster |> PaymentAgreementClaimCluster.paymentAgreementId)
+                match (cluster |> PaymentAgreementClaimCluster.claimants) with
+                | [ claimant ] when (cluster |> PaymentAgreementClaimCluster.containsUnwrittenTies) |> not ->
+                    let lineId = (claimant |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate)
                     let now = context |> Context.getInitiationInstant
                     let linkId = CashFlowComponent.PaymentAgreementLinkId.create ()
                     let link = PaymentAgreementLink.create linkId paymentAgreementId lineId now now
                     do! link |> PaymentAgreementLink.persist context
                     let decision = claimant |> decisionFor paymentAgreementId ClassificationComponent.Linked
-                    return [ link ], [ { decision with paymentAgreementLinkId = Some linkId } ]
+                    let linkedDecision =
+                        PaymentAgreementDecision.create
+                            (decision |> PaymentAgreementDecision.stageEntryLineId)
+                            (decision |> PaymentAgreementDecision.paymentAgreementId)
+                            (Some linkId)
+                            (decision |> PaymentAgreementDecision.ruleIds)
+                            (decision |> PaymentAgreementDecision.outcome)
+                    return [ link ], [ linkedDecision ]
                 // code is not allowed to break a tie, so a tied claimant contests its agreement however few rows
                 // claimed it
                 | claimants ->
@@ -552,7 +555,7 @@ let applyPaymentAgreementClassification
     (classificationRun: ClassificationComponent.ClassificationRun)
     : Result<InstanceOrchestration.PaymentAgreementClassificationResult, IAppError> =
     result {
-        let classificationResults = classificationRun.results
+        let classificationResults = (classificationRun |> ClassificationRun.results)
         let claimedAgreementIds =
             classificationResults |> List.collect paymentAgreementsClaimedBy |> List.distinct
         let! agreementsById = claimedAgreementIds |> fetchAgreementsWithDirection context
@@ -570,7 +573,7 @@ let applyPaymentAgreementClassification
         // re-read rather than reuse: the invoice phase above creates payments against these instances
         let! openInstances = InstanceOrchestration.fetchOpenComposites context
         let classificationResult: InstanceOrchestration.PaymentAgreementClassificationResult =
-            { runId = classificationRun.runId
+            { runId = (classificationRun |> ClassificationRun.runId)
               classificationResults = classificationResults
               linksCreated = linksCreated
               decisionLog = legDecisions @ linkageDecisions

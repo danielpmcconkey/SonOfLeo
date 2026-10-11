@@ -103,8 +103,8 @@ let private toStoredFieldMatch (fieldMatch: FieldMatch.FieldMatch) : StoredField
     | FieldMatch.Amount moneyPattern ->
         { blank with
             field = "Amount"
-            numericOperator = Some(moneyPattern.numericSearchOperator |> NumericSearchOperator.toString)
-            amount = Some(moneyPattern.amount |> Money.amount) }
+            numericOperator = Some(moneyPattern |> MoneySearchPattern.numericSearchOperator |> NumericSearchOperator.toString)
+            amount = Some(moneyPattern |> MoneySearchPattern.amount |> Money.amount) }
 
 let private toStoredRuleGroup (ruleGroup: ClassificationRuleGroup) : StoredRuleGroup =
     let storedChain chain = chain |> FieldMatchChain.chain |> List.map toStoredFieldMatch
@@ -156,7 +156,7 @@ let private fromStoredFieldMatch (ruleUuid: System.Guid) (stored: StoredFieldMat
             let! numericOperator =
                 operatorStr |> NumericSearchOperator.fromString |> Result.mapError (storedGroupsInvalid ruleUuid)
             let! money = amount |> Money.fromDecimal |> Result.mapError (storedGroupsInvalid ruleUuid)
-            return FieldMatch.Amount { numericSearchOperator = numericOperator; amount = money }
+            return FieldMatch.Amount (MoneySearchPattern.create numericOperator money)
         }
     | other ->
         Error(ClassificationRuleStoredGroupsInvalid(ruleUuid, $"\"{other}\" is not a field match target.") :> IAppError)

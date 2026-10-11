@@ -741,7 +741,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 [ duplicate; ignored; posted ] |> List.ofSeq |> List.iter (fun entry ->
                     Assert.DoesNotContain(entry |> headerIdOf, returnedIds))
                 let outcomesOn (lineId: StageEntryLineId) =
-                    run.classificationResults |> List.filter (fun r -> r.candidate.lineIdOfCandidate = lineId) |> List.length
+                    run.classificationResults |> List.filter (fun r -> (r |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate) = lineId) |> List.length
                 // the uncoded lines of the entries the run took up are evaluated once each; no other line of these is
                 [ ingestedUncoded; noMatch; conflict ] |> List.ofSeq |> List.iter (fun entry ->
                     for line in entry |> seLines do

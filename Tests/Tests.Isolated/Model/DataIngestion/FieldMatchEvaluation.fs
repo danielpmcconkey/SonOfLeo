@@ -22,19 +22,12 @@ let private unwrap result =
 // A candidate whose every field is independently settable, so each field match
 // under test is exercised against a value chosen for it and nothing else.
 let private makeCandidate descriptionStr sourceStr amount lineTypeStr memoStr =
-    { headerIdOfCandidate = StageEntryHeaderId.create ()
-      lineIdOfCandidate = StageEntryLineId.create ()
-      ingestionSource = sourceStr |> JournalRefFinancialInstitution.create |> unwrap
-      description = descriptionStr |> JournalEntryDescription.create |> unwrap
-      amount = amount |> Money.fromDecimal |> unwrap
-      lineType = lineTypeStr |> JournalEntryLineType.fromString |> unwrap
-      memo = memoStr |> Option.map (JournalEntryLineMemo.create >> unwrap) }
+    MatchCandidate.create (StageEntryHeaderId.create ()) (StageEntryLineId.create ()) (sourceStr |> JournalRefFinancialInstitution.create |> unwrap) (descriptionStr |> JournalEntryDescription.create |> unwrap) (amount |> Money.fromDecimal |> unwrap) (lineTypeStr |> JournalEntryLineType.fromString |> unwrap) (memoStr |> Option.map (JournalEntryLineMemo.create >> unwrap))
 
 let private pattern raw = raw |> StringSearchPattern.create |> unwrap
 
 let private moneyPattern operator amount =
-    { numericSearchOperator = operator
-      amount = amount |> Money.fromDecimal |> unwrap }
+    MoneySearchPattern.create operator (amount |> Money.fromDecimal |> unwrap)
 
 
 // =============================================================================

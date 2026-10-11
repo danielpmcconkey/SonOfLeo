@@ -23,12 +23,12 @@ let private isRegexMatch (source:string) (pattern:string) : bool =
     rx.IsMatch(source)
 
 let private isMoneyMatch (source: Money.Money) (pattern: MoneySearchPattern): bool =
-    match pattern.numericSearchOperator with
-    | GreaterThan -> Money.isGreaterThan source pattern.amount
-    | LessThan -> Money.isLessThan source pattern.amount
-    | GreaterThanOrEqualTo -> Money.isGreaterThanOrEqual source pattern.amount
-    | LessThanOrEqualTo -> Money.isLessThanOrEqual source pattern.amount
-    | ExactlyEqual -> Money.isEqual source pattern.amount
+    match (pattern |> MoneySearchPattern.numericSearchOperator) with
+    | GreaterThan -> Money.isGreaterThan source (pattern |> MoneySearchPattern.amount)
+    | LessThan -> Money.isLessThan source (pattern |> MoneySearchPattern.amount)
+    | GreaterThanOrEqualTo -> Money.isGreaterThanOrEqual source (pattern |> MoneySearchPattern.amount)
+    | LessThanOrEqualTo -> Money.isLessThanOrEqual source (pattern |> MoneySearchPattern.amount)
+    | ExactlyEqual -> Money.isEqual source (pattern |> MoneySearchPattern.amount)
 
 let doesMatch
     (candidate: MatchCandidate)
@@ -36,13 +36,13 @@ let doesMatch
     : bool =
     match fieldMatch with
     | Source stringPattern ->
-        let source = candidate.ingestionSource |> JournalRefFinancialInstitution.value
+        let source = candidate |> MatchCandidate.ingestionSource |> JournalRefFinancialInstitution.value
         let pattern = stringPattern |> StringSearchPattern.value
         isRegexMatch source pattern
     | Description stringPattern ->
-        let source = candidate.description |> JournalEntryDescription.value
+        let source = candidate |> MatchCandidate.description |> JournalEntryDescription.value
         let pattern = stringPattern |> StringSearchPattern.value
         isRegexMatch source pattern
     | LineType lineType ->
-        candidate.lineType = lineType
-    | Amount pattern -> isMoneyMatch candidate.amount pattern
+        (candidate |> MatchCandidate.lineType) = lineType
+    | Amount pattern -> isMoneyMatch (candidate |> MatchCandidate.amount) pattern

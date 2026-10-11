@@ -878,7 +878,7 @@ type TestDataFixture() =
                 let archiveDescMatch = FieldMatch.Description(archiveDescPattern)
                 let! archiveAmount = Money.fromDecimal 250.00M
                 let archiveAmountMatch =
-                    FieldMatch.Amount({ numericSearchOperator = GreaterThanOrEqualTo; amount = archiveAmount })
+                    FieldMatch.Amount((MoneySearchPattern.create GreaterThanOrEqualTo archiveAmount))
                 let (archiveRuleGroups: (string * FieldMatch list * FieldMatch list option) list) =
                     [ ("And", [archiveSourceMatch], None)
                       ("Or", [archiveDescMatch], Some [archiveAmountMatch]) ]

@@ -76,8 +76,8 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let debitResult =
                     fullResult.classificationResults
                     |> List.find (fun cr ->
-                        cr.candidate.lineType = Debit
-                        && cr.candidate.description |> JournalEntryDescription.value = description)
+                        (cr |> ClassificationResult.candidate |> MatchCandidate.lineType) = Debit
+                        && (cr |> ClassificationResult.candidate |> MatchCandidate.description) |> JournalEntryDescription.value = description)
                 let ruleNameOf r = r |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
                 let splitDebitRule =
                     fixture.Data.classificationRules
@@ -93,7 +93,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                    breaks the provenance link and nothing else in the suite would notice. *)
                 let! recordedRuleIds = debitLine |> StageTestData.recordedRuleIdsForLine context fullResult.classificationRunId
                 return!
-                    match debitResult.outcome with
+                    match (debitResult |> ClassificationResult.outcome) with
                     | OneMatch _ ->
                         Assert.Equal(Some fixture.Data.food5350Id, debitLine |> StageEntryLine.accountId)
                         Assert.Equal<ClassificationRuleId list>(
@@ -119,8 +119,8 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let debitResults =
                     fullResult.classificationResults
                     |> List.filter (fun cr ->
-                        cr.candidate.lineType = Debit
-                        && cr.candidate.description |> JournalEntryDescription.value = description)
+                        (cr |> ClassificationResult.candidate |> MatchCandidate.lineType) = Debit
+                        && (cr |> ClassificationResult.candidate |> MatchCandidate.description) |> JournalEntryDescription.value = description)
                 Assert.NotEmpty(debitResults)
                 let ruleNameOf r = r |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value
                 let doorDashRule =
@@ -136,11 +136,11 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                    write-back that stored the loser's account invisible — and the single-match
                    path proving the write works says nothing about the multi-match path. *)
                 return!
-                    match (debitResults |> List.head).outcome with
+                    match (debitResults |> List.head |> ClassificationResult.outcome) with
                     | ManyMatchesClearWinner (winner, allMatches) ->
                         result {
                             let winnerAccountId =
-                                match winner.claimant with
+                                match (winner |> PrioritizedMatch.claimant) with
                                 | ClassificationClaimant.Account accountId -> Some accountId
                                 | ClassificationClaimant.PaymentAgreement _ -> None
                             let! codeStr = winnerAccountId |> ``convert AccountId Option to AccountCodeString Option`` context
@@ -149,12 +149,12 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                             (* The line no longer carries a rule id. The winner is named by the run's result, and
                                the run's diagnostic rows record every rule that matched, the winner among them. *)
                             let doorDashRuleId = doorDashRule |> ClassificationRule.classificationRuleId
-                            Assert.Equal(doorDashRuleId, winner.ruleId)
+                            Assert.Equal(doorDashRuleId, (winner |> PrioritizedMatch.ruleId))
                             let genericRuleId =
                                 fixture.Data.classificationRules
                                 |> List.find (fun r -> ruleNameOf r = "Source = TestBank then 5300")
                                 |> ClassificationRule.classificationRuleId
-                            Assert.Equal<Set<ClassificationRuleId>>(set [ doorDashRuleId; genericRuleId ], allMatches |> List.map (fun m -> m.ruleId) |> Set.ofList)
+                            Assert.Equal<Set<ClassificationRuleId>>(set [ doorDashRuleId; genericRuleId ], allMatches |> List.map (fun m -> (m |> PrioritizedMatch.ruleId)) |> Set.ofList)
                             Assert.Equal(2, allMatches |> List.length)
                             let! recordedRuleIds =
                                 debitLine |> StageTestData.recordedRuleIdsForLine context fullResult.classificationRunId
@@ -214,9 +214,9 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let outcomeOfLineType lt =
                     fullResult.classificationResults
                     |> List.find (fun cr ->
-                        cr.candidate.lineType = lt
-                        && cr.candidate.description |> JournalEntryDescription.value = description)
-                    |> fun cr -> cr.outcome
+                        (cr |> ClassificationResult.candidate |> MatchCandidate.lineType) = lt
+                        && (cr |> ClassificationResult.candidate |> MatchCandidate.description) |> JournalEntryDescription.value = description)
+                    |> fun cr -> (cr |> ClassificationResult.outcome)
                 let entry = fullResult.stagedEntries |> StageTestData.findByDescription description
                 (* Both outcomes have to be present before the precedence claim means anything.
                    Assert Conflict alone and the result is equally well explained by there being
@@ -248,7 +248,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let entryHeaderId = entry |> stageEntryHeader |> StageEntryHeader.stageEntryHeaderId
                 let classResultsForEntry =
                     fullResult.classificationResults
-                    |> List.filter (fun cr -> cr.candidate.headerIdOfCandidate = entryHeaderId)
+                    |> List.filter (fun cr -> (cr |> ClassificationResult.candidate |> MatchCandidate.headerIdOfCandidate) = entryHeaderId)
                 Assert.Empty(classResultsForEntry)
             })
         |> railroadWrapper
@@ -301,13 +301,7 @@ type StageEntryClassificationTests(fixture: TestDataFixture) =
                 let! source = "TestBank" |> JournalRefFinancialInstitution.create
                 let! amount = Money.fromDecimal 1.00M
                 let candidate: MatchCandidate =
-                    { headerIdOfCandidate = StageEntryHeaderId.create ()
-                      lineIdOfCandidate = StageEntryLineId.create ()
-                      ingestionSource = source
-                      description = description
-                      amount = amount
-                      lineType = Debit
-                      memo = None }
+                    MatchCandidate.create (StageEntryHeaderId.create ()) (StageEntryLineId.create ()) source description amount Debit None
                 let run =
                     try
                         ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches context AccountClaimant [ candidate ]

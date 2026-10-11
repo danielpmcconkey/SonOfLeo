@@ -194,7 +194,7 @@ let private recordRuleMatches
     : Result<unit, IAppError> =
     results
     |> List.collect (fun result ->
-        result.outcome
+        (result |> ClassificationResult.outcome)
         |> matchesToRecord
         |> List.map (fun prioritizedMatch ->
             let classificationMatchId = ClassificationMatchId.create ()
@@ -202,8 +202,8 @@ let private recordRuleMatches
             RuleMatch.create
                 classificationMatchId
                 runId
-                result.candidate.lineIdOfCandidate
-                prioritizedMatch.ruleId
+                (result |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate)
+                (prioritizedMatch |> PrioritizedMatch.ruleId)
                 createdAt
             |> RuleMatch.persist context))
     |> convertListOfResultsToResultsList
@@ -256,7 +256,7 @@ let classifyMatchCandidatesAndRecordMatches
         let runId = ClassificationRunId.create ()
         let! classificationResults = Classifier.classify rules candidates
         do! classificationResults |> recordRuleMatches context runId
-        return { runId = runId; results = classificationResults }
+        return ClassificationRun.create runId classificationResults
     }
     
 let updateClassificationRule
@@ -288,13 +288,7 @@ let private matchCandidateOf
     (header: StageEntryHeader.StageEntryHeader)
     (line: StageEntryLine.StageEntryLine)
     : MatchCandidate =
-    { headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
-      lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
-      ingestionSource = header |> StageEntryHeader.ingestionSource |> IngestionSource.name
-      description = header |> StageEntryHeader.description
-      amount = line |> StageEntryLine.amount
-      lineType = line |> StageEntryLine.lineType
-      memo = line |> StageEntryLine.memo }
+    MatchCandidate.create (header |> StageEntryHeader.stageEntryHeaderId) (line |> StageEntryLine.stageEntryLineId) (header |> StageEntryHeader.ingestionSource |> IngestionSource.name) (header |> StageEntryHeader.description) (line |> StageEntryLine.amount) (line |> StageEntryLine.lineType) (line |> StageEntryLine.memo)
 
 /// classifyAccounts runs the account rules over every line still without an account on the entries awaiting one, and
 /// hands the run to data ingestion to write the winners and the entries' statuses.

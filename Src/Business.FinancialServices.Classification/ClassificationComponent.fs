@@ -69,10 +69,21 @@ module NumericSearchOperator =
         | "ExactlyEqual" -> Ok ExactlyEqual
         | _ -> error (ClassificationInvalidNumericSearchOperator str)
     
-type MoneySearchPattern = {
+type MoneySearchPattern =
+    private {
         numericSearchOperator: NumericSearchOperator
         amount: Money.Money
     }
+
+module MoneySearchPattern =
+    let numericSearchOperator (pattern: MoneySearchPattern) = pattern.numericSearchOperator
+    let amount (pattern: MoneySearchPattern) = pattern.amount
+    let create
+        (numericSearchOperator: NumericSearchOperator)
+        (amount: Money.Money)
+        : MoneySearchPattern =
+        { numericSearchOperator = numericSearchOperator
+          amount = amount }
 
 type ClassificationRuleName = private ClassificationRuleName of string
 
@@ -152,7 +163,8 @@ module ClassificationGroupConnector =
         | "Or" -> Ok Or
         | _ -> error (ClassificationInvalidGroupConnector str)
 
-type MatchCandidate = {
+type MatchCandidate =
+    private {
         headerIdOfCandidate: StageEntryHeaderId
         lineIdOfCandidate: StageEntryLineId
         ingestionSource: JournalRefFinancialInstitution
@@ -160,17 +172,56 @@ type MatchCandidate = {
         amount: Money.Money
         lineType: JournalEntryLineType
         memo: JournalEntryLineMemo option
-}
+    }
+
+module MatchCandidate =
+    let headerIdOfCandidate (candidate: MatchCandidate) = candidate.headerIdOfCandidate
+    let lineIdOfCandidate (candidate: MatchCandidate) = candidate.lineIdOfCandidate
+    let ingestionSource (candidate: MatchCandidate) = candidate.ingestionSource
+    let description (candidate: MatchCandidate) = candidate.description
+    let amount (candidate: MatchCandidate) = candidate.amount
+    let lineType (candidate: MatchCandidate) = candidate.lineType
+    let memo (candidate: MatchCandidate) = candidate.memo
+    let create
+        (headerIdOfCandidate: StageEntryHeaderId)
+        (lineIdOfCandidate: StageEntryLineId)
+        (ingestionSource: JournalRefFinancialInstitution)
+        (description: JournalEntryDescription)
+        (amount: Money.Money)
+        (lineType: JournalEntryLineType)
+        (memo: JournalEntryLineMemo option)
+        : MatchCandidate =
+        { headerIdOfCandidate = headerIdOfCandidate
+          lineIdOfCandidate = lineIdOfCandidate
+          ingestionSource = ingestionSource
+          description = description
+          amount = amount
+          lineType = lineType
+          memo = memo }
 
 type ClassificationClaimant = // what entity gets to "claim" the Staged Entry at match
     | Account of AccountId // used for classifying staged entities into their appropriate JE line accounts
     | PaymentAgreement of CashFlowComponent.PaymentAgreementId // used for classifying staged entities to identify invoice matches
 
-type PrioritizedMatch = {
-    claimant: ClassificationClaimant
-    ruleId: ClassificationRuleId
-    priority: RulePriority
-}
+type PrioritizedMatch =
+    private {
+        claimant: ClassificationClaimant
+        ruleId: ClassificationRuleId
+        priority: RulePriority
+    }
+
+module PrioritizedMatch =
+    let claimant (prioritizedMatch: PrioritizedMatch) = prioritizedMatch.claimant
+    let ruleId (prioritizedMatch: PrioritizedMatch) = prioritizedMatch.ruleId
+    let priority (prioritizedMatch: PrioritizedMatch) = prioritizedMatch.priority
+    let create
+        (claimant: ClassificationClaimant)
+        (ruleId: ClassificationRuleId)
+        (priority: RulePriority)
+        : PrioritizedMatch =
+        { claimant = claimant
+          ruleId = ruleId
+          priority = priority }
 
 type ClassifierOutcome =
     | NoMatch
@@ -178,23 +229,59 @@ type ClassifierOutcome =
     | ManyMatchesClearWinner of PrioritizedMatch * PrioritizedMatch list
     | ManyMatchesTied of PrioritizedMatch list 
 
-type ClassificationResult = {
+type ClassificationResult =
+    private {
         candidate: MatchCandidate
         outcome: ClassifierOutcome
     }
 
-type ClassificationRun = {
+module ClassificationResult =
+    let candidate (classificationResult: ClassificationResult) = classificationResult.candidate
+    let outcome (classificationResult: ClassificationResult) = classificationResult.outcome
+    let create
+        (candidate: MatchCandidate)
+        (outcome: ClassifierOutcome)
+        : ClassificationResult =
+        { candidate = candidate
+          outcome = outcome }
+
+type ClassificationRun =
+    private {
         runId: ClassificationRunId
         results: ClassificationResult list
     }
 
-type PaymentAgreementClaimCluster = {
-    paymentAgreementId: CashFlowComponent.PaymentAgreementId
-    claimants: ClassificationResult list
-    // a tied claimant had no linkage written for it at all, so resolving it means adding the right link rather than
-    // removing a wrong one. A cluster can hold both kinds of claimant at once.
-    containsUnwrittenTies: bool
-}
+module ClassificationRun =
+    let runId (run: ClassificationRun) = run.runId
+    let results (run: ClassificationRun) = run.results
+    let create
+        (runId: ClassificationRunId)
+        (results: ClassificationResult list)
+        : ClassificationRun =
+        { runId = runId
+          results = results }
+
+type PaymentAgreementClaimCluster =
+    private {
+        paymentAgreementId: CashFlowComponent.PaymentAgreementId
+        claimants: ClassificationResult list
+        // a tied claimant had no linkage written for it at all, so resolving it means adding the right link rather than
+        // removing a wrong one. A cluster can hold both kinds of claimant at once.
+        containsUnwrittenTies: bool
+    }
+
+module PaymentAgreementClaimCluster =
+    let paymentAgreementId (cluster: PaymentAgreementClaimCluster) = cluster.paymentAgreementId
+    let claimants (cluster: PaymentAgreementClaimCluster) = cluster.claimants
+    let containsUnwrittenTies (cluster: PaymentAgreementClaimCluster) = cluster.containsUnwrittenTies
+    let create
+        (paymentAgreementId: CashFlowComponent.PaymentAgreementId)
+        (claimants: ClassificationResult list)
+        (containsUnwrittenTies: bool)
+        : PaymentAgreementClaimCluster =
+        { paymentAgreementId = paymentAgreementId
+          claimants = claimants
+          containsUnwrittenTies = containsUnwrittenTies }
 
 type PaymentAgreementDecisionOutcome =
     | Linked
@@ -212,14 +299,34 @@ module PaymentAgreementDecisionOutcome =
         | NoLineOnAgreementAccounts -> "NoLineOnAgreementAccounts"
         | ManyLinesOnAgreementAccount -> "ManyLinesOnAgreementAccount"
 
-type PaymentAgreementDecision = {
-    stageEntryLineId: StageEntryLineId
-    paymentAgreementId: CashFlowComponent.PaymentAgreementId option
-    // the link the decision produced, when it produced one
-    paymentAgreementLinkId: CashFlowComponent.PaymentAgreementLinkId option
-    ruleIds: ClassificationRuleId list
-    outcome: PaymentAgreementDecisionOutcome
-}
+type PaymentAgreementDecision =
+    private {
+        stageEntryLineId: StageEntryLineId
+        paymentAgreementId: CashFlowComponent.PaymentAgreementId option
+        // the link the decision produced, when it produced one
+        paymentAgreementLinkId: CashFlowComponent.PaymentAgreementLinkId option
+        ruleIds: ClassificationRuleId list
+        outcome: PaymentAgreementDecisionOutcome
+    }
+
+module PaymentAgreementDecision =
+    let stageEntryLineId (decision: PaymentAgreementDecision) = decision.stageEntryLineId
+    let paymentAgreementId (decision: PaymentAgreementDecision) = decision.paymentAgreementId
+    let paymentAgreementLinkId (decision: PaymentAgreementDecision) = decision.paymentAgreementLinkId
+    let ruleIds (decision: PaymentAgreementDecision) = decision.ruleIds
+    let outcome (decision: PaymentAgreementDecision) = decision.outcome
+    let create
+        (stageEntryLineId: StageEntryLineId)
+        (paymentAgreementId: CashFlowComponent.PaymentAgreementId option)
+        (paymentAgreementLinkId: CashFlowComponent.PaymentAgreementLinkId option)
+        (ruleIds: ClassificationRuleId list)
+        (outcome: PaymentAgreementDecisionOutcome)
+        : PaymentAgreementDecision =
+        { stageEntryLineId = stageEntryLineId
+          paymentAgreementId = paymentAgreementId
+          paymentAgreementLinkId = paymentAgreementLinkId
+          ruleIds = ruleIds
+          outcome = outcome }
 
 type ClassificationClaimantType = // ClassificationClaimant without the ID, for asking which kind of rule you want
     | AccountClaimant

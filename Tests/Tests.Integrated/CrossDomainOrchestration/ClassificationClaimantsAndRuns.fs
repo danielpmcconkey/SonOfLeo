@@ -57,13 +57,7 @@ let private withTransitions (status: string) =
 
 let private candidateOf (entry: StageEntryOrchestration.StageEntry) (line: StageEntryLine.StageEntryLine) : MatchCandidate =
     let header = entry |> StageEntryOrchestration.stageEntryHeader
-    { headerIdOfCandidate = header |> StageEntryHeader.stageEntryHeaderId
-      lineIdOfCandidate = line |> StageEntryLine.stageEntryLineId
-      ingestionSource = header |> StageEntryHeader.ingestionSource |> IngestionSource.name
-      description = header |> StageEntryHeader.description
-      amount = line |> StageEntryLine.amount
-      lineType = line |> StageEntryLine.lineType
-      memo = line |> StageEntryLine.memo }
+    MatchCandidate.create (header |> StageEntryHeader.stageEntryHeaderId) (line |> StageEntryLine.stageEntryLineId) (header |> StageEntryHeader.ingestionSource |> IngestionSource.name) (header |> StageEntryHeader.description) (line |> StageEntryLine.amount) (line |> StageEntryLine.lineType) (line |> StageEntryLine.memo)
 
 let private debitLineOf (entry: StageEntryOrchestration.StageEntry) =
     entry
@@ -74,11 +68,11 @@ let private lineIdsOf (entry: StageEntryOrchestration.StageEntry) =
     entry |> StageEntryOrchestration.seLines |> List.map StageEntryLine.stageEntryLineId
 
 let private resultFor (lineId: StageEntryLineId) (results: ClassificationResult list) =
-    results |> List.filter (fun r -> r.candidate.lineIdOfCandidate = lineId) |> List.exactlyOne
+    results |> List.filter (fun r -> (r |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate) = lineId) |> List.exactlyOne
 
 let private oneMatchRule (outcome: ClassifierOutcome) =
     match outcome with
-    | OneMatch m -> Some m.ruleId
+    | OneMatch m -> Some (m |> PrioritizedMatch.ruleId)
     | _ -> None
 
 let private rowsOn (lineId: StageEntryLineId) (rows: RuleMatch.RuleMatch list) =
@@ -234,7 +228,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                 let! _ = s.paymentAgreementRule paymentTag legId 100 paymentTag
                 let! entry = s.entry $"Payment only {paymentTag}" "Ingested" false
                 let! run = s.accountRun ()
-                let outcome = (run.classificationResults |> resultFor (entry |> debitLineOf |> StageEntryLine.stageEntryLineId)).outcome
+                let outcome = (run.classificationResults |> resultFor (entry |> debitLineOf |> StageEntryLine.stageEntryLineId) |> ClassificationResult.outcome)
                 Assert.Equal(ClassifierOutcome.NoMatch, outcome)
             })
         rolledBack fixture (fun s ->
@@ -243,7 +237,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                 let! _ = s.accountRule accountTag "F-1280" 100 accountTag
                 let! entry = s.entry $"Account only {accountTag}" "Classified" true
                 let! run = s.paymentAgreementRun ()
-                let outcome = (run.classificationResults |> resultFor (entry |> debitLineOf |> StageEntryLine.stageEntryLineId)).outcome
+                let outcome = (run.classificationResults |> resultFor (entry |> debitLineOf |> StageEntryLine.stageEntryLineId) |> ClassificationResult.outcome)
                 Assert.Equal(ClassifierOutcome.NoMatch, outcome)
             })
 
@@ -258,7 +252,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                     let! paymentRule = s.paymentAgreementRule tag legId 100 tag
                     let! entry = s.entry $"Both {tag}" "Ingested" false
                     let! results = run s
-                    let outcome = (results |> resultFor (entry |> debitLineOf |> StageEntryLine.stageEntryLineId)).outcome
+                    let outcome = (results |> resultFor (entry |> debitLineOf |> StageEntryLine.stageEntryLineId) |> ClassificationResult.outcome)
                     let expected = if expectAccountRule then ruleIdOf accountRule else ruleIdOf paymentRule
                     Assert.Equal(Some expected, oneMatchRule outcome)
                 })
@@ -278,8 +272,8 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                 let! run =
                     [ candidateOf assigned assignedLine; candidateOf unassigned unassignedLine ]
                     |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches s.Context AccountClaimant
-                let assignedOutcome = (run.results |> resultFor (assignedLine |> StageEntryLine.stageEntryLineId)).outcome
-                let unassignedOutcome = (run.results |> resultFor (unassignedLine |> StageEntryLine.stageEntryLineId)).outcome
+                let assignedOutcome = (run |> ClassificationRun.results |> resultFor (assignedLine |> StageEntryLine.stageEntryLineId) |> ClassificationResult.outcome)
+                let unassignedOutcome = (run |> ClassificationRun.results |> resultFor (unassignedLine |> StageEntryLine.stageEntryLineId) |> ClassificationResult.outcome)
                 Assert.True((assignedLine |> StageEntryLine.accountId).IsSome)
                 Assert.Equal(Some(ruleIdOf rule), oneMatchRule assignedOutcome)
                 Assert.Equal(unassignedOutcome, assignedOutcome)
@@ -301,8 +295,8 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                 let! run =
                     [ candidateOf linked linkedLine; candidateOf unlinked unlinkedLine ]
                     |> ClassificationOrchestration.classifyMatchCandidatesAndRecordMatches s.Context PaymentAgreementClaimant
-                let linkedOutcome = (run.results |> resultFor (linkedLine |> StageEntryLine.stageEntryLineId)).outcome
-                let unlinkedOutcome = (run.results |> resultFor (unlinkedLine |> StageEntryLine.stageEntryLineId)).outcome
+                let linkedOutcome = (run |> ClassificationRun.results |> resultFor (linkedLine |> StageEntryLine.stageEntryLineId) |> ClassificationResult.outcome)
+                let unlinkedOutcome = (run |> ClassificationRun.results |> resultFor (unlinkedLine |> StageEntryLine.stageEntryLineId) |> ClassificationResult.outcome)
                 Assert.Single(links) |> ignore
                 Assert.Equal(Some(ruleIdOf rule), oneMatchRule linkedOutcome)
                 Assert.Equal(unlinkedOutcome, linkedOutcome)
@@ -398,7 +392,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                 let! run = s.accountRun ()
                 let! rows = s.rowsOf run.runId
                 let unmatchedLine = unmatched |> debitLineOf |> StageEntryLine.stageEntryLineId
-                Assert.Equal(ClassifierOutcome.NoMatch, (run.classificationResults |> resultFor unmatchedLine).outcome)
+                Assert.Equal(ClassifierOutcome.NoMatch, (run.classificationResults |> resultFor unmatchedLine |> ClassificationResult.outcome))
                 Assert.NotEmpty(rows |> rowsOn (matched |> debitLineOf |> StageEntryLine.stageEntryLineId))
                 Assert.Empty(rows |> rowsOn unmatchedLine)
             })
@@ -445,9 +439,9 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                 let line = entry |> debitLineOf |> StageEntryLine.stageEntryLineId
                 let _second =
                     committed.Run(fun s ->
-                        RuleMatch.create (ClassificationMatchId.create ()) run.runId line (ruleIdOf rule) (s.Context |> Context.getInitiationInstant)
+                        RuleMatch.create (ClassificationMatchId.create ()) (run |> ClassificationRun.runId) line (ruleIdOf rule) (s.Context |> Context.getInitiationInstant)
                         |> RuleMatch.persist s.Context)
-                let! rows = run.runId |> RuleMatch.fetchByRunId (fresh ())
+                let! rows = run |> ClassificationRun.runId |> RuleMatch.fetchByRunId (fresh ())
                 let forCombination = rows |> List.filter (fun r -> r |> RuleMatch.stageEntryLineId = line && r |> RuleMatch.classificationRuleId = ruleIdOf rule)
                 Assert.Single(forCombination) |> ignore
             })
@@ -465,7 +459,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                 let! run = s.accountRun ()
                 let! rows = s.rowsOf run.runId
                 let line = entry |> debitLineOf |> StageEntryLine.stageEntryLineId
-                Assert.Equal(Some(ruleIdOf rule), oneMatchRule (run.classificationResults |> resultFor line).outcome)
+                Assert.Equal(Some(ruleIdOf rule), oneMatchRule (run.classificationResults |> resultFor line |> ClassificationResult.outcome))
                 Assert.Single(rows |> rowsOn line) |> ignore
             })
 
@@ -491,26 +485,26 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                         })
                 rules.Add(ruleIdOf rule)
                 let first, second = runs
-                Assert.NotEqual(first.runId, second.runId)
+                Assert.NotEqual((first |> ClassificationRun.runId), (second |> ClassificationRun.runId))
                 // every (line, rule) the first run's classifier reported matching, winners, losers and ties alike
                 let expectedPairs =
-                    first.results
+                    (first |> ClassificationRun.results)
                     |> List.collect (fun r ->
                         let matched =
-                            match r.outcome with
+                            match (r |> ClassificationResult.outcome) with
                             | ClassifierOutcome.NoMatch -> []
                             | ClassifierOutcome.OneMatch m -> [ m ]
                             | ClassifierOutcome.ManyMatchesClearWinner (winner, losers) -> winner :: losers
                             | ClassifierOutcome.ManyMatchesTied tied -> tied
                         matched
                         |> List.map (fun m ->
-                            r.candidate.lineIdOfCandidate |> StageEntryLineId.value, m.ruleId |> ClassificationRuleId.value))
+                            (r |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate) |> StageEntryLineId.value, m |> PrioritizedMatch.ruleId |> ClassificationRuleId.value))
                     |> List.sort
                 Assert.Equal(2, expectedPairs.Length)
-                let! secondRows = second.runId |> RuleMatch.fetchByRunId (fresh ())
+                let! secondRows = second |> ClassificationRun.runId |> RuleMatch.fetchByRunId (fresh ())
                 let secondIds = secondRows |> List.map (RuleMatch.classificationMatchId >> ClassificationMatchId.value)
                 Assert.Equal(2, secondIds.Length)
-                let! returned = fetchRun (first.runId |> ClassificationRunId.value)
+                let! returned = fetchRun (first |> ClassificationRun.runId |> ClassificationRunId.value)
                 Assert.Equal<(Guid * Guid) list>(
                     expectedPairs,
                     returned.matches |> List.map (fun m -> m.stageEntryLineId, m.classificationRuleId) |> List.sort)
@@ -550,7 +544,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                                     (FieldUpdate.SetTo name) (FieldUpdate.SetTo(ClassificationClaimant.Account(s.accountIdOf "F-1290")))
                                     (FieldUpdate.SetTo (RulePriority.create 7)) FieldUpdate.NoChange FieldUpdate.NoChange (ruleIdOf rule)
                         })
-                let! returned = fetchRun (run.runId |> ClassificationRunId.value)
+                let! returned = fetchRun (run |> ClassificationRun.runId |> ClassificationRunId.value)
                 let only = Assert.Single(returned.matches)
                 let f1290 = fixture.Data.accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = "F-1290")
                 Assert.Equal<string>(newName, only.classificationRuleName)
@@ -580,7 +574,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                             return [ a; b; c ], run
                         })
                 made |> List.iter (ruleIdOf >> rules.Add)
-                let! returned = fetchRun (run.runId |> ClassificationRunId.value)
+                let! returned = fetchRun (run |> ClassificationRun.runId |> ClassificationRunId.value)
                 // the order between lines is unspecified, so the rows are cut into runs of one line each: there must be
                 // exactly one run per line, and each run carries c (5), then a and b (10, by name)
                 let runsOfOneLine =
@@ -590,7 +584,7 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                         | (lineId, rows) :: rest when lineId = m.stageEntryLineId -> (lineId, rows @ [ m ]) :: rest
                         | _ -> (m.stageEntryLineId, [ m ]) :: acc) []
                     |> List.rev
-                let expectedLines = run.results |> List.map (fun r -> r.candidate.lineIdOfCandidate |> StageEntryLineId.value)
+                let expectedLines = run |> ClassificationRun.results |> List.map (fun r -> (r |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate) |> StageEntryLineId.value)
                 Assert.Equal<Set<Guid>>(expectedLines |> Set.ofList, runsOfOneLine |> List.map fst |> Set.ofList)
                 Assert.Equal(expectedLines.Length, runsOfOneLine.Length)
                 let nameOf (rule: ClassificationRule.ClassificationRule) =

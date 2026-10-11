@@ -378,9 +378,9 @@ let applyAccountClassification
     result {
         let isFullyAssigned (entry: StageEntry) : bool =
             entry |> seLines |> List.forall (fun line -> line |> StageEntryLine.accountId |> Option.isSome)
-        let classificationResults = classificationRun.results
+        let classificationResults = (classificationRun |> ClassificationRun.results)
         let claimedAccountId (prioritizedMatch: PrioritizedMatch) : AccountId option =
-            match prioritizedMatch.claimant with
+            match (prioritizedMatch |> PrioritizedMatch.claimant) with
             | ClassificationClaimant.Account accountId -> Some accountId
             | ClassificationClaimant.PaymentAgreement _ -> None
         let winningAccountId (outcome: ClassifierOutcome) : AccountId option =
@@ -391,9 +391,9 @@ let applyAccountClassification
         let! _ =
             classificationResults
             |> List.choose (fun result ->
-                result.outcome
+                (result |> ClassificationResult.outcome)
                 |> winningAccountId
-                |> Option.map (fun accountId -> result.candidate.lineIdOfCandidate, accountId))
+                |> Option.map (fun accountId -> (result |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate), accountId))
             |> List.map (fun (lineId, accountId) ->
                 lineId
                 |> StageEntryLine.updateAccountId context (SetTo (Some accountId))
@@ -402,8 +402,8 @@ let applyAccountClassification
         let headerIdsWithATie =
             classificationResults
             |> List.filter (fun result ->
-                match result.outcome with | ManyMatchesTied _ -> true | _ -> false)
-            |> List.map (fun result -> result.candidate.headerIdOfCandidate)
+                match (result |> ClassificationResult.outcome) with | ManyMatchesTied _ -> true | _ -> false)
+            |> List.map (fun result -> (result |> ClassificationResult.candidate |> MatchCandidate.headerIdOfCandidate))
             |> List.distinct
         // re-read so the status below is derived from the accounts just written rather than the pre-write roster
         let! rosterAfterWrites = accountClassificationStatuses |> fetchByStatusList context
@@ -420,7 +420,7 @@ let applyAccountClassification
             |> convertListOfResultsToResultsList
         let! stagedEntries =
             [ Ingested; Classified; StagedEntryStatus.NoMatch; Conflict; Reviewed ] |> fetchByStatusList context
-        return { runId = classificationRun.runId
+        return { runId = (classificationRun |> ClassificationRun.runId)
                  classificationResults = classificationResults
                  stagedEntries = stagedEntries }
     }

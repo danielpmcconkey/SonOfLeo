@@ -126,7 +126,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                       ClassificationRuleGroup.create
                         Or
                         (chainOf [ Description(patternOf "^ROUNDTRIP") ])
-                        (Some(chainOf [ Amount({ numericSearchOperator = GreaterThanOrEqualTo; amount = amount }) ])) ]
+                        (Some(chainOf [ Amount((MoneySearchPattern.create GreaterThanOrEqualTo amount)) ])) ]
                 let! created =
                     ClassificationOrchestration.constructNewAndPersist
                         context

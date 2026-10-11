@@ -143,7 +143,7 @@ module StageTestData =
             let! classification = ClassificationOrchestration.classifyAccounts contextAfterDedup
             let classificationResults =
                 classification.classificationResults
-                |> List.filter (fun r -> ingestedIds |> List.contains r.candidate.headerIdOfCandidate)
+                |> List.filter (fun r -> ingestedIds |> List.contains (r |> ClassificationResult.candidate |> MatchCandidate.headerIdOfCandidate))
             let! stagedEntries =
                 files
                 |> List.map (fun (sourceFile, _) -> sourceFile |> fetchAllByFile contextAfterDedup None)

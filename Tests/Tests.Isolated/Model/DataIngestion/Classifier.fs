@@ -38,13 +38,7 @@ let private makeCandidate descriptionStr sourceStr amount lineType =
     let lt =
         lineType |> JournalEntryLineType.fromString
         |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
-    { headerIdOfCandidate = StageEntryHeaderId.create ()
-      lineIdOfCandidate = StageEntryLineId.create ()
-      ingestionSource = source
-      description = description
-      amount = money
-      lineType = lt
-      memo = None }
+    MatchCandidate.create (StageEntryHeaderId.create ()) (StageEntryLineId.create ()) source description money lt None
 
 (* Isolated tests never reach the database, so these IDs name nothing in any chart of
    accounts. They exist to tell the rules apart, and to give the assertions below an
@@ -82,8 +76,8 @@ let ``REQ-CR-3.1 classify returns one classification result per candidate, each 
     Assert.Equal(2, results |> List.length)
     // Pairing, not just arity: two copies of one candidate's result would
     // satisfy a count assertion on its own.
-    let returnedLineIds = results |> List.map (fun r -> r.candidate.lineIdOfCandidate)
-    Assert.Equal<StageEntryLineId list>([ c1.lineIdOfCandidate; c2.lineIdOfCandidate ], returnedLineIds)
+    let returnedLineIds = results |> List.map (fun r -> (r |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate))
+    Assert.Equal<StageEntryLineId list>([ (c1 |> MatchCandidate.lineIdOfCandidate); (c2 |> MatchCandidate.lineIdOfCandidate) ], returnedLineIds)
 
 
 // =============================================================================
@@ -95,11 +89,11 @@ let ``REQ-CR-3.4 when exactly one active rule matches, classifyCandidate returns
     let rule = makeRule specificRuleAccountId (RulePriority.create 100) "^DoorDash" true
     let candidate = makeCandidate "DoorDash Order 2024-12-15" "TestBank" 45.00M "Debit"
     let result = classifyCandidate [ rule ] candidate
-    match result.outcome with
+    match (result |> ClassificationResult.outcome) with
     | OneMatch pm ->
-        Assert.Equal(ClassificationClaimant.Account specificRuleAccountId, pm.claimant)
-        Assert.Equal(rule |> ClassificationRule.classificationRuleId, pm.ruleId)
-        Assert.Equal(RulePriority.create 100, pm.priority)
+        Assert.Equal(ClassificationClaimant.Account specificRuleAccountId, (pm |> PrioritizedMatch.claimant))
+        Assert.Equal(rule |> ClassificationRule.classificationRuleId, (pm |> PrioritizedMatch.ruleId))
+        Assert.Equal(RulePriority.create 100, (pm |> PrioritizedMatch.priority))
     | other -> Assert.Fail $"Expected OneMatch but got {other}"
 
 
@@ -113,11 +107,11 @@ let ``REQ-CR-3.5 REQ-CR-1.6 classifyCandidate returns ManyMatchesClearWinner nam
     let specificRule = makeRule specificRuleAccountId (RulePriority.create 100) "^DoorDash" true
     let candidate = makeCandidate "DoorDash Order 2024-12-15" "TestBank" 45.00M "Debit"
     let result = classifyCandidate [ broadRule; specificRule ] candidate
-    match result.outcome with
+    match (result |> ClassificationResult.outcome) with
     | ManyMatchesClearWinner (winner, _) ->
-        Assert.Equal(specificRule |> ClassificationRule.classificationRuleId, winner.ruleId)
-        Assert.Equal(ClassificationClaimant.Account specificRuleAccountId, winner.claimant)
-        Assert.Equal(RulePriority.create 100, winner.priority)
+        Assert.Equal(specificRule |> ClassificationRule.classificationRuleId, (winner |> PrioritizedMatch.ruleId))
+        Assert.Equal(ClassificationClaimant.Account specificRuleAccountId, (winner |> PrioritizedMatch.claimant))
+        Assert.Equal(RulePriority.create 100, (winner |> PrioritizedMatch.priority))
     | other -> Assert.Fail $"Expected ManyMatchesClearWinner but got {other}"
 
 
@@ -131,7 +125,7 @@ let ``REQ-CR-3.6 classifyCandidate returns ManyMatchesTied when two or more acti
     let rule2 = makeRule broadRuleAccountId (RulePriority.create 100) "^DoorDash" true
     let candidate = makeCandidate "DoorDash Order 2024-12-15" "TestBank" 45.00M "Debit"
     let result = classifyCandidate [ rule1; rule2 ] candidate
-    match result.outcome with
+    match (result |> ClassificationResult.outcome) with
     | ManyMatchesTied _ -> ()
     | other -> Assert.Fail $"Expected ManyMatchesTied but got {other}"
 
@@ -145,7 +139,7 @@ let ``REQ-CR-3.3 classifyCandidate returns NoMatch when no active rule matches t
     let rule = makeRule specificRuleAccountId (RulePriority.create 100) "^DoorDash" true
     let candidate = makeCandidate "Amazon Purchase" "TestBank" 50.00M "Debit"
     let result = classifyCandidate [ rule ] candidate
-    match result.outcome with
+    match (result |> ClassificationResult.outcome) with
     | ClassifierOutcome.NoMatch -> ()
     | other -> Assert.Fail $"Expected NoMatch but got {other}"
 
@@ -161,9 +155,9 @@ let ``REQ-CR-3.2 REQ-CR-1.8 classify returns OneMatch on the active rule when an
     let candidate = makeCandidate "DoorDash Order" "TestBank" 45.00M "Debit"
     let results = classify [ activeRule; inactiveRule ] [ candidate ]
     let result = results |> List.head
-    match result.outcome with
+    match (result |> ClassificationResult.outcome) with
     | OneMatch pm ->
-        Assert.Equal(ClassificationClaimant.Account specificRuleAccountId, pm.claimant)
+        Assert.Equal(ClassificationClaimant.Account specificRuleAccountId, (pm |> PrioritizedMatch.claimant))
     | other -> Assert.Fail $"Expected OneMatch (inactive rule filtered out) but got {other}"
 
 
@@ -181,7 +175,7 @@ let ``REQ-CR-3.2 classify returns NoMatch when every rule that matches the candi
     Assert.True(inactiveMatching |> ClassificationRule.doesMatch candidate)
     Assert.False(activeNonMatching |> ClassificationRule.doesMatch candidate)
     let results = classify [ inactiveMatching; activeNonMatching ] [ candidate ]
-    match (results |> List.head).outcome with
+    match (results |> List.head |> ClassificationResult.outcome) with
     | ClassifierOutcome.NoMatch -> ()
     | other -> Assert.Fail $"Expected NoMatch but got {other}"
 
@@ -190,7 +184,7 @@ let ``REQ-CR-3.2 classifyCandidate returns NoMatch for an inactive rule that wou
     let inactiveRule = makeRule specificRuleAccountId (RulePriority.create 100) "^DoorDash" false
     let candidate = makeCandidate "DoorDash Order" "TestBank" 45.00M "Debit"
     Assert.True(inactiveRule |> ClassificationRule.doesMatch candidate)
-    match (classifyCandidate [ inactiveRule ] candidate).outcome with
+    match (classifyCandidate [ inactiveRule ] candidate |> ClassificationResult.outcome) with
     | ClassifierOutcome.NoMatch -> ()
     | other -> Assert.Fail $"Expected NoMatch but got {other}"
 
@@ -208,13 +202,13 @@ let ``REQ-CR-3.5 ManyMatchesClearWinner carries every matching rule and no non-m
     let nonMatching = makeRule nonMatchingRuleAccountId (RulePriority.create 10) "^Amazon" true
     let candidate = makeCandidate "DoorDash Order 2024-12-15" "TestBank" 45.00M "Debit"
     let result = classifyCandidate [ broadRule; specificRule; nonMatching ] candidate
-    match result.outcome with
+    match (result |> ClassificationResult.outcome) with
     | ManyMatchesClearWinner (_, allMatches) ->
         let expected =
             [ broadRule; specificRule ]
             |> List.map ClassificationRule.classificationRuleId
             |> Set.ofList
-        let actual = allMatches |> List.map (fun m -> m.ruleId) |> Set.ofList
+        let actual = allMatches |> List.map (fun m -> (m |> PrioritizedMatch.ruleId)) |> Set.ofList
         Assert.Equal<Set<ClassificationRuleId>>(expected, actual)
     | other -> Assert.Fail $"Expected ManyMatchesClearWinner but got {other}"
 
@@ -228,12 +222,12 @@ let ``REQ-CR-3.6 ManyMatchesTied carries every matching rule and no non-matching
     let nonMatching = makeRule nonMatchingRuleAccountId (RulePriority.create 10) "^Amazon" true
     let candidate = makeCandidate "DoorDash Order 2024-12-15" "TestBank" 45.00M "Debit"
     let result = classifyCandidate [ tiedOne; tiedTwo; alsoMatching; nonMatching ] candidate
-    match result.outcome with
+    match (result |> ClassificationResult.outcome) with
     | ManyMatchesTied allMatches ->
         let expected =
             [ tiedOne; tiedTwo; alsoMatching ]
             |> List.map ClassificationRule.classificationRuleId
             |> Set.ofList
-        let actual = allMatches |> List.map (fun m -> m.ruleId) |> Set.ofList
+        let actual = allMatches |> List.map (fun m -> (m |> PrioritizedMatch.ruleId)) |> Set.ofList
         Assert.Equal<Set<ClassificationRuleId>>(expected, actual)
     | other -> Assert.Fail $"Expected ManyMatchesTied but got {other}"

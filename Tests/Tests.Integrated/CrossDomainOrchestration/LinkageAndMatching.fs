@@ -317,7 +317,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
         }
 
 let private decisionsNaming (lineId: StageEntryLineId) (run: InstanceOrchestration.PaymentAgreementClassificationResult) =
-    run.decisionLog |> List.filter (fun decision -> decision.stageEntryLineId = lineId)
+    run.decisionLog |> List.filter (fun decision -> (decision |> PaymentAgreementDecision.stageEntryLineId) = lineId)
 
 let private invoiceDecisionsFor (invoiceId: InvoiceId) (run: InstanceOrchestration.PaymentAgreementClassificationResult) =
     run.invoiceDecisionLog |> List.filter (fun decision -> (decision |> InvoiceDecision.invoiceId) = invoiceId)
@@ -618,7 +618,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! description = "CF-12.4 tenant payment" |> StringSearchPattern.create
                 let! rent = Money.fromDecimal 100.00M
                 let! utility = Money.fromDecimal 40.00M
-                let exactly money = FieldMatch.Amount({ numericSearchOperator = ExactlyEqual; amount = money })
+                let exactly money = FieldMatch.Amount((MoneySearchPattern.create ExactlyEqual money))
                 let! _ = scenario.paymentAgreementRuleMatching rentLegId "CF-12.4 tenant rent" 500 [ FieldMatch.Description description; exactly rent ]
                 let! _ = scenario.paymentAgreementRuleMatching utilityLegId "CF-12.4 tenant utility" 500 [ FieldMatch.Description description; exactly utility ]
                 (* One deposit, split: rent and the utility share on separate Credit lines of the same revenue account. *)
@@ -730,8 +730,8 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     cases
                     |> List.map (fun (legId, _) ->
                         run.decisionLog
-                        |> List.filter (fun d -> d.paymentAgreementId = Some legId)
-                        |> List.map (fun d -> d.stageEntryLineId, d.outcome)
+                        |> List.filter (fun d -> (d |> PaymentAgreementDecision.paymentAgreementId) = Some legId)
+                        |> List.map (fun d -> (d |> PaymentAgreementDecision.stageEntryLineId), (d |> PaymentAgreementDecision.outcome))
                         |> Set.ofList)
                 let expected =
                     cases |> List.map (fun (_, survivors) -> survivors |> Set.map (fun line -> line, ManyLinesOnAgreementAccount))
@@ -763,8 +763,8 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     cases
                     |> List.map (fun (legId, _) ->
                         run.decisionLog
-                        |> List.filter (fun d -> d.paymentAgreementId = Some legId)
-                        |> List.map (fun d -> d.stageEntryLineId, d.outcome)
+                        |> List.filter (fun d -> (d |> PaymentAgreementDecision.paymentAgreementId) = Some legId)
+                        |> List.map (fun d -> (d |> PaymentAgreementDecision.stageEntryLineId), (d |> PaymentAgreementDecision.outcome))
                         |> Set.ofList)
                 let expected =
                     cases |> List.map (fun (_, kept) -> kept |> Set.map (fun line -> line, NoLineOnAgreementAccounts))
@@ -789,8 +789,8 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 Assert.Empty(links)
                 let reported =
                     run.decisionLog
-                    |> List.filter (fun d -> d.paymentAgreementId = Some legId)
-                    |> List.map (fun d -> d.stageEntryLineId, d.outcome)
+                    |> List.filter (fun d -> (d |> PaymentAgreementDecision.paymentAgreementId) = Some legId)
+                    |> List.map (fun d -> (d |> PaymentAgreementDecision.stageEntryLineId), (d |> PaymentAgreementDecision.outcome))
                     |> Set.ofList
                 let expected = lines |> List.map (fun line -> line, NoLineOnAgreementAccounts) |> Set.ofList
                 Assert.Equal<Set<StageEntryLineId * PaymentAgreementDecisionOutcome>>(expected, reported)
@@ -814,8 +814,8 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 Assert.Empty(links)
                 let decisions =
                     run.decisionLog
-                    |> List.filter (fun d -> d.paymentAgreementId = Some legId)
-                    |> List.map (fun d -> d.stageEntryLineId, d.outcome)
+                    |> List.filter (fun d -> (d |> PaymentAgreementDecision.paymentAgreementId) = Some legId)
+                    |> List.map (fun d -> (d |> PaymentAgreementDecision.stageEntryLineId), (d |> PaymentAgreementDecision.outcome))
                     |> Set.ofList
                 let expected = set [ firstLineId, ContestedAgreement; secondLineId, ContestedAgreement ]
                 Assert.Equal<Set<StageEntryLineId * PaymentAgreementDecisionOutcome>>(expected, decisions)
@@ -838,7 +838,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let decisions =
                     run
                     |> decisionsNaming lineId
-                    |> List.map (fun d -> d.paymentAgreementId, d.outcome)
+                    |> List.map (fun d -> (d |> PaymentAgreementDecision.paymentAgreementId), (d |> PaymentAgreementDecision.outcome))
                     |> Set.ofList
                 let expected = set [ Some legXId, TiedClaimants; Some legYId, TiedClaimants ]
                 Assert.Equal<Set<PaymentAgreementId option * PaymentAgreementDecisionOutcome>>(expected, decisions)
@@ -889,8 +889,8 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 (* The run did what the cases claim: one link, unlinked no-line claims, contested claims. *)
                 let! links = linksTo context [ legId ]
                 Assert.Single(links) |> ignore
-                Assert.Contains(run.decisionLog, fun d -> d.outcome = NoLineOnAgreementAccounts)
-                Assert.Contains(run.decisionLog, fun d -> d.outcome = ContestedAgreement)
+                Assert.Contains(run.decisionLog, fun d -> (d |> PaymentAgreementDecision.outcome) = NoLineOnAgreementAccounts)
+                Assert.Contains(run.decisionLog, fun d -> (d |> PaymentAgreementDecision.outcome) = ContestedAgreement)
                 let! actual =
                     expected
                     |> List.map (fun (headerId, status) ->
@@ -1392,7 +1392,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! linksBefore = scenario.linksOf lineId
                 Assert.Empty(linksBefore)
                 let! run = ClassificationOrchestration.classifyPaymentAgreements context
-                Assert.Contains(run.decisionLog, fun d -> d.stageEntryLineId = lineId && d.outcome = Linked)
+                Assert.Contains(run.decisionLog, fun d -> (d |> PaymentAgreementDecision.stageEntryLineId) = lineId && (d |> PaymentAgreementDecision.outcome) = Linked)
                 let! payments = scenario.paymentsOn lineId
                 let payment = Assert.Single(payments)
                 Assert.Equal(invoiceId, payment |> Payment.invoiceId)
@@ -1413,9 +1413,9 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! _ = scenario.outgoEntry "CF-13.9 run id contested payment one" scenario.firstOfThisMonth "Classified"
                 let! _ = scenario.outgoEntry "CF-13.9 run id contested payment two" scenario.firstOfThisMonth "Classified"
                 let! run = ClassificationOrchestration.classifyPaymentAgreements context
-                let listedLines = run.decisionLog |> List.map _.stageEntryLineId |> Set.ofList
-                Assert.Contains(run.decisionLog, fun d -> d.outcome = Linked)
-                Assert.Contains(run.decisionLog, fun d -> d.outcome = ContestedAgreement)
+                let listedLines = run.decisionLog |> List.map PaymentAgreementDecision.stageEntryLineId |> Set.ofList
+                Assert.Contains(run.decisionLog, fun d -> (d |> PaymentAgreementDecision.outcome) = Linked)
+                Assert.Contains(run.decisionLog, fun d -> (d |> PaymentAgreementDecision.outcome) = ContestedAgreement)
                 let! fetched = run.runId |> ClassificationOrchestration.fetchRunMatchesWithRules context
                 let recordedLines = fetched |> List.map (fst >> RuleMatch.stageEntryLineId) |> Set.ofList
                 Assert.NotEmpty(listedLines)
@@ -1444,7 +1444,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                         [ TransactionPointer.Staged oldLineId ]
                 let! run = ClassificationOrchestration.classifyPaymentAgreements context
                 let linkedInRun =
-                    run.decisionLog |> List.filter (fun d -> d.outcome = Linked) |> List.map _.stageEntryLineId |> Set.ofList
+                    run.decisionLog |> List.filter (fun d -> (d |> PaymentAgreementDecision.outcome) = Linked) |> List.map PaymentAgreementDecision.stageEntryLineId |> Set.ofList
                 let paidInRun =
                     run.invoiceDecisionLog
                     |> List.choose (fun d -> match d |> InvoiceDecision.outcome with PaymentCreated lineId -> Some lineId | _ -> None)
@@ -1637,12 +1637,12 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 Assert.All(linkedLines, fun line -> Assert.Contains(line, listed |> Set.map snd))
                 let linkDecisions =
                     run.decisionLog
-                    |> List.filter (fun d -> d.outcome = Linked)
-                    |> List.map (fun d -> d.paymentAgreementLinkId, d.stageEntryLineId)
+                    |> List.filter (fun d -> (d |> PaymentAgreementDecision.outcome) = Linked)
+                    |> List.map (fun d -> (d |> PaymentAgreementDecision.paymentAgreementLinkId), (d |> PaymentAgreementDecision.stageEntryLineId))
                     |> Set.ofList
                 Assert.Equal<Set<PaymentAgreementLinkId option * StageEntryLineId>>(listed |> Set.map (fun (id, line) -> Some id, line), linkDecisions)
-                let contested = run.decisionLog |> List.filter (fun d -> d.paymentAgreementId = Some contestedLegId)
+                let contested = run.decisionLog |> List.filter (fun d -> (d |> PaymentAgreementDecision.paymentAgreementId) = Some contestedLegId)
                 Assert.Equal(2, contested.Length)
-                Assert.All(contested, fun d -> Assert.Equal(None, d.paymentAgreementLinkId))
+                Assert.All(contested, fun d -> Assert.Equal(None, (d |> PaymentAgreementDecision.paymentAgreementLinkId)))
             })
         |> railroadWrapper

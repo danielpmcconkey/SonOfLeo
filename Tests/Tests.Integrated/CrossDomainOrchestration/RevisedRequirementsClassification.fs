@@ -128,13 +128,7 @@ let private withCommitted (fixture: TestDataFixture) (test: Committed -> Result<
 
 /// A candidate from TestCreditCardCo with the description and memo, for evaluating field matches directly.
 let private candidate (source: string) (description: string) (memo: string) : MatchCandidate =
-    { headerIdOfCandidate = StageEntryHeaderId.fromGuid (Guid.NewGuid())
-      lineIdOfCandidate = StageEntryLineId.fromGuid (Guid.NewGuid())
-      ingestionSource = source |> JournalRefFinancialInstitution.create |> orFail
-      description = description |> JournalEntryDescription.create |> orFail
-      amount = 100.00M |> Money.fromDecimal |> orFail
-      lineType = Debit
-      memo = memo |> JournalEntryLineMemo.create |> orFail |> Some }
+    MatchCandidate.create (StageEntryHeaderId.fromGuid (Guid.NewGuid())) (StageEntryLineId.fromGuid (Guid.NewGuid())) (source |> JournalRefFinancialInstitution.create |> orFail) (description |> JournalEntryDescription.create |> orFail) (100.00M |> Money.fromDecimal |> orFail) Debit (memo |> JournalEntryLineMemo.create |> orFail |> Some)
 
 let private fieldMatch (field: string) (pattern: string) =
     let p = pattern |> StringSearchPattern.create |> orFail
@@ -237,11 +231,9 @@ type RevisedRequirementsClassificationTests(fixture: TestDataFixture) =
                     ClassificationOrchestration.constructNewAndPersist context otherName (ClassificationClaimant.Account(accountIdOf "F-2230")) (RulePriority.create 1) (groupsFor $"elsewhere {tag}")
                 let! outcome = Classifier.classifyCandidate [ rule; other ] (candidateWith "Description" $"Paid {tag}")
                 let expectedMatch : PrioritizedMatch =
-                    { claimant = ClassificationClaimant.PaymentAgreement legId
-                      ruleId = rule |> ClassificationRule.classificationRuleId
-                      priority = (RulePriority.create 37) }
+                    PrioritizedMatch.create (ClassificationClaimant.PaymentAgreement legId) (rule |> ClassificationRule.classificationRuleId) ((RulePriority.create 37))
                 let expected = ClassifierOutcome.OneMatch expectedMatch
-                Assert.Equal(expected, outcome.outcome)
+                Assert.Equal(expected, (outcome |> ClassificationResult.outcome))
             })
         |> railroadWrapper
 

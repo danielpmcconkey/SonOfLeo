@@ -35,6 +35,7 @@ open App.Utility
 open App.DataAccessLayer.DalError
 open Business.FinancialServices.Classification
 open Business.FinancialServices.Classification.ClassificationError
+open Business.FinancialServices.Classification.ClassificationComponent
 
 
 [<Collection("SharedTestData")>]
@@ -820,9 +821,9 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let runContext = context |> TestContext.updateInitiationInstant
                 let! run = ClassificationOrchestration.classifyAccounts runContext
                 // the run evaluated the line, matched no rule, recorded nothing for it, and left the entry NoMatch
-                let evaluated = run.classificationResults |> List.filter (fun r -> r.candidate.lineIdOfCandidate = unmatchedDebit)
+                let evaluated = run.classificationResults |> List.filter (fun r -> (r |> ClassificationResult.candidate |> MatchCandidate.lineIdOfCandidate) = unmatchedDebit)
                 Assert.Equal<Classification.ClassificationComponent.ClassifierOutcome list>(
-                    [ Classification.ClassificationComponent.ClassifierOutcome.NoMatch ], evaluated |> List.map _.outcome)
+                    [ Classification.ClassificationComponent.ClassifierOutcome.NoMatch ], evaluated |> List.map ClassificationResult.outcome)
                 let! recorded = [ unmatchedDebit ] |> Classification.RuleMatch.fetchByStageEntryLineIdList runContext
                 Assert.Empty(recorded)
                 let! afterRun = headerId |> fetchByStageEntryHeaderId runContext

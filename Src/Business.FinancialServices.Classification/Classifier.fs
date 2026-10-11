@@ -31,19 +31,17 @@ let classifyCandidate
         |> List.filter snd
         |> List.map fst
         |> List.map(fun matchCandidate ->
-            { claimant = matchCandidate |> classificationClaimant
-              ruleId = matchCandidate |> classificationRuleId
-              priority = matchCandidate |> priority })
+            (PrioritizedMatch.create (matchCandidate |> classificationClaimant) (matchCandidate |> classificationRuleId) (matchCandidate |> priority)))
     return
         match matches |> List.length with
-        | 0 -> { candidate = candidate; outcome = NoMatch; }
-        | 1 -> { candidate = candidate; outcome = OneMatch (matches |> List.head); }
+        | 0 -> ClassificationResult.create candidate NoMatch
+        | 1 -> ClassificationResult.create candidate (OneMatch (matches |> List.head))
         | _ ->
-            let winningPriority = matches |> List.map _.priority |> List.reduce RulePriority.winner
-            let matchesAtLowest = matches |> List.filter(fun x -> x.priority = winningPriority)
+            let winningPriority = matches |> List.map PrioritizedMatch.priority |> List.reduce RulePriority.winner
+            let matchesAtLowest = matches |> List.filter(fun x -> (x |> PrioritizedMatch.priority) = winningPriority)
             if matchesAtLowest |> List.length = 1
-            then  { candidate = candidate; outcome = ManyMatchesClearWinner (matchesAtLowest |> List.head, matches); }
-            else { candidate = candidate; outcome = ManyMatchesTied matches }
+            then  ClassificationResult.create candidate (ManyMatchesClearWinner (matchesAtLowest |> List.head, matches))
+            else ClassificationResult.create candidate (ManyMatchesTied matches)
     }
     
 let classify

@@ -21,13 +21,7 @@ let private unwrap result =
     result |> Result.defaultWith (fun (e: IAppError) -> failwith(e.ToMessage()))
 
 let private candidate =
-    { headerIdOfCandidate = StageEntryHeaderId.create ()
-      lineIdOfCandidate = StageEntryLineId.create ()
-      ingestionSource = "TestBank" |> JournalRefFinancialInstitution.create |> unwrap
-      description = "DoorDash Order" |> JournalEntryDescription.create |> unwrap
-      amount = 45.00M |> Money.fromDecimal |> unwrap
-      lineType = "Debit" |> JournalEntryLineType.fromString |> unwrap
-      memo = None }
+    MatchCandidate.create (StageEntryHeaderId.create ()) (StageEntryLineId.create ()) ("TestBank" |> JournalRefFinancialInstitution.create |> unwrap) ("DoorDash Order" |> JournalEntryDescription.create |> unwrap) (45.00M |> Money.fromDecimal |> unwrap) ("Debit" |> JournalEntryLineType.fromString |> unwrap) None
 
 let private pattern raw = raw |> StringSearchPattern.create |> unwrap
 
