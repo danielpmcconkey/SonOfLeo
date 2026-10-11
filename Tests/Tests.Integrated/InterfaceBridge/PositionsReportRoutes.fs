@@ -176,10 +176,11 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
                     x.mortgageAccounts |> returnedRows, x.equity))
             Assert.Equal<decimal list>(
                 [ computed.totalLedgerAssets; computed.totalInvestments; computed.totalPropertyValues
-                  computed.totalLiabilities; computed.netWorth; computed.investableWealth ]
+                  computed.totalLiabilities; computed.totalOwnedPropertyMortgages; computed.netWorth
+                  computed.investableWealth ]
                 |> List.map Money.amount,
-                [ row.totalLedgerAssets; row.totalInvestments; row.totalPropertyValues; row.totalLiabilities; row.netWorth
-                  row.investableWealth ])
+                [ row.totalLedgerAssets; row.totalInvestments; row.totalPropertyValues; row.totalLiabilities
+                  row.totalOwnedPropertyMortgages; row.netWorth; row.investableWealth ])
             Assert.Equal<(string * decimal) list>(
                 computed.investmentsByTaxTreatment |> List.map (fun (t, m) -> t |> TaxTreatment.toString, m |> Money.amount),
                 row.investmentsByTaxTreatment |> List.map (fun g -> g.group, g.marketValue))
