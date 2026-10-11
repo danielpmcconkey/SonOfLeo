@@ -405,15 +405,24 @@ type PaymentDataStatesTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-CF-6.4 REQ-CF-6.5 REQ-CF-6.10 a Payment that pointed at a staged line, once that line is posted and payments transition, is stored with both the journal entry line and the original staged line, reads as Posted, and takes its amount and posted-to-ledger date from the journal entry line`` () =
+    member _.``REQ-CF-6.4 REQ-CF-6.5 REQ-CF-6.10 REQ-CF-10.7 a Payment that pointed at a staged line, once that line is posted and payments transition, is stored with both the journal entry line and the original staged line, reads as Posted, takes its amount and posted-to-ledger date from the journal entry line, and is returned by the TransitionPaymentsToPosted payload as one row carrying its agreement name, its Invoice's amount and that line`` () =
         withWorld (fun w ->
             result {
                 let! made = w.make Outgo 1 [ 0 ]
                 let invoiceId = made.invoiceIds[0]
                 let! stagedLine, jeLine, entryDate = w.postedStagedLine "F-2230" 30.00M 40.00M
                 let! _ = sendCreatePayment invoiceId (paymentFor stagedLine)
-                let! _ = routeUiCommandForTesting "CashFlow" "TransitionPaymentsToPosted" [] "{}"
+                let! returned = routeUiCommandForTesting "CashFlow" "TransitionPaymentsToPosted" [] "{}"
+                let! transitions = Json.fromJson<Contracts.PaymentPostingTransitionReturn list> returned
                 let! payment = paymentsOf invoiceId |> Result.map List.exactlyOne
+                let paymentUuid = payment |> Payment.paymentId |> PaymentId.value
+                let jeLineUuid = match jeLine with | Posted(line, _) -> line |> JournalEntryLineId.value | Staged _ -> Guid.Empty
+                // the made Invoice is 100.00; the Payment's own amount is the line's 40.00
+                Assert.Equal<(Guid * string * decimal * Guid) list>(
+                    [ paymentUuid, made.agreementName, 100.00M, jeLineUuid ],
+                    transitions
+                    |> List.filter (fun t -> t.paymentId = paymentUuid)
+                    |> List.map (fun t -> t.paymentId, t.agreementName, t.invoiceAmount, t.journalEntryLineId))
                 (* jeLine carries the staged line, so this checks both columns *)
                 Assert.Equal(jeLine, payment |> Payment.transactionPointer)
                 Assert.Equal(40.00M, ((payment |> Payment.amount) |> CashFlowComponent.PaymentAmount.value) |> Money.amount)
