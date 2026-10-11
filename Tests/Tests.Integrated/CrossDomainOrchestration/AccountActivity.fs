@@ -354,3 +354,7 @@ type AccountActivityTests(fixture: TestDataFixture) =
                 Assert.All(descriptions, fun d -> Assert.Contains(case.search, d))
             })
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-AC-3.12.1 an account activity fetch whose entry date range ends the day before it begins fails with a typed error naming both dates`` () =
+        Assert.Fail "Not yet implemented"

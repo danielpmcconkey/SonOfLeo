@@ -145,3 +145,11 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
                 Assert.Equal<JournalEntryComment.JournalEntryComment list>(before, after)
             })
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-JE-5.3 REQ-JE-1.56 amending the text of a comment whose primary entry is voided, and re-pointing its secondary entry to another entry, succeeds, and both read back as amended`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-JE-5.3 REQ-JE-1.56 amending the text of a comment whose primary entry's fiscal period is closed, and re-pointing its secondary entry to another entry, succeeds, and both read back as amended`` () =
+        Assert.Fail "Not yet implemented"

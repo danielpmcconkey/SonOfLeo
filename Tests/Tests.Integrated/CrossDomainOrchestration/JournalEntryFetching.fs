@@ -297,3 +297,11 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
             return ()
         }
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-JE-3.5 a lookup by source FI returns the entries whose source FI equals it exactly, and no entry whose source FI differs only in letter case or merely contains it`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-JE-3.5 a lookup by reference value returns the entries whose reference value equals it exactly, and no entry whose reference value differs only in letter case or merely contains it`` () =
+        Assert.Fail "Not yet implemented"

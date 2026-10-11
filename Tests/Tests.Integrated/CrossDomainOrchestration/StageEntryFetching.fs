@@ -780,3 +780,7 @@ type StageEntryFetchingTests(fixture: TestDataFixture) =
                     |> Result.map ignore
             })
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-STG-10.2 a staged entry fetch whose date range ends the day before it begins fails with a typed error naming both dates`` () =
+        Assert.Fail "Not yet implemented"

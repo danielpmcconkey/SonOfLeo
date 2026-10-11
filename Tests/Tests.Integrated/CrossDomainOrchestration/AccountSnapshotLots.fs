@@ -248,3 +248,11 @@ type AccountSnapshotLotsTests(fixture: TestDataFixture) =
                 Assert.Equal<LotsSummary>([ PF.totalMarket, fixtureJointLots ], stored)
             })
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-7.3 REQ-POS-7.2 re-recording a date whose snapshot had lines carrying two Lots, one Lot and no Lot, with the two-Lot line re-supplied without Lots, returns it as a replacement carrying for each replaced line its Security and the number of Lots it carried (2, 1, 0), and the re-supplied line reads back with no Lots`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-7.3 recording a date with no existing snapshot returns it as not a replacement, with no replaced Lot counts`` () =
+        Assert.Fail "Not yet implemented"

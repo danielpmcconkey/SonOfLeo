@@ -234,3 +234,11 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
                 [ p.monthEnd4, Some 0.00M; p.monthEnd3, Some 5500.00M ],
                 points |> List.map (fun x -> x.monthEnd, x |> totalsOf |> Map.tryFind (GroupName PF.jointBrokerage))))
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-9.2 for each grouping (account, account group, tax treatment, a dimension), the grouping values within every point are ordered by name, from a fixture whose stored order differs, with unassigned last even after a value whose name sorts after it`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-9.2 REQ-RPT-9.3 grouped by owners, the grouping values within every point, including a jointly owned group beside a sole owner's group, are ordered by their owners' names`` () =
+        Assert.Fail "Not yet implemented"

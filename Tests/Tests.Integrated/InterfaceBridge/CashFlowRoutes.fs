@@ -268,3 +268,7 @@ type CashFlowRouteTests(fixture: TestDataFixture) =
                         | Error e -> cleanUpFailures.Add(e.ToMessage())
                 | Error e -> cleanUpFailures.Add(e.ToMessage())
         Assert.Empty(cleanUpFailures)
+
+    [<Fact>]
+    member _.``REQ-CF-14.2 REQ-CF-14.8 an agreement update renaming a Master Agreement and one of its Payment Agreements returns, and the fetch by the new name reads back, the new names wherever they are carried: the agreement, each Payment Agreement's master agreement name, the renamed Payment Agreement, and the Invoices on it`` () =
+        Assert.Fail "Not yet implemented"

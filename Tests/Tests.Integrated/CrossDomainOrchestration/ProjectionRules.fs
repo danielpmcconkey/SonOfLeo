@@ -363,18 +363,8 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
             })
 
     [<Fact>]
-    member _.``REQ-CF-8.4 a fulfilled Instance within the horizon, with one of its two Payment Agreements invoiced and that Invoice FullyPaid, yields no bill to chase for the other`` () =
-        rolledBack (fun s ->
-            result {
-                let! cashId, _, _ = s.cashAccount None
-                let! agreementId, legs, _ = s.agreement Outgo cashId 2
-                let date = s.today.PlusDays(3)
-                let! instanceId, _ = s.instance Outgo cashId agreementId date [ (legs[0], date, [ 100.00M ]) ]
-                let! fulfilled = instanceId |> Instance.fetchById s.Context |> Result.map Instance.isFulfilled
-                let! projection = s.project 10
-                Assert.True(fulfilled)
-                Assert.Empty(billsFor projection instanceId)
-            })
+    member _.``REQ-CF-4.9 REQ-CF-8.4 an Instance with one of its two Payment Agreements invoiced and that Invoice FullyPaid stays unfulfilled, and the other Payment Agreement is its only bill to chase, carrying the agreement name, Payment Agreement name, Instance date and cadence`` () =
+        Assert.Fail "Not yet implemented"
 
     [<Fact>]
     member _.``REQ-CF-8.11 two projections with the same horizon over unchanged data give identical results, including the order of accounts, Invoices and bills to chase`` () =

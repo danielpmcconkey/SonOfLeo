@@ -256,3 +256,11 @@ type HoldingMaintenanceTests(fixture: TestDataFixture) =
                     holdings)
             })
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-5.7 changing the basis method of a Holding whose lines carry Lots on three snapshot dates, recorded out of date order, with a later snapshot whose line carries none, is rejected with a typed error naming the account, the Security and the earliest and latest of the Lot-carrying dates, and the basis method is unchanged`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-POS-5.7 REQ-POS-7.2 once every snapshot whose line of a Holding carried Lots is re-recorded with that line carrying none, changing the Holding's basis method succeeds and reads back the new method`` () =
+        Assert.Fail "Not yet implemented"

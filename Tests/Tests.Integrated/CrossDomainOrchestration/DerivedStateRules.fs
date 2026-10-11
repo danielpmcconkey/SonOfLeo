@@ -610,3 +610,7 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let! fulfilled = s.isFulfilled instanceId
                 Assert.True(fulfilled)
             })
+
+    [<Fact>]
+    member _.``REQ-CF-4.9 REQ-CF-9.10 for each of a Payment paying it in full and one paying it in part, adding an Invoice carrying that Payment on the one Payment Agreement of an Instance still without an Invoice, when its other Invoice is FullyPaid, makes the Instance fulfilled exactly when the new Invoice is FullyPaid, with no call other than the add`` () =
+        Assert.Fail "Not yet implemented"

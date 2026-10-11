@@ -368,3 +368,11 @@ type NetWorthTests(fixture: TestDataFixture) =
                 Assert.Equal(withLots.totalInvestments, withoutLots.totalInvestments)
             })
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-RPT-8.5 the net worth result lists Asset and Liability accounts by account code, each Property's mortgage accounts by account code, and Investment Accounts and Properties by name, each from a fixture set whose stored order differs from it`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-RPT-8.5 the net worth result gives tax-treatment totals in the order Taxable, TaxDeferred, Roth, Hsa and account-group totals by group name, each from a fixture set whose stored order differs from it, and on a date where more than one component is absent names them in the order counted ledger assets, investments, property values, liabilities, mortgages of owned Properties`` () =
+        Assert.Fail "Not yet implemented"

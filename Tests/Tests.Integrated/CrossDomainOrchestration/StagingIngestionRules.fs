@@ -1102,3 +1102,7 @@ type StagingIngestionRulesTests(fixture: TestDataFixture) =
                 Assert.Equal(Some StagedEntryStatus.Duplicate, unpaidAfter |> statusOf)
                 Assert.Equal(Some StagedEntryStatus.Reviewed, reviewedAfter |> statusOf)
             })
+
+    [<Fact>]
+    member _.``REQ-STG-9.10 for each pair of memos (two different texts; no memo and a text), two staged lines of one entry with the same account, line type and amount each record the journal entry line carrying their own memo, whichever order they are supplied in`` () =
+        Assert.Fail "Not yet implemented"

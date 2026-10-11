@@ -1153,3 +1153,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
         |> expectError (function AsError PositionsSnapshotListIsEmpty -> Some() | _ -> None) ignore
         |> Ok
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-7.3 the AccountSnapshot Record route's return for a re-recorded date says it replaced a snapshot and carries each replaced line's Security name with its Lot count, the counts distinct and non-zero`` () =
+        Assert.Fail "Not yet implemented"
