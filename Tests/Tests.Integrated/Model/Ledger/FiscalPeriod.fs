@@ -153,11 +153,11 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
             fixture.Data.fiscalPeriods
             |> List.filter FiscalPeriod.isOpen
             |> List.map(FiscalPeriod.periodKey >> FiscalPeriodKey.value)
-            |> Set.ofList
+            |> List.sort
         result {
             let! fetched = FiscalPeriod.fetchAll context true
             Assert.DoesNotContain(fixture.Data.closedFiscalPeriodId, fetched |> List.map FiscalPeriod.fiscalPeriodId)
-            Assert.Equal<Set<string>>(expectedKeys, fetched |> List.map(FiscalPeriod.periodKey >> FiscalPeriodKey.value) |> Set.ofList)
+            Assert.Equal<string list>(expectedKeys, fetched |> List.map(FiscalPeriod.periodKey >> FiscalPeriodKey.value) |> List.sort)
             ()
         }
         |> railroadWrapper

@@ -254,6 +254,37 @@ type JournalEntryFetchingTests(fixture: TestDataFixture) =
         | Ok _ -> Assert.Fail "Expected failure; got success"
 
     [<Fact>]
+    member _.``REQ-JE-3.7 fetchByDateRange over a range of several days returns exactly the entries dated on its begin date, between, and on its end date, and none from the day before it or the day after`` () =
+        (* In a rolled-back transaction: one entry on each of the day before the range, its begin date, a day between,
+           its end date and the day after. The fixture's own entries in the range are expected too. *)
+        let p = fixture.Data.positions
+        let today = Calendar.today ()
+        let beginDate, endDate = today.PlusDays(-6), today.PlusDays(-3)
+        Ui.InterfaceBridge.CommandRoute.runCommandRouteAndAutoRollback JournalEntryPostNew (fun context ->
+            result {
+                let! posted =
+                    [ beginDate.PlusDays(-1); beginDate; beginDate.PlusDays(1); endDate; endDate.PlusDays(1) ]
+                    |> List.map (fun date ->
+                        EntityFunctions.createTestJournalEntryFromPrimitives
+                            context $"Date range test {date}" None date
+                            [ (p.positionsCash1275Id, 10.00M, "Debit", None); (p.positionsEquity3040Id, 10.00M, "Credit", None) ] [] []
+                        |> Result.map (fun (_, id) -> date, id))
+                    |> convertListOfResultsToResultsList
+                let inRange (date: NodaTime.LocalDate) = date >= beginDate && date <= endDate
+                let expected =
+                    (fixture.Data.journalEntries
+                     |> List.filter (fun je -> je |> header |> JournalEntryHeader.entryDate |> EntryDate.entryDate |> inRange)
+                     |> List.map (header >> JournalEntryHeader.journalEntryHeaderId))
+                    @ (posted |> List.filter (fst >> inRange) |> List.map snd)
+                    |> List.sort
+                let! fetched = fetchByDateRange context beginDate endDate
+                Assert.Equal(3, posted |> List.filter (fst >> inRange) |> List.length)
+                Assert.Equal<JournalEntryHeaderId list>(
+                    expected, fetched |> List.map (header >> JournalEntryHeader.journalEntryHeaderId) |> List.sort)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
     member _.``REQ-JE-3.7 fetchByDateRange returns entries within inclusive date range``() =
         let context = Context.create NoTransaction FetchOnly
         let today = Calendar.today()
