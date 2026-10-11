@@ -23,7 +23,7 @@ type UtilityError =
             | FileIoFileDoesntExist str -> $"No file exists at path \"{str}\"."
             | FileIoError ex -> $"Error in File I/O operation. Error message: {ex.Message}{Environment.NewLine} {ex.StackTrace}"
             | JsonDeserializationFailed(typeName, error, stackTrace) -> $"Failed to deserialize JSON string into type {typeName}. {error}{Environment.NewLine}{stackTrace}"
-            | JsonSerializationFailed(typeName, error, stackTrace) -> $"Failed to serialize JSON string into type {typeName}. {error}{Environment.NewLine}{stackTrace}"
+            | JsonSerializationFailed(typeName, error, stackTrace) -> $"Failed to serialize a value of type {typeName} to a JSON string. {error}{Environment.NewLine}{stackTrace}"
 
 let toMessage (e: UtilityError) = (e :> IAppError).ToMessage()
 let toAppError (e: UtilityError) : IAppError = e :> IAppError
