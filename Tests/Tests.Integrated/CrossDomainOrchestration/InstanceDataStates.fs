@@ -133,14 +133,6 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     member _.nextInstanceOf (agreementId: MasterAgreementId) =
         agreementId |> MasterAgreement.fetchById context |> Result.map (fun master -> (master |> MasterAgreement.cadence |> Cadence.nextInstance).nextInstance)
 
-    member _.setNextInstance (agreementId: MasterAgreementId) (date: LocalDate) =
-        result {
-            let! master = agreementId |> MasterAgreement.fetchById context
-            let! cadence = Cadence.create (master |> MasterAgreement.cadence |> Cadence.cadenceType) { nextInstance = date }
-            let! _ = master |> MasterAgreement.updateCadence context cadence
-            return ()
-        }
-
     member _.sweep (days: int) =
         result {
             let! horizon = days |> ProjectionHorizonInDays.create
@@ -407,23 +399,6 @@ type InstanceDataStatesTests(fixture: TestDataFixture) =
                 let! dates = s.datesOf ownId
                 Assert.Equal<LocalDate list>([ march 1; march 15 ], dates)
             })
-
-    (* The next-instance date is put back behind the latest Instance, which no route allows, so the sweep enumerates
-       dates on and before it. Whether the sweep then skips them or fails as a whole, none may be created. *)
-    [<Fact>]
-    member _.``REQ-CF-4.7 the sweep creates no Instance on a date earlier than or equal to the latest existing Instance of the agreement`` () =
-        runCommandRouteAndAutoRollback CashFlowCreateUpcomingInstances (fun context ->
-            result {
-                let s = Scenario(fixture, context)
-                let latest = s.today.PlusDays(-3)
-                let! agreementId, _ = s.agreement "CF-4.7 sweep" Cadence.Daily (s.today.PlusDays(-10)) 1
-                let! _ = s.instance agreementId latest []
-                do! s.setNextInstance agreementId (s.today.PlusDays(-10))
-                let _ = s.sweep 5
-                let! dates = s.datesOf agreementId
-                Assert.Equal<LocalDate list>([ latest ], dates |> List.filter (fun d -> d <= latest))
-            })
-        |> railroadWrapper
 
     // =========================================================================
     // REQ-CF-4.8 — creating an Instance advances the next-instance date

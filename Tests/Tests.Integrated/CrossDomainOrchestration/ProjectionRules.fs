@@ -3,6 +3,7 @@ module Tests.Integrated.CrossDomainOrchestration.ProjectionRules
 open System
 open App.DataAccessLayer.DbTransaction
 open App.DataAccessLayer.ExecuteReader
+open App.DataAccessLayer.QueryParameter
 open App.Operation.CoreAuditableAction
 open App.Session
 open App.Utility
@@ -42,9 +43,11 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
     member _.today = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
 
     /// A new Asset account of subtype Cash, active from last year to the end date given. Returns its id, code and name.
-    member _.cashAccount (activeEnd: LocalDate option) =
+    member this.cashAccount (activeEnd: LocalDate option) = this.cashAccountCoded ($"X{Guid.NewGuid():N}".Substring(0, 10)) activeEnd
+
+    /// As cashAccount, under the code given.
+    member _.cashAccountCoded (code: string) (activeEnd: LocalDate option) =
         result {
-            let code = $"X{Guid.NewGuid():N}".Substring(0, 10)
             let name = $"Projection rules test cash {code}"
             let! _, accountId =
                 createTestAccountFromPrimitives
@@ -54,8 +57,11 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
 
     /// A Daily agreement with the legs, paying from or into the cash account. Returns its id and its legs' ids.
     member this.agreement (direction: FlowDirection) (cashId: AccountId) (legCount: int) =
+        this.agreementNamed $"Projection rules test {Guid.NewGuid():N}" direction cashId legCount
+
+    /// As agreement, under the name given.
+    member this.agreementNamed (name: string) (direction: FlowDirection) (cashId: AccountId) (legCount: int) =
         result {
-            let name = $"Projection rules test {Guid.NewGuid():N}"
             let! agreementName = name |> AgreementName.create
             let! counterparty = "Projection rules test counterparty" |> Counterparty.create
             let! activityPeriod =
@@ -189,6 +195,90 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
             Assert.NotEmpty(projection.accounts)
         }
         |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-CF-8.11 REQ-CF-8.7 REQ-CF-8.10 REQ-CF-8.4 a ProjectCashFlow payload over data built in reverse of the order it returns lists accounts by code, each account's Invoices by due date and bills to chase by Instance date then Payment Agreement name, each with the figures the scenario derives`` () =
+        (* Committed, as the route reads in its own transaction, and deleted in the finally. Two Cash accounts, XZ... made
+           before XA.... On XA..., three agreements made in this order: Zulu (Outgo, two legs), Alpha (Outgo, two legs),
+           Income (one leg). Each has an Instance dated today. Zulu's first leg is invoiced 100.00 due in 20 days, Alpha's
+           first leg 100.00 due in 5 days, Income's leg 100.00 due in 10 days with a 30.00 Payment that debits XA.... The
+           second legs of Zulu and Alpha are the bills to chase. *)
+        let context = Context.create NoTransaction FetchOnly
+        let s = Scenario(fixture, context)
+        let tag = $"{Guid.NewGuid():N}".Substring(0, 8)
+        let laterCode, earlierCode = $"XZ{tag}", $"XA{tag}"
+        let zulu, alpha, income = $"Projection route Zulu {tag}", $"Projection route Alpha {tag}", $"Projection route Income {tag}"
+        let accountIds = ResizeArray<AccountId>()
+        let agreementIds = ResizeArray<MasterAgreementId>()
+        let cleanUpFailures = ResizeArray<string>()
+        try
+            result {
+                let! laterId, _, _ = s.cashAccountCoded laterCode None
+                accountIds.Add laterId
+                let! cashId, _, cashName = s.cashAccountCoded earlierCode None
+                accountIds.Add cashId
+                let! zuluId, zuluLegs, zuluLegNames = s.agreementNamed zulu Outgo cashId 2
+                agreementIds.Add zuluId
+                let! alphaId, alphaLegs, alphaLegNames = s.agreementNamed alpha Outgo cashId 2
+                agreementIds.Add alphaId
+                let! incomeId, incomeLegs, _ = s.agreementNamed income Income cashId 1
+                agreementIds.Add incomeId
+                let! zuluInstance, zuluInvoices = s.instance Outgo cashId zuluId s.today [ (zuluLegs[0], s.today.PlusDays(20), []) ]
+                let! alphaInstance, alphaInvoices = s.instance Outgo cashId alphaId s.today [ (alphaLegs[0], s.today.PlusDays(5), []) ]
+                let! _, incomeInvoices = s.instance Income cashId incomeId s.today [ (incomeLegs[0], s.today.PlusDays(10), [ 30.00M ]) ]
+                let! returned = routeUiCommandForTesting "CashFlow" "ProjectCashFlow" [] "{\"projectionHorizonInDays\":30}"
+                let! projection = Json.fromJson<Contracts.CashFlowProjectionReturn> returned
+                let codes = projection.accounts |> List.map _.accountCode
+                Assert.Equal<string list>(codes |> List.sort, codes)
+                Assert.Equal<string list>(
+                    [ earlierCode; laterCode ], codes |> List.filter (fun c -> c = earlierCode || c = laterCode))
+                let account = projection.accounts |> List.find (fun a -> a.accountCode = earlierCode)
+                // 30.00 paid in; 70.00 still to come in; 200.00 to go out; 30.00 + 70.00 - 200.00
+                Assert.Equal(
+                    (earlierCode, cashName, 30.00M, 70.00M, 200.00M, -100.00M),
+                    (account.accountCode, account.accountName, account.currentBalance, account.knownInflows,
+                     account.knownOutflows, account.projectedLow))
+                Assert.Equal<(Guid * string * string * LocalDate * decimal * decimal) list>(
+                    [ alphaInvoices[0] |> InvoiceId.value, alpha, "Outgo", s.today.PlusDays(5), 100.00M, 100.00M
+                      incomeInvoices[0] |> InvoiceId.value, income, "Income", s.today.PlusDays(10), 100.00M, 70.00M
+                      zuluInvoices[0] |> InvoiceId.value, zulu, "Outgo", s.today.PlusDays(20), 100.00M, 100.00M ],
+                    account.invoices
+                    |> List.map (fun i -> i.invoiceId, i.agreementName, i.direction, i.dueDate, i.amount, i.outstandingAmount))
+                let mine = set [ zuluInstance |> InstanceId.value; alphaInstance |> InstanceId.value ]
+                Assert.Equal<(Guid * string * string * LocalDate * Contracts.CadenceTypeContract) list>(
+                    [ alphaInstance |> InstanceId.value, alpha, alphaLegNames[1], s.today, Contracts.Daily
+                      zuluInstance |> InstanceId.value, zulu, zuluLegNames[1], s.today, Contracts.Daily ],
+                    projection.billsToChase
+                    |> List.filter (fun b -> mine.Contains b.instanceId)
+                    |> List.map (fun b -> b.instanceId, b.agreementName, b.paymentAgreementName, b.instanceDate, b.cadenceType))
+                let! again = routeUiCommandForTesting "CashFlow" "ProjectCashFlow" [] "{\"projectionHorizonInDays\":30}"
+                Assert.Equal(returned, again)
+            }
+            |> railroadWrapper
+        finally
+            for agreementId in agreementIds do
+                match Cleanup.cleanUpMasterAgreementTree (Some(agreementId |> MasterAgreementId.value)) with
+                | Ok () -> ()
+                | Error e -> cleanUpFailures.Add(e.ToMessage())
+            for accountId in accountIds do
+                let entries =
+                    executeReaderQuery
+                        (context |> Context.getDatabaseTransaction)
+                        "select distinct journal_entry_id from ledger.journal_entry_line where account_id = @account_id"
+                        [ { name = "@account_id"; value = UniqueId(accountId |> AccountId.value) } ]
+                        (fun row -> row |> RowReader.getUuid "journal_entry_id")
+                        Ok
+                        AnyQuantityIsAcceptable
+                match entries with
+                | Ok ids ->
+                    match ids |> List.map (JournalEntryComponent.JournalEntryHeaderId.fromGuid >> Some) |> Cleanup.cleanUpJournalEntryList with
+                    | Ok () -> ()
+                    | Error e -> cleanUpFailures.Add(e.ToMessage())
+                | Error e -> cleanUpFailures.Add(e.ToMessage())
+                match Cleanup.cleanUpAccountId (Some accountId) with
+                | Ok () -> ()
+                | Error e -> cleanUpFailures.Add(e.ToMessage())
+        Assert.Empty(cleanUpFailures)
 
     [<Theory>]
     [<InlineData(0)>]
@@ -383,18 +473,6 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
                 Assert.False(fulfilled)
                 Assert.Equal<(string * string * LocalDate * Cadence.CadenceType) list>(
                     [ agreementName, legNames[1], date, Cadence.Daily ], bills)
-            })
-
-    [<Fact>]
-    member _.``REQ-CF-8.11 two projections with the same horizon over unchanged data give identical results, including the order of accounts, Invoices and bills to chase`` () =
-        rolledBack (fun s ->
-            result {
-                let! cashId, _, _ = s.cashAccount None
-                let! agreementId, legs, _ = s.agreement Outgo cashId 2
-                let! _ = s.instance Outgo cashId agreementId s.today [ (legs[0], s.today.PlusDays(2), [ 30.00M ]) ]
-                let! first = s.project 30
-                let! second = s.project 30
-                Assert.Equal<CashFlowProjection>(first, second)
             })
 
     [<Fact>]
