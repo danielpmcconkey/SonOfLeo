@@ -322,7 +322,7 @@ let private decisionsNaming (lineId: StageEntryLineId) (run: InstanceOrchestrati
 let private invoiceDecisionsFor (invoiceId: InvoiceId) (run: InstanceOrchestration.PaymentAgreementClassificationResult) =
     run.invoiceDecisionLog |> List.filter (fun decision -> decision.invoiceId = invoiceId)
 
-let private orphansIn (run: Result<'T, IAppError>) : Result<(Guid * Guid * CashFlowError.OrphanedLineReason) list, IAppError> =
+let private orphansIn (run: Result<'T, IAppError>) : Result<(Guid * Guid * string) list, IAppError> =
     match run with
     | Error (AsError (CashFlowError.CashflowPaymentAgreementLinksOrphaned orphans)) -> Ok orphans
     | Error e -> TestError.error (TestingError $"Wrong error. {e.ToMessage()}")
@@ -1232,7 +1232,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let orphanLine, orphanLeg, reason = Assert.Single(orphans)
                 Assert.Equal(lineId |> StageEntryLineId.value, orphanLine)
                 Assert.Equal(legId |> PaymentAgreementId.value, orphanLeg)
-                Assert.Equal(CashFlowError.NoOpenInvoiceCoversDate, reason)
+                Assert.Equal(OrphanedLineReason.toString NoOpenInvoiceCoversDate, reason)
             })
         |> railroadWrapper
 
@@ -1255,7 +1255,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let orphanLine, orphanLeg, reason = Assert.Single(orphans)
                 Assert.Equal(lineId |> StageEntryLineId.value, orphanLine)
                 Assert.Equal(legId |> PaymentAgreementId.value, orphanLeg)
-                Assert.Equal(CashFlowError.NoOpenInvoiceCoversDate, reason)
+                Assert.Equal(OrphanedLineReason.toString NoOpenInvoiceCoversDate, reason)
             })
         |> railroadWrapper
 

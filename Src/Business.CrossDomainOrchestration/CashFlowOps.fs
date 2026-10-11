@@ -539,11 +539,11 @@ let private matchInvoicesAndCreatePayments
                         (invoice |> Invoice.paymentAgreementId) = agreementId
                         && windowCovers masterAgreementId invoice lineId)
                 let reason =
-                    if coveredByOverpaid then CashFlowError.CoveringInvoicesOverpaid
-                    else CashFlowError.NoOpenInvoiceCoversDate
+                    if coveredByOverpaid then CashFlowComponent.CoveringInvoicesOverpaid
+                    else CashFlowComponent.NoOpenInvoiceCoversDate
                 (lineId |> StageEntryComponent.StageEntryLineId.value),
                 (agreementId |> CashFlowComponent.PaymentAgreementId.value),
-                reason)
+                (reason |> CashFlowComponent.OrphanedLineReason.toString))
         do!
             if orphans |> List.isEmpty then Ok ()
             else CashFlowError.error(CashFlowError.CashflowPaymentAgreementLinksOrphaned orphans)

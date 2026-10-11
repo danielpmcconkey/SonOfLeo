@@ -4,11 +4,6 @@ open System
 open NodaTime
 open App.Utility.IAppError
 
-/// Why a linked line that is still eligible found no Invoice to take it.
-type OrphanedLineReason =
-    | NoOpenInvoiceCoversDate
-    | CoveringInvoicesOverpaid
-
 type CashFlowError =
     | CashflowAgreementMemoIsEmpty of string
     | CashflowAgreementMemoTooLong of string * int
@@ -73,7 +68,7 @@ type CashFlowError =
     | CashflowPaymentAgreementIdListCannotBeEmpty
     | CashflowPaymentAgreementLinkLineAlreadyLinked of Guid * Guid * string
     | CashflowPaymentAgreementLinkLineHasPayments of Guid * Guid list
-    | CashflowPaymentAgreementLinksOrphaned of (Guid * Guid * OrphanedLineReason) list
+    | CashflowPaymentAgreementLinksOrphaned of (Guid * Guid * string) list
     | CashflowPaymentAgreementLinkUpdateNoOp
     | CashflowPaymentAgreementLinkIdDoesntExist of Guid
     | CashflowInstanceIdDoesntExist of Guid
@@ -175,12 +170,8 @@ type CashFlowError =
                 let payments = paymentIds |> List.map string |> String.concat ", "
                 $"Payment Agreement Link {linkId} cannot be re-pointed or deleted while Payments reference its staged line: {payments}. Delete the Payment instead; that also removes the link."
             | CashflowPaymentAgreementLinksOrphaned orphans ->
-                let describe (stageEntryLineId: Guid, paymentAgreementId: Guid, reason) =
-                    match reason with
-                    | NoOpenInvoiceCoversDate ->
-                        $"Stage entry line {stageEntryLineId} is linked to PaymentAgreement {paymentAgreementId} but no open Invoice on that agreement covers its date. The Instance or Invoice it belongs to is missing, or the cadence that would have created it is wrong."
-                    | CoveringInvoicesOverpaid ->
-                        $"Stage entry line {stageEntryLineId} is linked to PaymentAgreement {paymentAgreementId} but the only Invoices that cover its date are already overpaid, so they take no further payments. An earlier payment may have been misapplied."
+                let describe (stageEntryLineId: Guid, paymentAgreementId: Guid, reason: string) =
+                    $"Stage entry line {stageEntryLineId} is linked to PaymentAgreement {paymentAgreementId} but {reason}"
                 let described = orphans |> List.map describe |> String.concat " "
                 $"{orphans.Length} linked stage entry line(s) have no open Invoice to take them. {described}"
             | CashflowPaymentAgreementLinkUpdateNoOp -> "Updating the PaymentAgreementLink record failed because at least one updatable parameter must be set."

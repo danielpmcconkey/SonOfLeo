@@ -711,8 +711,8 @@ type CancellationTests(fixture: TestDataFixture) =
                 do!
                     match ClassificationOrchestration.classifyPaymentAgreements s.Context with
                     | Error (AsError (CashFlowError.CashflowPaymentAgreementLinksOrphaned orphans)) ->
-                        Assert.Equal<(Guid * Guid * CashFlowError.OrphanedLineReason) list>(
-                            [ (lineId |> StageEntryLineId.value, legIds[0] |> PaymentAgreementId.value, CashFlowError.NoOpenInvoiceCoversDate) ],
+                        Assert.Equal<(Guid * Guid * string) list>(
+                            [ (lineId |> StageEntryLineId.value, legIds[0] |> PaymentAgreementId.value, OrphanedLineReason.toString NoOpenInvoiceCoversDate) ],
                             orphans)
                         Ok ()
                     | Error e -> wrongError e

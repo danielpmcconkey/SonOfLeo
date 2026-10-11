@@ -376,6 +376,19 @@ module PaymentAmount =
     let create (money: Money.Money) : PaymentAmount = PaymentAmount money
     let value (PaymentAmount money) : Money.Money = money
 
+/// Why a linked line that is still eligible found no Invoice to take it.
+type OrphanedLineReason =
+    | NoOpenInvoiceCoversDate
+    | CoveringInvoicesOverpaid
+
+module OrphanedLineReason =
+    let toString reason =
+        match reason with
+        | NoOpenInvoiceCoversDate ->
+            "no open Invoice on that agreement covers its date. The Instance or Invoice it belongs to is missing, or the cadence that would have created it is wrong."
+        | CoveringInvoicesOverpaid ->
+            "the only Invoices that cover its date are already overpaid, so they take no further payments. An earlier payment may have been misapplied."
+
 type InvoiceDecisionOutcome =
     | PaymentCreated of StageEntryLineId
     | ManyCandidateEntries of StageEntryLineId list

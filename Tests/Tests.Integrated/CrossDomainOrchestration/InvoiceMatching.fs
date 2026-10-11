@@ -352,7 +352,7 @@ type InvoiceMatchingTests(fixture: TestDataFixture) =
                 let orphanLine, orphanLeg, reason = Assert.Single(orphans)
                 Assert.Equal(lineUuid lineId, orphanLine)
                 Assert.Equal(legUuid legXId, orphanLeg)
-                Assert.Equal(CashFlowError.NoOpenInvoiceCoversDate, reason)
+                Assert.Equal(OrphanedLineReason.toString NoOpenInvoiceCoversDate, reason)
             })
         |> railroadWrapper
 
@@ -370,7 +370,7 @@ type InvoiceMatchingTests(fixture: TestDataFixture) =
                 let orphanLine, orphanLeg, reason = Assert.Single(orphans)
                 Assert.Equal(lineUuid lineId, orphanLine)
                 Assert.Equal(legUuid legId, orphanLeg)
-                Assert.Equal(CashFlowError.CoveringInvoicesOverpaid, reason)
+                Assert.Equal(OrphanedLineReason.toString CoveringInvoicesOverpaid, reason)
             })
         |> railroadWrapper
 
@@ -389,9 +389,9 @@ type InvoiceMatchingTests(fixture: TestDataFixture) =
                 let orphans = ClassificationOrchestration.classifyPaymentAgreements context |> orphansIn
                 let reasons = orphans |> List.map (fun (line, _, reason) -> line, reason) |> Set.ofList
                 let expected =
-                    set [ lineUuid uncoveredLineId, CashFlowError.NoOpenInvoiceCoversDate
-                          lineUuid overpaidLineId, CashFlowError.CoveringInvoicesOverpaid ]
-                Assert.Equal<Set<Guid * CashFlowError.OrphanedLineReason>>(expected, reasons)
+                    set [ lineUuid uncoveredLineId, OrphanedLineReason.toString NoOpenInvoiceCoversDate
+                          lineUuid overpaidLineId, OrphanedLineReason.toString CoveringInvoicesOverpaid ]
+                Assert.Equal<Set<Guid * string>>(expected, reasons)
                 Assert.Equal(2, orphans |> List.length)
             })
         |> railroadWrapper
@@ -410,7 +410,7 @@ type InvoiceMatchingTests(fixture: TestDataFixture) =
                 let orphanLine, orphanLeg, reason = Assert.Single(orphans)
                 Assert.Equal(lineUuid lineId, orphanLine)
                 Assert.Equal(legUuid legId, orphanLeg)
-                Assert.Equal(CashFlowError.NoOpenInvoiceCoversDate, reason)
+                Assert.Equal(OrphanedLineReason.toString NoOpenInvoiceCoversDate, reason)
                 let! after = instancesAndInvoicesOf context agreementId
                 Assert.Equal(before, after)
             })
@@ -432,7 +432,7 @@ type InvoiceMatchingTests(fixture: TestDataFixture) =
                 let orphanLine, orphanLeg, reason = Assert.Single(orphans)
                 Assert.Equal(lineUuid lineId, orphanLine)
                 Assert.Equal(legUuid legId, orphanLeg)
-                Assert.Equal(CashFlowError.NoOpenInvoiceCoversDate, reason)
+                Assert.Equal(OrphanedLineReason.toString NoOpenInvoiceCoversDate, reason)
                 let! after = instancesAndInvoicesOf context agreementId
                 Assert.Equal(before, after)
             })
@@ -453,7 +453,7 @@ type InvoiceMatchingTests(fixture: TestDataFixture) =
                 let orphanLine, orphanLeg, reason = Assert.Single(orphans)
                 Assert.Equal(lineUuid lineId, orphanLine)
                 Assert.Equal(legUuid legId, orphanLeg)
-                Assert.Equal(CashFlowError.NoOpenInvoiceCoversDate, reason)
+                Assert.Equal(OrphanedLineReason.toString NoOpenInvoiceCoversDate, reason)
                 let! after = instancesAndInvoicesOf context agreementId
                 Assert.Equal(before, after)
             })
