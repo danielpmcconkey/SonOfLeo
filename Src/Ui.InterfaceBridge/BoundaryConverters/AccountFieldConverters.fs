@@ -172,6 +172,9 @@ let ``convert AccountBalance to AccountBalanceReturn``
               netBalance = balance |> Business.CrossDomainOrchestration.AccountBalance.netBalance |> Money.amount }
     }
 
+let ``convert [string] to [AccountName]`` (name: string) : Result<AccountName, IAppError> =
+    name |> AccountName.create
+
 let ``convert [Account Reference String Option] to [AccountExternalReference Option]``
     (stringOption: string option)
     : Result<AccountExternalReference option, IAppError> =

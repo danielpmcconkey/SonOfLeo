@@ -292,27 +292,6 @@ let update
         return! accountId |> fetchById context
     }
 
-let updateAccountNameById (context: Context.Context) (accountId: AccountId) (newName: string) : Result<Account, IAppError> =
-    result {
-        let! validAccountName = AccountName.create newName
-        let! newAccount = update context accountId (SetTo validAccountName) NoChange NoChange
-        return newAccount
-    }
-
-let updateExternalReferenceById
-    (context: Context.Context)
-    (accountId: AccountId)
-    (newReference: string option) // todo make this as FieldUpdate
-    : Result<Account, IAppError> =
-    result {
-        let! validRef =
-            match newReference with
-            | Some x -> AccountExternalReference.create x |> Result.map Some
-            | None -> Ok None
-        let! newAccount = update context accountId NoChange (SetTo validRef) NoChange
-        return newAccount
-    }
-
 /// Route-lifetime lookups between an account's ID and its code or name; see App.DataAccessLayer.LookupCache.
 let codeToId = App.DataAccessLayer.LookupCache.stringToIdCache "ledger.account" "code"
 let idToCode = App.DataAccessLayer.LookupCache.idToStringCache "ledger.account" "code"

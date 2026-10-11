@@ -102,7 +102,6 @@ module EntryDate =
             let! id =
                 entryDate
                 |> FiscalPeriodKey.ofDate
-                |> FiscalPeriodKey.value
                 |> FiscalPeriod.fetchIdByKey context
                 // only a missing period means the date is outside every period; anything else passes through
                 |> Result.mapError(fun e ->

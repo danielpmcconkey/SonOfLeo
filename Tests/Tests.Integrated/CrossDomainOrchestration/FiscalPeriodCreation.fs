@@ -59,7 +59,7 @@ let private keyOf keyString =
 let private keysOf periods = periods |> List.map (FiscalPeriod.periodKey >> FiscalPeriodKey.value)
 
 let private fetchByKey context keyString =
-    keyString |> FiscalPeriod.fetchIdByKey context |> Result.bind (FiscalPeriod.fetchById context)
+    keyString |> FiscalPeriodKey.fromString |> Result.bind (FiscalPeriod.fetchIdByKey context) |> Result.bind (FiscalPeriod.fetchById context)
 
 [<Fact>]
 let ``REQ-FP-2.7 ensuring periods from one month to another creates each missing month, open, and returns exactly the periods it created`` () =

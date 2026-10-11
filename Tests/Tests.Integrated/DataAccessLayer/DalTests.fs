@@ -142,7 +142,7 @@ let private probeKey = "2071-04"
 
 let private probeRecordExists () : Result<bool, IAppError> =
     let context = Context.create NoTransaction FetchOnly
-    match FiscalPeriod.fetchIdByKey context probeKey with
+    match probeKey |> FiscalPeriodComponent.FiscalPeriodKey.fromString |> Result.bind (FiscalPeriod.fetchIdByKey context) with
     | Ok _ -> Ok true
     | Error (AsError (LedgerError.FiscalPeriodNoPeriodMatchingKey _)) -> Ok false
     | Error e -> Error e

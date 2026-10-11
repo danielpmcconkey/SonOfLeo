@@ -15,6 +15,7 @@ open Tests.Helpers.Cleanup
 open Tests.Helpers.GenericTestProperties
 open App.Utility
 open App.Utility.Result
+open App.Utility.FieldUpdate
 open Xunit
 open Business.FinancialServices.Ledger.Account
 open Business.FinancialServices.Ledger.AccountComponent
@@ -319,8 +320,8 @@ type AccountTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback AccountUpdateName (fun context ->
             let goodAccountName = "fahrvergnügen"
             result {
-                let! renamedAccount =
-                    Account.updateAccountNameById context fixture.Data.moneyMarket1270Id goodAccountName
+                let! name = AccountName.create goodAccountName
+                let! renamedAccount = Account.update context fixture.Data.moneyMarket1270Id (SetTo name) NoChange NoChange
                 Assert.Equal(goodAccountName, AccountName.value(Account.accountName renamedAccount))
                 return ()
             })
@@ -331,8 +332,9 @@ type AccountTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback AccountUpdateExtReference (fun context ->
             let goodReference = Some "Fliegende Ratte"
             result {
+                let! reference = AccountExternalReference.create (goodReference |> Option.get)
                 let! updatedAccount =
-                    Account.updateExternalReferenceById context fixture.Data.moneyMarket1270Id goodReference
+                    Account.update context fixture.Data.moneyMarket1270Id NoChange (SetTo(Some reference)) NoChange
                 let newReference =
                     Account.externalReference updatedAccount |> Option.map AccountExternalReference.value
                 Assert.Equal(goodReference, newReference)
@@ -344,7 +346,7 @@ type AccountTests(fixture: TestDataFixture) =
     member _.``REQ-AC-4.9 updateExternalReference can be updated to None``() =
         runCommandRouteAndAutoRollback AccountUpdateExtReference (fun context ->
             result {
-                let! updatedAccount = Account.updateExternalReferenceById context fixture.Data.moneyMarket1270Id None
+                let! updatedAccount = Account.update context fixture.Data.moneyMarket1270Id NoChange (SetTo None) NoChange
                 let newReference =
                     Account.externalReference updatedAccount |> Option.map AccountExternalReference.value
                 Assert.Equal(None, newReference)
@@ -356,8 +358,8 @@ type AccountTests(fixture: TestDataFixture) =
     member _.``REQ-SYS-3.3 account update operations set modifiedAt from AuditEnvelope``() =
         runCommandRouteAndAutoRollback AccountUpdateName (fun context ->
             result {
-                let! updatedAccount =
-                    Account.updateAccountNameById context fixture.Data.moneyMarket1270Id "Blah blah blah"
+                let! name = AccountName.create "Blah blah blah"
+                let! updatedAccount = Account.update context fixture.Data.moneyMarket1270Id (SetTo name) NoChange NoChange
                 Assert.Equal(context |> Context.getInitiationInstant, Account.modifiedAt updatedAccount)
                 return ()
             })
@@ -371,7 +373,8 @@ type AccountTests(fixture: TestDataFixture) =
                 let! original = Account.fetchById context fixture.Data.closedBank1290Id
                 let isActive = original |> Account.activityPeriod |> ActivityPeriod.isActive(Calendar.today())
                 Assert.False(isActive) // just confirming that you indeed start with an inactive account
-                let! updatedAccount = Account.updateAccountNameById context fixture.Data.closedBank1290Id newName
+                let! name = AccountName.create newName
+                let! updatedAccount = Account.update context fixture.Data.closedBank1290Id (SetTo name) NoChange NoChange
                 Assert.Equal(newName, AccountName.value(Account.accountName updatedAccount))
                 return ()
             })

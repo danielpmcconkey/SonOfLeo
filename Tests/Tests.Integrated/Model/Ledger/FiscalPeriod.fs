@@ -42,8 +42,8 @@ type FiscalPeriodTests(fixture: TestDataFixture) =
                 let fixtureIds = fixture.Data.fiscalPeriods |> List.map FiscalPeriod.fiscalPeriodId
                 Assert.DoesNotContain(first |> FiscalPeriod.fiscalPeriodId, fixtureIds)
                 Assert.DoesNotContain(second |> FiscalPeriod.fiscalPeriodId, fixtureIds)
-                let! storedFirst = FiscalPeriod.fetchIdByKey context "2051-01"
-                let! storedSecond = FiscalPeriod.fetchIdByKey context "2051-02"
+                let! storedFirst = FiscalPeriodKey.fromString "2051-01" |> Result.bind (FiscalPeriod.fetchIdByKey context)
+                let! storedSecond = FiscalPeriodKey.fromString "2051-02" |> Result.bind (FiscalPeriod.fetchIdByKey context)
                 Assert.Equal(first |> FiscalPeriod.fiscalPeriodId, storedFirst)
                 Assert.Equal(second |> FiscalPeriod.fiscalPeriodId, storedSecond)
                 ()

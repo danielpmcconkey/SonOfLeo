@@ -598,6 +598,18 @@ commits.
   accessor quirk). Test edits are accessor rewrites with the same expected
   values.
 
+**A5. Ledger functions take domain types** (#039, #040, #077). One commit.
+`Account.updateAccountNameById` and `Account.updateExternalReferenceById`
+are gone; the two `AccountRoutes` update routes convert the payload
+(`convert [string] to [AccountName]`, new beside the reference converter and
+also used by `accountCreate`) and call `Account.update` with `SetTo` and
+`NoChange`. `FiscalPeriod.fetchIdByKey` takes a `FiscalPeriodKey` and
+unwraps it once for the parameter and the not-found error;
+`EntryDate.create` passes the key straight in. Tests changed setup only:
+`Model/Ledger/Account.fs` calls `Account.update`; `DalTests.fs`,
+`Model/Ledger/FiscalPeriod.fs` and `FiscalPeriodCreation.fs` build keys with
+`FiscalPeriodKey.fromString`. No assertion changed.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 

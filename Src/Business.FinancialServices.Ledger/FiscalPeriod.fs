@@ -125,7 +125,8 @@ let fetchById (context: Context.Context) (id: FiscalPeriodId) : Result<FiscalPer
     |> whenNoRows (FiscalPeriodNoPeriodMatchingId uuid)
     |> Result.map List.head
 
-let fetchIdByKey (context: Context.Context) (key: string) : Result<FiscalPeriodId, IAppError> =
+let fetchIdByKey (context: Context.Context) (periodKey: FiscalPeriodKey) : Result<FiscalPeriodId, IAppError> =
+    let key = periodKey |> FiscalPeriodKey.value
     let mapRawForDbRead (row: RowReader) =
         (row |> RowReader.getUuid "unique_id"), ()
     let reconstitute raw =

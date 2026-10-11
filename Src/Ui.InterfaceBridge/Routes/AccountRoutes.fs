@@ -3,6 +3,7 @@ module Ui.InterfaceBridge.Routes.AccountRoutes
 open App.Utility.IAppError
 open App.Utility.Result
 open App.Utility.Json
+open App.Utility.FieldUpdate
 open App.Operation.CoreAuditableAction
 open App.DataAccessLayer.DbTransaction
 open App.Session
@@ -22,7 +23,7 @@ let private accountCreate payload _ =
     result {
         let! accountCreateInput = Json.fromJson<AccountCreateInput> payload
         let! code = accountCreateInput.code |> AccountCode.create
-        let! name = accountCreateInput.name |> AccountName.create
+        let! name = accountCreateInput.name |> ``convert [string] to [AccountName]``
         let! accountType = accountCreateInput.accountTypeSt |> AccountType.fromString
         let! accountActivityPeriod =
             ActivityPeriod.create accountCreateInput.activeBegin
@@ -68,7 +69,8 @@ let private accountUpdateName payload _ =
     result {
         let! accountUpdate = Json.fromJson<AccountUpdateNameInput> payload
         let! id = accountUpdate.code |> ``convert AccountCodeString to Id`` context
-        let! updatedAccount = Account.updateAccountNameById context id accountUpdate.newName
+        let! newName = accountUpdate.newName |> ``convert [string] to [AccountName]``
+        let! updatedAccount = Account.update context id (SetTo newName) NoChange NoChange
         let! returnAccount = ``convert Account to AccountReturn`` context updatedAccount
         return! Json.toJson<AccountReturn> returnAccount
     }
@@ -78,7 +80,10 @@ let private accountUpdateExternalReference payload _ =
     result {
         let! accountUpdate = Json.fromJson<AccountUpdateExternalReferenceInput> payload
         let! id = accountUpdate.code |> ``convert AccountCodeString to Id`` context
-        let! updatedAccount = Account.updateExternalReferenceById context id accountUpdate.newReference
+        let! newReference =
+            accountUpdate.newReference
+            |> ``convert [Account Reference String Option] to [AccountExternalReference Option]``
+        let! updatedAccount = Account.update context id NoChange (SetTo newReference) NoChange
         let! returnAccount = ``convert Account to AccountReturn`` context updatedAccount
         return! Json.toJson<AccountReturn> returnAccount
     }
