@@ -260,7 +260,7 @@ let ``convert [ClassificationRuleFilterInput] to [ClassificationRuleFilter]``
         |> convertOptionToDesiredTypeWithFallibleConverter ClassificationClaimantType.fromString
     let! sourceLike =
         filterInput.sourceLike
-        |> convertOptionToDesiredTypeWithFallibleConverter JournalRefFinancialInstitution.create
+        |> convertOptionToDesiredTypeWithFallibleConverter SourcePatternFilter.create
     return {
         ruleId = ruleId
         nameLike = nameLike

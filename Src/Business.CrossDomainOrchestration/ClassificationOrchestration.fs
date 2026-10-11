@@ -163,7 +163,7 @@ let fetchRulesFiltered
 
               filter.sourceLike
               |> Option.map(fun x ->
-                  (sourcePredicate, { name = "@source_like"; value = CharString(containsPattern (x |> JournalRefFinancialInstitution.value)) }))
+                  (sourcePredicate, { name = "@source_like"; value = CharString(containsPattern (x |> SourcePatternFilter.value)) }))
             ]
             |> List.choose id
         let whereClauses = whereClausesAndParams |> List.map fst |> String.concat $" and {Environment.NewLine}"        

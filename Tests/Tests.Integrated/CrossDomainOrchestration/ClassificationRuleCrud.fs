@@ -409,7 +409,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     fixtureRules ()
                     |> List.filter (fun r -> (r |> nameOf).Contains sourceFragment)
                     |> namesOf
-                let! source = sourceFragment |> JournalEntryComponent.JournalRefFinancialInstitution.create
+                let! source = sourceFragment |> SourcePatternFilter.create
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered
                         context
@@ -436,7 +436,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         [ ClassificationRuleGroup.create Or
                               (chainOf [ Description(patternOf "CR-5.3 never matches") ])
                               (Some(chainOf [ Source(patternOf $"Bank {tag} West") ])) ]
-                let! source = tag |> JournalEntryComponent.JournalRefFinancialInstitution.create
+                let! source = tag |> SourcePatternFilter.create
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered context { noFilter with sourceLike = Some source } None
                 Assert.Equal<string list>(
@@ -843,7 +843,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     }
                 let! _ = create "sys14 source containing" case.containing
                 let! _ = create "sys14 source decoy" case.decoy
-                let! search = case.search |> JournalEntryComponent.JournalRefFinancialInstitution.create
+                let! search = case.search |> SourcePatternFilter.create
                 let! found =
                     ClassificationOrchestration.fetchRulesFiltered context { noFilter with sourceLike = Some search } None
                 let names = found |> namesOf

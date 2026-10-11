@@ -96,6 +96,22 @@ module StringSearchPattern =
             with :? ArgumentException as ex ->
                 Error(ClassificationSearchPatternInvalidRegex(raw, ex.Message))
 
+/// SourcePatternFilter is the text a rule search looks for, literally, within the rule's Source patterns. It is a
+/// fragment of a pattern, so it is bounded by a pattern's length; unlike a pattern it is trimmed and need not compile.
+type SourcePatternFilter = private SourcePatternFilter of string
+
+module SourcePatternFilter =
+    let maxLength = StringSearchPattern.maxLength
+    let value (SourcePatternFilter filter) = filter
+    let create (raw: string) : Result<SourcePatternFilter, IAppError> =
+        let trimmed = raw.Trim()
+        if trimmed = String.Empty then
+            Error(ClassificationSourcePatternFilterIsEmpty raw)
+        elif trimmed.Length > maxLength then
+            Error(ClassificationSourcePatternFilterTooLong(raw, maxLength))
+        else
+            Ok(SourcePatternFilter trimmed)
+
     
 type ClassificationGroupConnector =
     | And

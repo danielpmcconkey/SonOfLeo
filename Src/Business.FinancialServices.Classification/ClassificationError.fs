@@ -3,8 +3,7 @@ module Business.FinancialServices.Classification.ClassificationError
 open System
 open App.Utility.IAppError
 
-/// StageLineProtection is why a staged line cannot be removed or have its amount, line type or account changed
-/// (REQ-STG-6.5).
+/// StageLineProtection is why a staged line cannot be removed or have its amount, line type or account changed.
 type StageLineProtection =
     | LinkedToPaymentAgreement
     | ReferencedByPayment
@@ -31,6 +30,8 @@ type ClassificationError =
     | ClassificationSearchPatternIsEmpty of string
     | ClassificationSearchPatternTooLong of string * int
     | ClassificationSearchPatternInvalidRegex of string * string
+    | ClassificationSourcePatternFilterIsEmpty of string
+    | ClassificationSourcePatternFilterTooLong of string * int
     | ClassificationRuleStoredPatternInvalid of Guid * string * string
     | ClassificationRuleStoredGroupsInvalid of Guid * string
     | ClassificationRulePatternTimedOut of Guid * string
@@ -66,6 +67,8 @@ type ClassificationError =
             | ClassificationSearchPatternIsEmpty str -> $"SearchPattern cannot be empty. Provided value is {str}."
             | ClassificationSearchPatternTooLong (str, max) -> $"SearchPattern cannot exceed {max} characters. Provided value is {str}."
             | ClassificationSearchPatternInvalidRegex (pattern, reason) -> $"Search pattern {pattern} is not a valid regular expression: {reason}"
+            | ClassificationSourcePatternFilterIsEmpty str -> $"A source pattern filter cannot be empty. Provided value is {str}."
+            | ClassificationSourcePatternFilterTooLong (str, max) -> $"A source pattern filter cannot exceed {max} characters. Provided value is {str}."
             | ClassificationRuleStoredPatternInvalid (ruleUuid, pattern, reason) -> $"Classification rule {ruleUuid} is stored with search pattern {pattern}, which is not a valid regular expression: {reason} Correct the rule before running classification."
             | ClassificationRuleStoredGroupsInvalid (ruleUuid, reason) -> $"Classification rule {ruleUuid} is stored with rule groups that cannot be read: {reason} Correct the rule before running classification."
             | ClassificationRulePatternTimedOut (ruleUuid, pattern) -> $"Classification rule {ruleUuid}'s search pattern {pattern} took too long to evaluate and was stopped. Simplify the pattern; the classification run did not complete."
