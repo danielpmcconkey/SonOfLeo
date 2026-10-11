@@ -289,6 +289,7 @@ let ``convert [Agreement] to [AgreementReturn]``
             agreement
             |> AgreementOrchestration.invoices
             |> List.map (fun invoice ->
+                // every Invoice's Payment Agreement belongs to this agreement: an Instance is refused otherwise
                 let paymentAgreementName = paymentAgreementNames[invoice |> Invoice.paymentAgreementId |> PaymentAgreementId.value]
                 invoice |> invoiceReturnUnderPaymentAgreementName paymentAgreementName)
         let payments =
