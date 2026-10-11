@@ -211,7 +211,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
         )
         let expected = candidates |> List.find(fun r -> (r |> ruleNameOf).EndsWith "5650")
         result {
-            Assert.Equal(2, candidates |> List.length)
+            Assert.True(candidates.Length >= 2, "rules must share the opening words for the exact match to show")
             let! payload =
                 { FetchClassificationRuleByNameInput.classificationRuleName = expected |> ruleNameOf }
                 |> toJson<FetchClassificationRuleByNameInput>
@@ -305,7 +305,7 @@ type ClassificationRuleRouteTests(fixture: TestDataFixture) =
             |> Account.accountName
             |> AccountName.value
         result {
-            Assert.Equal(2, acmeInsuranceRules |> List.length)
+            Assert.True(acmeInsuranceRules.Length >= 2, "there must be more than one rule to tell apart")
             (* If the fixture ever pointed both rules at one account the assertions below would
                still pass while proving nothing. *)
             Assert.Equal(2, acmeInsuranceRules |> List.map expectedNameFor |> List.distinct |> List.length)

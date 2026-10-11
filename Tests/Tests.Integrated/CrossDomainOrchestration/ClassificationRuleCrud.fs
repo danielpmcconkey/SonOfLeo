@@ -463,8 +463,14 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                         context
                         { noFilter with accountAtMatch = Some(fixture.Data.personalExpenses5300Id); activeOnly = true }
                         None
+                let expected =
+                    fixtureRules ()
+                    |> List.filter (fun r ->
+                        r |> ClassificationRule.classificationClaimant = (ClassificationClaimant.Account fixture.Data.personalExpenses5300Id)
+                        && r |> ClassificationRule.isActive)
+                    |> namesOf
                 Assert.DoesNotContain(inactiveName, activeOnly |> namesOf)
-                Assert.Equal((withInactive |> List.length) - 1, activeOnly |> List.length)
+                Assert.Equal<string list>(expected, activeOnly |> namesOf)
             })
         |> railroadWrapper
 
@@ -983,7 +989,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     |> List.map (fun r -> codeStrOf context r |> Result.map (fun code -> code, nameOf r))
                     |> convertListOfResultsToResultsList
                 let sharedCode = keyed |> List.filter (fun (code, _) -> code = "F-5350")
-                Assert.Equal(6, sharedCode.Length)
+                Assert.True(sharedCode.Length >= 2, "rules must share the account code for the order within it to show")
                 let expectedAscending = keyed |> List.sortBy id |> List.map snd
                 let expectedDescending =
                     keyed |> List.groupBy fst |> List.sortByDescending fst
@@ -1008,7 +1014,9 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                     |> convertListOfResultsToResultsList
                 let all = fixtureRules () @ created
                 let keyed = all |> List.map (fun r -> r |> ClassificationRule.priority, nameOf r)
-                Assert.Equal(5, keyed |> List.filter (fun (priority, _) -> priority = 500) |> List.length)
+                Assert.True(
+                    (keyed |> List.filter (fun (priority, _) -> priority = 500) |> List.length) >= 2,
+                    "rules must share the priority for the order within it to show")
                 let expectedAscending = keyed |> List.sortBy id |> List.map snd
                 let expectedDescending = keyed |> List.sortBy (fun (priority, name) -> -priority, name) |> List.map snd
                 let! ascending = ClassificationOrchestration.fetchRulesFiltered context noFilter (Some PriorityAsc)
