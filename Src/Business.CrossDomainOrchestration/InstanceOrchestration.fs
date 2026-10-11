@@ -471,8 +471,8 @@ let private derivePostedState
         CashFlowComponent.PostedToLedger
     else CashFlowComponent.PartiallyPosted
 
-/// deriveIsFulfilled: every Payment Agreement of the Master Agreement invoiced, at least one Invoice FullyPaid, and
-/// every Invoice FullyPaid or cancelled.
+/// deriveIsFulfilled: every leg of the Instance invoiced, at least one Invoice FullyPaid, and every Invoice FullyPaid or
+/// cancelled.
 let private deriveIsFulfilled
     (paymentAgreementIds: CashFlowComponent.PaymentAgreementId list)
     (invoiceComposites: InvoiceComposite list)
@@ -486,13 +486,17 @@ let private deriveIsFulfilled
     && invoiceComposites
        |> List.forall (fun invoiceComposite -> isFullyPaid invoiceComposite || invoiceComposite.invoice |> Invoice.isCancelled)
 
-let private fetchPaymentAgreementIdsOfMasterAgreement
+// a leg added to the Master Agreement after the Instance was created never counts for it, so adding one can't reopen it
+let private fetchLegsOfInstance
     (context: Context.Context)
+    (instanceCreatedAt: Instant)
     (masterAgreementId: CashFlowComponent.MasterAgreementId)
     : Result<CashFlowComponent.PaymentAgreementId list, IAppError> =
     [ masterAgreementId ]
     |> PaymentAgreement.fetchByMasterAgreementIdList context
-    |> Result.map (List.map PaymentAgreement.paymentAgreementId)
+    |> Result.map (
+        List.filter (fun paymentAgreement -> paymentAgreement |> PaymentAgreement.createdAt <= instanceCreatedAt)
+        >> List.map PaymentAgreement.paymentAgreementId)
 
 let private withDerivedStates
     (paymentState: CashFlowComponent.PaymentState)
@@ -653,7 +657,9 @@ let updateInstanceComposite
         let invoiceComposites =
             preConstructedInvoiceComposites @ untouchedInvoiceComposites @ newInvoiceComposites
         let! paymentAgreementIds =
-            current.instance |> Instance.masterAgreementID |> fetchPaymentAgreementIdsOfMasterAgreement context
+            current.instance
+            |> Instance.masterAgreementID
+            |> fetchLegsOfInstance context (current.instance |> Instance.createdAt)
         let isFulfilled = invoiceComposites |> deriveIsFulfilled paymentAgreementIds
         let instanceUpdates =
             { compositeUpdate.instanceUpdates with isFulfilledUpdate = FieldUpdate.SetTo isFulfilled }
@@ -756,7 +762,7 @@ let constructNewAndPersist
             newInvoices
             |> List.map (preConstructNewInvoiceComposite context instanceId)
             |> convertListOfResultsToResultsList
-        let! paymentAgreementIds = masterAgreementID |> fetchPaymentAgreementIdsOfMasterAgreement context
+        let! paymentAgreementIds = masterAgreementID |> fetchLegsOfInstance context now
         let isFulfilled = invoiceComposites |> deriveIsFulfilled paymentAgreementIds
         let newInstance =
             Instance.create instanceId masterAgreementID masterAgreementName instanceDate isFulfilled now now
@@ -848,7 +854,9 @@ let cancelInvoice
         do! invoiceId |> Invoice.cancel context note
         let! cancelled = instanceId |> fetchCompositeByInstanceId context
         let! paymentAgreementIds =
-            cancelled.instance |> Instance.masterAgreementID |> fetchPaymentAgreementIdsOfMasterAgreement context
+            cancelled.instance
+            |> Instance.masterAgreementID
+            |> fetchLegsOfInstance context (cancelled.instance |> Instance.createdAt)
         let isFulfilled = cancelled.invoiceComposites |> deriveIsFulfilled paymentAgreementIds
         let fulfilledUpdate: Instance.InstanceFieldUpdates =
             { instanceIdToUpdate = instanceId

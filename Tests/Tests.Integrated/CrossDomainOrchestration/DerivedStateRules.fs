@@ -92,6 +92,30 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             return agreementId, legIds, legNames
         }
 
+    /// Adds a 100.00 leg of the name to the agreement through an agreement update; returns the new leg's id.
+    member _.addLeg (agreementId: MasterAgreementId) (legName: string) =
+        result {
+            let! paName = legName |> PaymentAgreementName.create
+            let! expected = Money.fromDecimal 100.00M
+            let! due = 0 |> DaysDueAfterInvoiceDate.create
+            let newLeg = (paName, (DebitAccount.create loanId), (CreditAccount.create cash), Some expected, Some due, None)
+            let noMasterAgreementChange : MasterAgreement.MasterAgreementFieldUpdates =
+                { agreementIdToUpdate = agreementId
+                  agreementNameUpdate = NoChange
+                  directionUpdate = NoChange
+                  cadenceUpdate = NoChange
+                  counterpartyUpdate = NoChange
+                  activeBeginUpdate = NoChange
+                  activeEndUpdate = NoChange
+                  memoUpdate = NoChange }
+            let! agreement = noMasterAgreementChange |> AgreementOrchestration.updateAgreement context [] [ newLeg ]
+            return
+                agreement
+                |> AgreementOrchestration.paymentAgreements
+                |> List.find (fun pa -> pa |> PaymentAgreement.paymentAgreementName |> PaymentAgreementName.value = legName)
+                |> PaymentAgreement.paymentAgreementId
+        }
+
     /// A journal entry for the amount; returns its line on the account.
     member this.ledgerLineOn (accountId: AccountId) (amount: decimal) =
         result {
@@ -619,4 +643,101 @@ type DerivedStateRulesTests(fixture: TestDataFixture) =
                 let! _ = update |> InstanceOrchestration.updateInstanceComposite s.Context
                 let! fulfilled = s.isFulfilled instanceId
                 Assert.Equal(expectedFulfilled, fulfilled)
+            })
+
+    // =========================================================================
+    // REQ-CF-4.9, REQ-CF-14.9 — a leg added later applies forward only. Each step below that stands for a separate
+    // operation runs under a later initiation instant, as a separate operation would.
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CF-14.9 REQ-CF-4.9 adding a Payment Agreement to a Master Agreement leaves an Instance of it that was fulfilled before the add stored fulfilled, with no Invoice on the added Payment Agreement`` () =
+        rolledBack (fun s ->
+            result {
+                let! agreementId, legIds, _ = s.agreement "CF-14.9 fulfilled before the add"
+                let! instanceId, _ =
+                    s.instance agreementId [ (legIds[0], None, [ PostedPay 100.00M ]); (legIds[1], None, [ PostedPay 100.00M ]) ]
+                let! fulfilledBefore = s.isFulfilled instanceId
+                Assert.True(fulfilledBefore)
+                let later = Scenario(fixture, s.Context |> TestContext.updateInitiationInstant)
+                let! addedLegId = later.addLeg agreementId "CF-14.9 fulfilled before the add leg C"
+                let! fulfilled = later.isFulfilled instanceId
+                let! composite = later.compositeOf instanceId
+                let invoicedLegs =
+                    composite
+                    |> InstanceOrchestration.invoiceComposites
+                    |> List.map (InstanceOrchestration.invoice >> Invoice.paymentAgreementId)
+                    |> List.sortBy PaymentAgreementId.value
+                Assert.True(fulfilled)
+                Assert.Equal<PaymentAgreementId list>(legIds |> List.sortBy PaymentAgreementId.value, invoicedLegs)
+                Assert.DoesNotContain(addedLegId, invoicedLegs)
+            })
+
+    [<Fact>]
+    member _.``REQ-CF-14.9 REQ-CF-4.9 adding a Payment Agreement to a Master Agreement leaves an Instance of it that was not fulfilled before the add stored not fulfilled`` () =
+        rolledBack (fun s ->
+            result {
+                let! agreementId, legIds, _ = s.agreement "CF-14.9 open before the add"
+                let! instanceId, _ =
+                    s.instance agreementId [ (legIds[0], None, [ PostedPay 100.00M ]); (legIds[1], None, []) ]
+                let! fulfilledBefore = s.isFulfilled instanceId
+                Assert.False(fulfilledBefore)
+                let later = Scenario(fixture, s.Context |> TestContext.updateInitiationInstant)
+                let! _ = later.addLeg agreementId "CF-14.9 open before the add leg C"
+                let! fulfilled = later.isFulfilled instanceId
+                Assert.False(fulfilled)
+            })
+
+    [<Fact>]
+    member _.``REQ-CF-4.9 REQ-CF-9.10 an Instance fulfilled before a Payment Agreement was added to its Master Agreement stays fulfilled when the Payment on one of its two FullyPaid Invoices is then removed and replaced by another paying it in full, though the added Payment Agreement has no Invoice on it`` () =
+        rolledBack (fun s ->
+            result {
+                let! agreementId, legIds, _ = s.agreement "CF-4.9 re-derived after the add"
+                let! instanceId, invoices =
+                    s.instance agreementId [ (legIds[0], None, [ PostedPay 100.00M ]); (legIds[1], None, [ PostedPay 100.00M ]) ]
+                let secondInvoiceId, secondPaymentIds = invoices[1]
+                let adding = Scenario(fixture, s.Context |> TestContext.updateInitiationInstant)
+                let! _ = adding.addLeg agreementId "CF-4.9 re-derived after the add leg C"
+                let replacing = Scenario(fixture, adding.Context |> TestContext.updateInitiationInstant)
+                let! replacement = replacing.newPayment (PostedPay 100.00M)
+                let update =
+                    invoiceUpdate instanceId secondInvoiceId
+                    |> withInvoiceChange (fun change ->
+                        { change with paymentIdsToDelete = secondPaymentIds; newPayments = [ replacement ] })
+                let! _ = update |> InstanceOrchestration.updateInstanceComposite replacing.Context
+                let! paymentIdsAfter = replacing.paymentIdsOf secondInvoiceId
+                let! statesAfter = replacing.statesOf secondInvoiceId
+                let! fulfilled = replacing.isFulfilled instanceId
+                Assert.Equal(1, paymentIdsAfter.Length)
+                Assert.DoesNotContain(secondPaymentIds |> List.exactlyOne, paymentIdsAfter)
+                Assert.Equal(FullyPaid, fst statesAfter)
+                Assert.True(fulfilled)
+            })
+
+    [<Fact>]
+    member _.``REQ-CF-4.9 REQ-CF-9.10 an Instance created after a Payment Agreement was added to its Master Agreement stays unfulfilled while every other leg's Invoice is FullyPaid and the added leg has none, and is fulfilled once the added leg has a FullyPaid Invoice`` () =
+        rolledBack (fun s ->
+            result {
+                let! agreementId, legIds, _ = s.agreement "CF-4.9 created after the add"
+                let adding = Scenario(fixture, s.Context |> TestContext.updateInitiationInstant)
+                let! addedLegId = adding.addLeg agreementId "CF-4.9 created after the add leg C"
+                let creating = Scenario(fixture, adding.Context |> TestContext.updateInitiationInstant)
+                let! instanceId, _ =
+                    creating.instance agreementId [ (legIds[0], None, [ PostedPay 100.00M ]); (legIds[1], None, [ PostedPay 100.00M ]) ]
+                let! fulfilledWithoutAddedLeg = creating.isFulfilled instanceId
+                Assert.False(fulfilledWithoutAddedLeg)
+                let invoicing = Scenario(fixture, creating.Context |> TestContext.updateInitiationInstant)
+                let! amount = Money.fromDecimal 100.00M
+                let! payments = [ PostedPay 100.00M ] |> List.map invoicing.newPayment |> convertListOfResultsToResultsList
+                let date = invoicing.firstOfThisMonth
+                let added =
+                    (addedLegId, None, InvoiceDate.create date, DueDate.create (date.PlusDays(30)),
+                     InvoiceAmount.create amount, InvoiceReceived, None, None, payments)
+                let update: InstanceOrchestration.InstanceCompositeUpdate =
+                    { instanceUpdates = { instanceIdToUpdate = instanceId; isFulfilledUpdate = NoChange }
+                      invoiceCompositeUpdates = []
+                      newInvoices = [ added ] }
+                let! _ = update |> InstanceOrchestration.updateInstanceComposite invoicing.Context
+                let! fulfilled = invoicing.isFulfilled instanceId
+                Assert.True(fulfilled)
             })
