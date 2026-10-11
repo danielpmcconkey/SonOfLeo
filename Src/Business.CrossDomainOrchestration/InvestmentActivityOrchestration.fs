@@ -36,6 +36,9 @@ type RecordedRange = {
     recorded: int
 }
 
+/// A stretch of dates, both included, that no activity coverage of the account covers.
+type ActivityCoverageGap = { firstUncoveredDate: LocalDate; lastUncoveredDate: LocalDate }
+
 let private accountNameOf account = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
 
 let private securityNamesById (context: Context.Context) : Result<Map<SecurityId, string>, IAppError> =
@@ -217,3 +220,34 @@ let listActivity
                     |> Option.bind (fun id -> securityNameOfHolding |> Map.tryFind id |> Option.flatten) })
     }
 
+/// The stretches between the two dates, both included, that the account's activity coverage doesn't cover, in date
+/// order.
+let listActivityCoverageGaps
+    (context: Context.Context)
+    (investmentAccountId: InvestmentAccountId)
+    (beginDate: LocalDate)
+    (endDate: LocalDate)
+    : Result<ActivityCoverageGap list, IAppError> =
+    result {
+        do!
+            if endDate < beginDate then error (PositionsActivityCoverageGapsEndBeforeBegin(beginDate, endDate))
+            else Ok()
+        let! covered = InvestmentActivityCoverage.fetchByInvestmentAccountBetween context investmentAccountId beginDate endDate
+        let gapsBeforeLastRow, firstDateAfterLastRow =
+            covered
+            |> List.fold
+                (fun (gaps: ActivityCoverageGap list, nextUncovered: LocalDate) row ->
+                    let rowBegin = row |> InvestmentActivityCoverage.beginDate
+                    let rowEnd = row |> InvestmentActivityCoverage.endDate
+                    let gaps =
+                        if rowBegin > nextUncovered then
+                            { firstUncoveredDate = nextUncovered; lastUncoveredDate = rowBegin.PlusDays(-1) } :: gaps
+                        else gaps
+                    gaps, max nextUncovered (rowEnd.PlusDays(1)))
+                ([], beginDate)
+        let trailingGap =
+            if firstDateAfterLastRow <= endDate then
+                [ { firstUncoveredDate = firstDateAfterLastRow; lastUncoveredDate = endDate } ]
+            else []
+        return List.rev gapsBeforeLastRow @ trailingGap
+    }

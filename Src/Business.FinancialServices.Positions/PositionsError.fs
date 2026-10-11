@@ -21,6 +21,7 @@ type PositionsError =
     | PositionsAccountSnapshotUpdateNoOp
     | PositionsActivePeriodExcludesRecords of string * (LocalDate * LocalDate) option * (LocalDate * LocalDate) option
     | PositionsActivityAmountNegative of string * LocalDate * string * decimal
+    | PositionsActivityCoverageGapsEndBeforeBegin of LocalDate * LocalDate
     | PositionsActivityDateOutsideActivePeriod of string * LocalDate
     | PositionsActivityDescriptionIsEmpty of string
     | PositionsActivityDescriptionTooLong of string * int
@@ -160,6 +161,7 @@ type PositionsError =
                 let offending = [ described "snapshots" snapshots; described "activities" activities ] |> List.choose id
                 $"""Investment Account "{account}" would no longer be active on the dates of some of its records: {offending |> String.concat " and "}."""
             | PositionsActivityAmountNegative(account, date, kind, raw) -> $"The {kind} activity of Investment Account \"{account}\" dated {date} has a negative amount ({raw}); the kind says which way the money moved."
+            | PositionsActivityCoverageGapsEndBeforeBegin(beginDate, endDate) -> $"The end date ({endDate}) cannot be earlier than the begin date ({beginDate})."
             | PositionsActivityDateOutsideActivePeriod(account, date) -> $"Investment Account \"{account}\" is not active on {date}, so it cannot have an activity that day."
             | PositionsActivityDescriptionIsEmpty raw -> $"Activity description cannot be empty. Provided description is \"{raw}\"."
             | PositionsActivityDescriptionTooLong(raw, max) -> $"Activity description cannot exceed {max} characters. Provided description is \"{raw}\"."

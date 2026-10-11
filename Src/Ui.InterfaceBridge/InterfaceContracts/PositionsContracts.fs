@@ -243,6 +243,11 @@ type InvestmentActivityReturn = {
     modifiedAt: Instant
 }
 
+type InvestmentActivityCoverageGapsInput = { accountName: string; beginDate: LocalDate; endDate: LocalDate }
+
+// a stretch, both ends included, whose activity has not been supplied
+type ActivityCoverageGapReturn = { beginDate: LocalDate; endDate: LocalDate }
+
 // ---- Unit roll-forward ----
 
 type InvestmentAccountRollForwardInput = { accountName: string; firstDate: LocalDate; secondDate: LocalDate }
