@@ -575,6 +575,29 @@ The `EntryDateAsc`/`EntryDateDesc` clash is qualified in
 630). The new `JournalEntryComponent` fields broke no inference. Tests:
 `StageEntryFetching.fs` qualification; `CashFlowRoutes.fs` setup annotations.
 
+**A4. Private representations** (#065, #068, #069, #070, #067). Five
+commits.
+- #065 `InvoiceCompositeUpdate` and `InstanceCompositeUpdate` are private
+  with accessors and `create` (inline tuple field types, no new type
+  abbreviations). `CashFlowOps` and `CashFlowFieldConverters` call
+  `create`. Tests copy-and-update through a new `Tests.Helpers/CompositeUpdates.fs`
+  (`withInvoiceUpdates`, `withNewPayments`, `mapInvoiceCompositeUpdates`, …);
+  no `with…` functions were added to Src.
+- #068 `InvoiceDecision` and `PaymentPostingTransition` are private with
+  accessors and `create`; callers in `CashFlowOps`, both field-converter
+  modules and three test files use them.
+- #069 `BaseStageEntryGroupId` and `BaseStageRawRow` now end
+  `StageEntryComponent.fs`; `BaseStageRawRow` is private with accessors and
+  `create`, which `IngestionFieldConverters` calls. `BaseStageEntry.fs` is
+  deleted and out of the `.fsproj`. The model's component is handled in E.
+- #070 `StoredFieldMatch` and `StoredRuleGroup` are `type private`. The
+  `ClassificationRuleCrud.fs` round trip of a rule with rule groups passes.
+- #067 The seven classification component records are private with
+  same-named accessors and `create`. `CashFlowOps.fs` and the
+  `StageEntryUpdate.fs` test open `ClassificationComponent` (see 5.6 on the
+  accessor quirk). Test edits are accessor rewrites with the same expected
+  values.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 
