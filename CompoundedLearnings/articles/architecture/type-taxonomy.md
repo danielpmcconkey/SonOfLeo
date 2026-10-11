@@ -18,6 +18,8 @@ Private records with a same-named companion module providing accessors, `create`
 
 Multi-part entities composed and validated at the orchestrator. `JournalEntry` (header + lines + references + comments) — the orchestrator enforces collection-level rules (≥2 lines, debits = credits). The composite and its components live in the same namespace slice.
 
+A record built from more than one of the model's business domains (Account, Fiscal Period, Journal Entry, Data Ingestion, Cash Flow, Positions, Classification) also lives in orchestration, e.g. `AccountBalance` (Account and Journal Entry) or `NetWorth`. A read or report row drawn from a single domain does not: it is that domain's component type. See the model's "Composite types are defined in the cross domain orchestration tier". (2026-10-11)
+
 ## Component types
 
 Parts of a composite. `JournalEntryHeader`, `JournalEntryLine`, `JournalEntryExternalReference`, `JournalEntryComment`. Each has its own module with smart constructors. They participate in composite validation when a full composite is created, but may also be created, fetched, or modified independently (e.g., adding a comment to an existing JE).
