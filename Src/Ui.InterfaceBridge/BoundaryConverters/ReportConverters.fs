@@ -50,37 +50,61 @@ let ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
     |> convertListOfResultsToResultsList
 
 let ``convert [PrePostingEntry list] to [PrePostingEntryReturnRow list]``
+    (context: Context.Context)
     (entries: PrePostingEntry list)
-    : PrePostingEntryReturnRow list =
+    : Result<PrePostingEntryReturnRow list, IAppError> =
     let convertPayment (p: PrePostingPayment) : PrePostingPaymentReturnRow =
         { paymentId = p.paymentId |> PaymentId.value
           invoiceId = p.invoiceId |> InvoiceId.value
-          paymentAmount = p.paymentAmount |> Money.amount
-          invoiceDate = p.invoiceDate
-          dueDate = p.dueDate
-          invoiceAmount = p.invoiceAmount |> Money.amount
+          paymentAmount = p.paymentAmount |> PaymentAmount.value |> Money.amount
+          invoiceDate = p.invoiceDate |> InvoiceDate.value
+          dueDate = p.dueDate |> DueDate.value
+          invoiceAmount = p.invoiceAmount |> InvoiceAmount.value |> Money.amount
           paymentState = p.paymentState |> PaymentState.toString
           instanceDate = p.instanceDate }
-    let convertLine (l: PrePostingLine) : PrePostingLineReturnRow =
-        { stageEntryLineId = l.stageEntryLineId |> StageEntryLineId.value
-          lineType = l.lineType |> JournalEntryLineType.toString
-          amount = l.amount |> Money.amount
-          memo = l.memo |> Option.map JournalEntryLineMemo.value
-          accountCode = l.accountCode |> AccountCode.value
-          accountName = l.accountName |> AccountName.value
-          ruleName = l.ruleName |> Option.map ClassificationRuleName.value
-          paymentAgreementName = l.agreement |> Option.map (fun a -> a.paymentAgreementName |> PaymentAgreementName.value)
-          masterAgreementName = l.agreement |> Option.map (fun a -> a.masterAgreementName |> AgreementName.value)
-          payments = l.payments |> List.map convertPayment }
+    let convertLine (l: PrePostingLine) : Result<PrePostingLineReturnRow, IAppError> =
+        result {
+            let! accountCode = l.accountId |> ``convert AccountId to AccountCodeString`` context
+            let! accountName = l.accountId |> ``convert AccountId to AccountNameString`` context
+            let! ruleName =
+                l.classificationRuleId
+                |> convertOptionToDesiredTypeWithFallibleConverter (
+                    Business.FinancialServices.Classification.ClassificationRule.idToName context)
+            let! paymentAgreementName =
+                l.agreement
+                |> convertOptionToDesiredTypeWithFallibleConverter (fun a ->
+                    a.paymentAgreementId |> Business.FinancialServices.CashFlow.PaymentAgreement.idToName context)
+            let! masterAgreementName =
+                l.agreement
+                |> convertOptionToDesiredTypeWithFallibleConverter (fun a ->
+                    a.masterAgreementId |> Business.FinancialServices.CashFlow.MasterAgreement.idToName context)
+            return
+                { stageEntryLineId = l.stageEntryLineId |> StageEntryLineId.value
+                  lineType = l.lineType |> JournalEntryLineType.toString
+                  amount = l.amount |> Money.amount
+                  memo = l.memo |> Option.map JournalEntryLineMemo.value
+                  accountCode = accountCode
+                  accountName = accountName
+                  ruleName = ruleName |> Option.map ClassificationRuleName.value
+                  paymentAgreementName = paymentAgreementName |> Option.map PaymentAgreementName.value
+                  masterAgreementName = masterAgreementName |> Option.map AgreementName.value
+                  payments = l.payments |> List.map convertPayment }
+        }
     entries
     |> List.map (fun e ->
-        { stageEntryHeaderId = e.stageEntryHeaderId |> StageEntryHeaderId.value
-          entryDate = e.entryDate
-          description = e.description |> JournalEntryDescription.value
-          sourceName = e.sourceName |> JournalRefFinancialInstitution.value
-          fiReference = e.fiReference |> JournalExternalReferenceText.value
-          status = e.status |> StagedEntryStatus.toString
-          lines = e.lines |> List.map convertLine })
+        result {
+            let! sourceName = e.ingestionSourceId |> Business.FinancialServices.DataIngestion.IngestionSource.idToName context
+            let! lines = e.lines |> List.map convertLine |> convertListOfResultsToResultsList
+            return
+                { stageEntryHeaderId = e.stageEntryHeaderId |> StageEntryHeaderId.value
+                  entryDate = e.entryDate
+                  description = e.description |> JournalEntryDescription.value
+                  sourceName = sourceName |> JournalRefFinancialInstitution.value
+                  fiReference = e.fiReference |> JournalExternalReferenceText.value
+                  status = e.status |> StagedEntryStatus.toString
+                  lines = lines }
+        })
+    |> convertListOfResultsToResultsList
 
 /// Resolves each row's account code to its account, failing with the code of the first that resolves to none.
 let ``convert [ReconciliationInput] to [(AccountId * Money * LocalDate) list]``

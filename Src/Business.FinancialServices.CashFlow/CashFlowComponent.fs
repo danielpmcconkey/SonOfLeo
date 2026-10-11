@@ -466,3 +466,19 @@ type CashFlowProjection = {
     accounts: ProjectedAccount list
     billsToChase: BillToChase list
 }
+
+/// One Payment referencing a staged line, with the Invoice it pays and that Invoice's Instance.
+type PrePostingPayment =
+    { paymentId: PaymentId
+      invoiceId: InvoiceId
+      paymentAmount: PaymentAmount
+      invoiceDate: InvoiceDate
+      dueDate: DueDate
+      invoiceAmount: InvoiceAmount
+      paymentState: PaymentState
+      instanceDate: LocalDate }
+
+/// The Payment Agreement a staged line is linked to, and its Master Agreement.
+type PrePostingAgreement =
+    { paymentAgreementId: PaymentAgreementId
+      masterAgreementId: MasterAgreementId }

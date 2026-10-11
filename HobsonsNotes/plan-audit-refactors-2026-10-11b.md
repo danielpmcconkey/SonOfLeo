@@ -647,6 +647,24 @@ row's code and name back through the lookups with the test's context;
 `PeriodActivity.fs` pairs each row with its code and name once per fetch.
 Route `ReportRoutes.fs`: see 5.1.
 
+**C2. R5 pre-posting review** (#021, #037, #054, #075 ingestion half,
+#076). One commit. `PrePostingPayment` carries `PaymentAmount`,
+`InvoiceDate`, `DueDate` and `InvoiceAmount` (the instance-date-then-due-date
+sort compiles unchanged); `PrePostingAgreement` carries
+`paymentAgreementId` and `masterAgreementId`; both now end
+`CashFlowComponent`. `PrePostingLine` carries `accountId` and
+`classificationRuleId`; the rule tie-break stays in the function
+(`ruleIdForLine`, priority then name, with the rules in hand).
+`PrePostingEntry` carries `ingestionSourceId`; the entry sort pairs each
+entry with its source's name from the `IngestionSource` entity and sorts
+there. The review no longer fetches all accounts or the master agreements
+(it only needed them for names). `ReportConverters` (now taking a context
+and returning `Result`) and `PrePostingReviewWriter` (a context-taking
+`write` that names every line, then renders) resolve through the caches.
+Tests: `PrePostingReview.fs` compares account, rule, agreement and source
+IDs, and unwraps the payment values; route `ReportRoutes.fs` passes a
+context to the writer.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 

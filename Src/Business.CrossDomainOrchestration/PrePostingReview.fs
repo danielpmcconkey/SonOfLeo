@@ -15,30 +15,13 @@ open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Classification
 open Business.FinancialServices.Classification.ClassificationComponent
 
-/// One Payment referencing a staged line, with the Invoice it pays and that Invoice's Instance.
-type PrePostingPayment =
-    { paymentId: PaymentId
-      invoiceId: InvoiceId
-      paymentAmount: Money.Money
-      invoiceDate: LocalDate
-      dueDate: LocalDate
-      invoiceAmount: Money.Money
-      paymentState: PaymentState
-      instanceDate: LocalDate }
-
-/// The Payment Agreement a staged line is linked to.
-type PrePostingAgreement =
-    { paymentAgreementName: PaymentAgreementName
-      masterAgreementName: AgreementName }
-
 type PrePostingLine =
     { stageEntryLineId: StageEntryLineId
       lineType: JournalEntryLineType
       amount: Money.Money
       memo: JournalEntryLineMemo option
-      accountCode: AccountCode
-      accountName: AccountName
-      ruleName: ClassificationRuleName option
+      accountId: AccountId
+      classificationRuleId: ClassificationRuleId option
       agreement: PrePostingAgreement option
       payments: PrePostingPayment list }
 
@@ -46,18 +29,18 @@ type PrePostingEntry =
     { stageEntryHeaderId: StageEntryHeaderId
       entryDate: LocalDate
       description: JournalEntryDescription
-      sourceName: JournalRefFinancialInstitution
+      ingestionSourceId: IngestionSourceId
       fiReference: JournalExternalReferenceText
       status: StagedEntryStatus
       lines: PrePostingLine list }
 
 /// Only account-claimant matches with the line's current account count. Of the runs that recorded one, the latest
 /// names the rule; within it the lowest priority value wins, then the rule name.
-let private ruleNameForLine
+let private ruleIdForLine
     (matchesForLine: RuleMatch.RuleMatch list)
     (rulesById: Map<ClassificationRuleId, ClassificationRule.ClassificationRule>)
     (accountId: AccountId)
-    : ClassificationRuleName option =
+    : ClassificationRuleId option =
     let currentAccountMatches =
         matchesForLine
         |> List.choose (fun m ->
@@ -80,7 +63,7 @@ let private ruleNameForLine
         rule |> ClassificationRule.priority,
         rule |> ClassificationRule.classificationRuleName |> ClassificationRuleName.value)
     |> List.tryHead
-    |> Option.map ClassificationRule.classificationRuleName
+    |> Option.map ClassificationRule.classificationRuleId
 
 let private ifAny fetch ids = if ids |> List.isEmpty then Ok [] else fetch ids
 
@@ -108,8 +91,6 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
                             l |> StageEntryLine.stageEntryHeaderId |> StageEntryHeaderId.value,
                             l |> StageEntryLine.stageEntryLineId |> StageEntryLineId.value))
         let lineIds = allLines |> List.map StageEntryLine.stageEntryLineId
-        let! accounts = Account.fetchAll context false
-        let accountsById = accounts |> List.map (fun a -> a |> Account.accountId, a) |> Map.ofList
 
         let! matches = RuleMatch.fetchByStageEntryLineIdList context lineIds
         let! rules =
@@ -122,17 +103,12 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
         let! paymentAgreements =
             links |> List.map PaymentAgreementLink.paymentAgreementId |> List.distinct
             |> ifAny (PaymentAgreement.fetchByPaymentAgreementIdList context)
-        let! masterAgreements =
-            paymentAgreements |> List.map PaymentAgreement.masterAgreementID |> List.distinct
-            |> ifAny (MasterAgreement.fetchByMasterAgreementIdList context)
-        let masterAgreementsById = masterAgreements |> List.map (fun m -> m |> MasterAgreement.agreementID, m) |> Map.ofList
         let agreementsByPaymentAgreementId =
             paymentAgreements
             |> List.map (fun pa ->
                 pa |> PaymentAgreement.paymentAgreementId,
-                { paymentAgreementName = pa |> PaymentAgreement.paymentAgreementName
-                  masterAgreementName =
-                    masterAgreementsById[pa |> PaymentAgreement.masterAgreementID] |> MasterAgreement.agreementName })
+                { paymentAgreementId = pa |> PaymentAgreement.paymentAgreementId
+                  masterAgreementId = pa |> PaymentAgreement.masterAgreementID })
             |> Map.ofList
         let agreementByLine =
             links
@@ -167,10 +143,10 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
                     let instance = instancesById[invoice |> Invoice.instanceId]
                     { paymentId = p |> Payment.paymentId
                       invoiceId = invoice |> Invoice.invoiceId
-                      paymentAmount = ((p |> Payment.amount) |> PaymentAmount.value)
-                      invoiceDate = ((invoice |> Invoice.invoiceDate) |> InvoiceDate.value)
-                      dueDate = ((invoice |> Invoice.dueDate) |> DueDate.value)
-                      invoiceAmount = ((invoice |> Invoice.amount) |> InvoiceAmount.value)
+                      paymentAmount = p |> Payment.amount
+                      invoiceDate = invoice |> Invoice.invoiceDate
+                      dueDate = invoice |> Invoice.dueDate
+                      invoiceAmount = invoice |> Invoice.amount
                       paymentState = ((invoice |> Invoice.invoiceLifeCycleState) |> CashFlowComponent.InvoiceLifeCycleState.paymentState)
                       instanceDate = instance |> Instance.instanceDate })
                 |> List.sortBy (fun p -> p.instanceDate, p.dueDate))
@@ -180,15 +156,13 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
             let lineId = l |> StageEntryLine.stageEntryLineId
             // a line with no account was refused above, so every line has an account here
             let accountId = l |> StageEntryLine.accountId |> Option.get
-            let account = accountsById[accountId]
             { stageEntryLineId = lineId
               lineType = l |> StageEntryLine.lineType
               amount = l |> StageEntryLine.amount
               memo = l |> StageEntryLine.memo
-              accountCode = account |> Account.code
-              accountName = account |> Account.accountName
-              ruleName =
-                ruleNameForLine (matchesByLine |> Map.tryFind lineId |> Option.defaultValue []) rulesById accountId
+              accountId = accountId
+              classificationRuleId =
+                ruleIdForLine (matchesByLine |> Map.tryFind lineId |> Option.defaultValue []) rulesById accountId
               agreement = agreementByLine |> Map.tryFind lineId
               payments = paymentsByLine |> Map.tryFind lineId |> Option.defaultValue [] }
 
@@ -197,10 +171,11 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
             entries
             |> List.map (fun se ->
                 let h = se |> StageEntryOrchestration.stageEntryHeader
+                h |> StageEntryHeader.ingestionSource |> IngestionSource.name,
                 { stageEntryHeaderId = h |> StageEntryHeader.stageEntryHeaderId
                   entryDate = h |> StageEntryHeader.entryDate
                   description = h |> StageEntryHeader.description
-                  sourceName = h |> StageEntryHeader.ingestionSource |> IngestionSource.name
+                  ingestionSourceId = h |> StageEntryHeader.ingestionSource |> IngestionSource.ingestionSourceId
                   fiReference = h |> StageEntryHeader.fiReference
                   // fetchAllForPosting only returns entries with a current status
                   status = h |> StageEntryHeader.currentStatus |> Option.get
@@ -209,8 +184,9 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
                     |> StageEntryOrchestration.seLines
                     |> List.sortBy (fun l -> l |> StageEntryLine.lineType |> lineTypeOrder)
                     |> List.map toLine })
-            |> List.sortBy (fun e ->
+            |> List.sortBy (fun (sourceName, e) ->
                 e.entryDate,
-                e.sourceName |> JournalRefFinancialInstitution.value,
+                sourceName |> JournalRefFinancialInstitution.value,
                 e.fiReference |> JournalExternalReferenceText.value)
+            |> List.map snd
     }

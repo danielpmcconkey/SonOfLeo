@@ -703,7 +703,7 @@ type ReportRoutesTests(fixture: TestDataFixture) =
             // the writer names the file and heads the page with the run date it is given, not today's
             let handedInDate = Calendar.today().PlusDays(-400)
             let! written =
-                Ui.InterfaceBridge.ReportWriters.PrePostingReviewWriter.write
+                Ui.InterfaceBridge.ReportWriters.PrePostingReviewWriter.write (Context.create NoTransaction FetchOnly)
                     { baseDir = testOutputDir; interpolateAsOf = true; fileName = "sys-3-4-run-date-writer" } (Clock.now()) handedInDate []
             let! writerPath =
                 match written with

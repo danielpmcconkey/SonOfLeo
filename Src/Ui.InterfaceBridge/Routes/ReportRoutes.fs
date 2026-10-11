@@ -44,11 +44,13 @@ let private prePostingReview payload _ =
         let! (prePostingReviewReturn: PrePostingReviewReturn) =
             match input.reportOutput with
             | OutputSpecifier.DataOnly ->
-                Ok (PrePostingReviewReturn.DataOnly (entries |> ``convert [PrePostingEntry list] to [PrePostingEntryReturnRow list]``))
+                entries
+                |> ``convert [PrePostingEntry list] to [PrePostingEntryReturnRow list]`` context
+                |> Result.map PrePostingReviewReturn.DataOnly
             | OutputSpecifier.Report outputPathInput ->
                 let initiationInstant = context |> Context.getInitiationInstant
                 let runDate = initiationInstant |> Calendar.dateFromInstant
-                entries |> PrePostingReviewWriter.write outputPathInput initiationInstant runDate
+                entries |> PrePostingReviewWriter.write context outputPathInput initiationInstant runDate
         return! prePostingReviewReturn |> Json.toJson<PrePostingReviewReturn>
     }
 

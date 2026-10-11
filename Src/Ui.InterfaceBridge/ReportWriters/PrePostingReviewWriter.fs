@@ -5,7 +5,9 @@ open App.Utility.IAppError
 open App.Utility.Result
 open App.Utility.File
 open App.Utility.Calendar
+open App.Session
 open Business.FinancialServices
+open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
 open Business.FinancialServices.Ledger.JournalEntryComponent
 open Business.FinancialServices.DataIngestion.StageEntryComponent
@@ -105,48 +107,99 @@ let private div ordinal className contents : DomElement =
 
 let private dateString (d: LocalDate) = d |> localDateToString "yyyy-MM-dd"
 
-let private obligationElements (line: PrePostingLine) : DomElement list =
-    match line.agreement with
+/// A line with the names the report shows for its account, rule and agreement.
+type private NamedLine =
+    { line: PrePostingLine
+      accountCode: AccountCode
+      accountName: AccountName
+      ruleName: ClassificationRuleName option
+      agreementNames: (AgreementName * PaymentAgreementName) option }
+
+/// An entry with its source's name and its named lines.
+type private NamedEntry =
+    { entry: PrePostingEntry
+      sourceName: JournalRefFinancialInstitution
+      lines: NamedLine list }
+
+let private nameLine (context: Context.Context) (line: PrePostingLine) : Result<NamedLine, IAppError> =
+    result {
+        let! accountCode = line.accountId |> Account.idToCode context
+        let! accountName = line.accountId |> Account.idToName context
+        let! ruleName =
+            line.classificationRuleId
+            |> convertOptionToDesiredTypeWithFallibleConverter (
+                Business.FinancialServices.Classification.ClassificationRule.idToName context)
+        let! agreementNames =
+            line.agreement
+            |> convertOptionToDesiredTypeWithFallibleConverter (fun a ->
+                result {
+                    let! masterAgreementName =
+                        a.masterAgreementId |> Business.FinancialServices.CashFlow.MasterAgreement.idToName context
+                    let! paymentAgreementName =
+                        a.paymentAgreementId |> Business.FinancialServices.CashFlow.PaymentAgreement.idToName context
+                    return masterAgreementName, paymentAgreementName
+                })
+        return
+            { line = line
+              accountCode = accountCode
+              accountName = accountName
+              ruleName = ruleName
+              agreementNames = agreementNames }
+    }
+
+let private nameEntry (context: Context.Context) (entry: PrePostingEntry) : Result<NamedEntry, IAppError> =
+    result {
+        let! sourceName =
+            entry.ingestionSourceId |> Business.FinancialServices.DataIngestion.IngestionSource.idToName context
+        let! lines = entry.lines |> List.map (nameLine context) |> convertListOfResultsToResultsList
+        return { entry = entry; sourceName = sourceName; lines = lines }
+    }
+
+let private obligationElements (named: NamedLine) : DomElement list =
+    match named.agreementNames with
     | None -> []
-    | Some a ->
+    | Some (masterAgreementName, paymentAgreementName) ->
         let agreementText =
-            $"Agreement: {a.masterAgreementName |> AgreementName.value} / {a.paymentAgreementName |> PaymentAgreementName.value}"
+            $"Agreement: {masterAgreementName |> AgreementName.value} / {paymentAgreementName |> PaymentAgreementName.value}"
         let paymentLines =
-            line.payments
+            named.line.payments
             |> List.mapi (fun i p ->
                 let text =
-                    $"Pays {p.paymentAmount |> Money.toCurrencyString} of invoice {p.invoiceAmount |> Money.toCurrencyString}"
-                    + $" dated {p.invoiceDate |> dateString}, due {p.dueDate |> dateString}"
+                    $"Pays {p.paymentAmount |> PaymentAmount.value |> Money.toCurrencyString}"
+                    + $" of invoice {p.invoiceAmount |> InvoiceAmount.value |> Money.toCurrencyString}"
+                    + $" dated {p.invoiceDate |> InvoiceDate.value |> dateString}, due {p.dueDate |> DueDate.value |> dateString}"
                     + $" ({p.paymentState |> PaymentState.toString}); instance {p.instanceDate |> dateString}"
                 div (20 + i) "obligation" [ span 10 "" text ])
         div 10 "obligation" [ span 10 "" agreementText ] :: paymentLines
 
-let private lineElement ordinal (line: PrePostingLine) : DomElement =
-    let accountText = $"{line.accountCode |> AccountCode.value} · {line.accountName |> AccountName.value}"
+let private lineElement ordinal (named: NamedLine) : DomElement =
+    let line = named.line
+    let accountText = $"{named.accountCode |> AccountCode.value} · {named.accountName |> AccountName.value}"
     let memoText = line.memo |> Option.map JournalEntryLineMemo.value |> Option.defaultValue ""
-    let ruleText = line.ruleName |> Option.map ClassificationRuleName.value |> Option.defaultValue "none"
+    let ruleText = named.ruleName |> Option.map ClassificationRuleName.value |> Option.defaultValue "none"
     div ordinal "line-block"
         (div 1 "line"
             [ span 10 "head" accountText
               tab 20 (line.lineType |> JournalEntryLineType.toString) (line.amount |> Money.toCurrencyString)
               tab 30 "Rule" ruleText
               tab 40 "Memo" memoText ]
-         :: (obligationElements line |> List.map (fun e -> { e with ordinal = e.ordinal + 1 })))
+         :: (obligationElements named |> List.map (fun e -> { e with ordinal = e.ordinal + 1 })))
 
-let private entryElement ordinal (entry: PrePostingEntry) : DomElement =
+let private entryElement ordinal (named: NamedEntry) : DomElement =
+    let entry = named.entry
     let head =
         div 1 "entry-head"
             [ span 10 "head" $"{entry.entryDate |> dateString} · {entry.description |> JournalEntryDescription.value}"
-              tab 20 "Source" (entry.sourceName |> JournalRefFinancialInstitution.value)
+              tab 20 "Source" (named.sourceName |> JournalRefFinancialInstitution.value)
               tab 30 "FI ref" (entry.fiReference |> JournalExternalReferenceText.value)
               tab 40 "Status" (entry.status |> StagedEntryStatus.toString) ]
-    div ordinal "entry" (head :: (entry.lines |> List.mapi (fun i l -> lineElement (10 + i) l)))
+    div ordinal "entry" (head :: (named.lines |> List.mapi (fun i l -> lineElement (10 + i) l)))
 
-let write
+let private writeNamed
     (pathInfo: OutputPathInput)
     (generatedAt: Instant)
     (runDate: LocalDate)
-    (entries: PrePostingEntry list)
+    (entries: NamedEntry list)
     : Result<PrePostingReviewReturn, IAppError> =
     let head = {
         charSet = "utf-8"
@@ -179,4 +232,16 @@ let write
             |> HtmlWrapper.toString
             |> writeTextFile path
         return PrePostingReviewReturn.Report { fullyQualifiedPath = path }
+    }
+
+let write
+    (context: Context.Context)
+    (pathInfo: OutputPathInput)
+    (generatedAt: Instant)
+    (runDate: LocalDate)
+    (entries: PrePostingEntry list)
+    : Result<PrePostingReviewReturn, IAppError> =
+    result {
+        let! namedEntries = entries |> List.map (nameEntry context) |> convertListOfResultsToResultsList
+        return! namedEntries |> writeNamed pathInfo generatedAt runDate
     }

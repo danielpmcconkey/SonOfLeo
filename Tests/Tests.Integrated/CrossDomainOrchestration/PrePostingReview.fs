@@ -256,7 +256,7 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 let! row = reviewedEntry review entry
                 Assert.Equal(entryDate, row.entryDate)
                 Assert.Equal("Pre-posting review 7.2 header", row.description |> JournalEntryDescription.value)
-                Assert.Equal("TestCreditCardCo", row.sourceName |> JournalRefFinancialInstitution.value)
+                Assert.Equal(s.testCreditCardCo |> IngestionSource.ingestionSourceId, row.ingestionSourceId)
                 Assert.Equal("FI-REF-7-2", row.fiReference |> JournalExternalReferenceText.value)
                 Assert.Equal(StagedEntryStatus.Reviewed, row.status)
                 return ()
@@ -281,11 +281,10 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 let credit = row.lines |> List.last
                 Assert.Equal(100.00M, credit.amount |> Money.amount)
                 Assert.Equal(Some "cash out", credit.memo |> Option.map JournalEntryLineMemo.value)
-                Assert.Equal(s.cashCode, credit.accountCode |> AccountCode.value)
-                Assert.Equal(cashAccount |> Account.accountName |> AccountName.value, credit.accountName |> AccountName.value)
+                Assert.Equal(cashAccount |> Account.accountId, credit.accountId)
                 let principal = row.lines |> List.find (fun l -> l.amount |> Money.amount = 60.00M)
                 Assert.Equal(Some "principal", principal.memo |> Option.map JournalEntryLineMemo.value)
-                Assert.Equal(s.loanCode, principal.accountCode |> AccountCode.value)
+                Assert.Equal((fixture.Data.accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = s.loanCode) |> Account.accountId), principal.accountId)
                 let unmemoed = row.lines |> List.find (fun l -> l.amount |> Money.amount = 40.00M)
                 Assert.Equal(None, unmemoed.memo)
                 return ()
@@ -307,7 +306,7 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 do! s.recordRun line [ loser; winner; otherAccount ]
                 let! review = fetchPrePostingReview context
                 let! reviewed = reviewedLine review entry line
-                Assert.Equal(Some (winner |> ClassificationRule.classificationRuleName), reviewed.ruleName)
+                Assert.Equal(Some (winner |> ClassificationRule.classificationRuleId), reviewed.classificationRuleId)
                 return ()
             })
 
@@ -318,7 +317,7 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 let! entry = s.classifiedEntry "Pre-posting review 7.3 unrecorded"
                 let! review = fetchPrePostingReview context
                 let! row = reviewedEntry review entry
-                Assert.All(row.lines, fun l -> Assert.Equal(None, l.ruleName))
+                Assert.All(row.lines, fun l -> Assert.Equal(None, l.classificationRuleId))
                 return ()
             })
 
@@ -326,15 +325,15 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-7.4 a line linked to a Payment Agreement that no Payment references carries the Payment Agreement's and Master Agreement's names and no Payment, Invoice or Instance`` () =
         inRolledBackTransaction (fun s context ->
             result {
-                let! _, legId = s.agreement "Pre-posting review 7.4 unpaid" "Pre-posting review 7.4 unpaid leg"
+                let! agreementId, legId = s.agreement "Pre-posting review 7.4 unpaid" "Pre-posting review 7.4 unpaid leg"
                 let! entry = s.classifiedEntry "Pre-posting review 7.4 unpaid"
                 let line = entry |> debitLine
                 do! s.link legId line
                 let! review = fetchPrePostingReview context
                 let! reviewed = reviewedLine review entry line
                 let a = Assert.Single(reviewed.agreement |> Option.toList)
-                Assert.Equal("Pre-posting review 7.4 unpaid leg", a.paymentAgreementName |> PaymentAgreementName.value)
-                Assert.Equal("Pre-posting review 7.4 unpaid", a.masterAgreementName |> AgreementName.value)
+                Assert.Equal(legId, a.paymentAgreementId)
+                Assert.Equal(agreementId, a.masterAgreementId)
                 Assert.Empty(reviewed.payments)
                 return ()
             })
@@ -355,10 +354,10 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 let! reviewed = reviewedLine review entry line
                 Assert.True(reviewed.agreement.IsSome, "Expected the line to carry its agreement")
                 let payment = Assert.Single(reviewed.payments)
-                Assert.Equal(100.00M, payment.paymentAmount |> Money.amount)
-                Assert.Equal(invoiceDate, payment.invoiceDate)
-                Assert.Equal(dueDate, payment.dueDate)
-                Assert.Equal(120.00M, payment.invoiceAmount |> Money.amount)
+                Assert.Equal(100.00M, payment.paymentAmount |> PaymentAmount.value |> Money.amount)
+                Assert.Equal(invoiceDate, payment.invoiceDate |> InvoiceDate.value)
+                Assert.Equal(dueDate, payment.dueDate |> DueDate.value)
+                Assert.Equal(120.00M, payment.invoiceAmount |> InvoiceAmount.value |> Money.amount)
                 Assert.Equal(PartiallyPaid, payment.paymentState)
                 Assert.Equal(instanceDate, payment.instanceDate)
                 return ()
@@ -433,7 +432,7 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 do! s.recordRun line [ loser; winner ]
                 let! review = fetchPrePostingReview context
                 let! reviewed = reviewedLine review entry line
-                Assert.Equal(Some $"{prefix} B", reviewed.ruleName |> Option.map ClassificationRuleName.value)
+                Assert.Equal(Some (winner |> ClassificationRule.classificationRuleId), reviewed.classificationRuleId)
                 return ()
             })
 
@@ -450,7 +449,7 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 do! s.recordRun line [ second; first ]
                 let! review = fetchPrePostingReview context
                 let! reviewed = reviewedLine review entry line
-                Assert.Equal(Some $"{prefix} A", reviewed.ruleName |> Option.map ClassificationRuleName.value)
+                Assert.Equal(Some (first |> ClassificationRule.classificationRuleId), reviewed.classificationRuleId)
                 return ()
             })
 
@@ -468,7 +467,7 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 do! s.recordRun line [ later ]
                 let! review = fetchPrePostingReview context
                 let! reviewed = reviewedLine review entry line
-                Assert.Equal(Some $"{prefix} B", reviewed.ruleName |> Option.map ClassificationRuleName.value)
+                Assert.Equal(Some (later |> ClassificationRule.classificationRuleId), reviewed.classificationRuleId)
                 return ()
             })
 
@@ -484,7 +483,7 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 do! s.recordRun line [ otherAccount ]
                 let! review = fetchPrePostingReview context
                 let! reviewed = reviewedLine review entry line
-                Assert.Equal(Some (currentAccount |> ClassificationRule.classificationRuleName), reviewed.ruleName)
+                Assert.Equal(Some (currentAccount |> ClassificationRule.classificationRuleId), reviewed.classificationRuleId)
                 return ()
             })
 
@@ -505,9 +504,9 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 let! review = fetchPrePostingReview context
                 let! ahead = reviewedLine review winsOnPriority (winsOnPriority |> debitLine)
                 let! behind = reviewedLine review losesOnPriority (losesOnPriority |> debitLine)
-                let expected = Some (accountRule |> ClassificationRule.classificationRuleName)
-                Assert.Equal(expected, ahead.ruleName)
-                Assert.Equal(expected, behind.ruleName)
+                let expected = Some (accountRule |> ClassificationRule.classificationRuleId)
+                Assert.Equal(expected, ahead.classificationRuleId)
+                Assert.Equal(expected, behind.classificationRuleId)
                 return ()
             })
 
@@ -539,10 +538,10 @@ type PrePostingReviewTests(fixture: TestDataFixture) =
                 Assert.Equal<Set<InvoiceId>>(set [ fullyPaidId; partlyPaidId ], reviewed.payments |> List.map _.invoiceId |> Set.ofList)
                 let check invoiceId expected expectedState =
                     let payment = reviewed.payments |> List.find (fun p -> p.invoiceId = invoiceId)
-                    Assert.Equal(100.00M, payment.paymentAmount |> Money.amount)
-                    Assert.Equal(invoiceDate expected, payment.invoiceDate)
-                    Assert.Equal(dueDate expected, payment.dueDate)
-                    Assert.Equal(invoiceAmount expected, payment.invoiceAmount |> Money.amount)
+                    Assert.Equal(100.00M, payment.paymentAmount |> PaymentAmount.value |> Money.amount)
+                    Assert.Equal(invoiceDate expected, payment.invoiceDate |> InvoiceDate.value)
+                    Assert.Equal(dueDate expected, payment.dueDate |> DueDate.value)
+                    Assert.Equal(invoiceAmount expected, payment.invoiceAmount |> InvoiceAmount.value |> Money.amount)
                     Assert.Equal(expectedState, payment.paymentState)
                     Assert.Equal(instanceDate expected, payment.instanceDate)
                 check fullyPaidId fully FullyPaid
