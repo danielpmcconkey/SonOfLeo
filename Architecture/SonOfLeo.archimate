@@ -1909,7 +1909,7 @@ This principle judges direction only. A reference that goes down the ladder sati
         <element xsi:type="archimate:Constraint" name="Below the UserInterfaceBridge, a persisted value travels as its domain type, never as the primitive it unwraps to" id="id-df95f24ef36d465288307c447b66e7b0">
           <documentation>This carries 'Naked primitives are discouraged in Entity or component types' to every type below the UserInterfaceBridge: entity, component, composite, and report or view rows alike. A field holding an account code is AccountCode, not string; an amount is Money, not decimal; a name is the name's domain type. Domain types are unwrapped to primitives in one place only: the UserInterfaceBridge's boundary converters. A Business-tier type that holds a persisted value as a bare string, decimal or Guid breaks this rule.
 
-The one exception is error cases (see 'Error cases carry primitives').</documentation>
+The one exception is error cases (see 'An error case carries only types that compile before its error module').</documentation>
         </element>
         <element xsi:type="archimate:Principle" name="Any component type in the cross domain orchestration or higher is a signal that we're violating the tiering or domain principles somewhere" id="id-89f90619d3d64a7682f8a73ee93f5465"/>
         <element xsi:type="archimate:Principle" name="Avoid creating types strictly for code convenience" id="id-87774667ddf9444cb58bbf6eee5d4b1f">
@@ -1958,10 +1958,10 @@ The licence is for reporting only. A read whose result feeds a write, a validati
 Ex 1: An error that cites that an account's begin date may not be later than its end date can work in any context
 Ex 2: An error that cites that an account cannot be deactivated because it is referenced by journal entry lines whose JE header is dated after the deactivation date is only relevant to orchestration as it requires knowledge of both account and journal entry properties. It is nevertheless defined in the LedgerErrors module as it is an account-domain error</documentation>
         </element>
-        <element xsi:type="archimate:Constraint" name="Error cases carry primitives" id="id-467f10875a214394b0d613a431825dee">
-          <documentation>An error case's fields are primitives and NodaTime values (string, decimal, int, LocalDate and the like), so every error module compiles ahead of the domain types it reports on. An error module declares no other type. When an error must describe a structured value, that value's own module provides a toString and the error case carries the string.
+        <element xsi:type="archimate:Constraint" name="An error case carries only types that compile before its error module" id="id-467f10875a214394b0d613a431825dee">
+          <documentation>An error case may carry any type that compiles before its error module: primitives, NodaTime values, exceptions, another IAppError, or a domain type from a lower tier (a CashFlowError may carry an AccountCode, because the Ledger's types compile first). It may not carry a type defined after its error module (a LedgerError may not carry an AccountCode, which compiles after LedgerError). When it must describe such a value, the value's own module provides a toString and the error case carries the string.
 
-A type declared in an error module because the error module compiles first breaks this rule. Move the type to its domain's components module, give it a toString, and change the error case to carry a string.</documentation>
+An error module declares no domain type of its own. A type declared in an error module so that an error case can carry it breaks this rule: move the type to its domain's components module, give it a toString, and have the error case carry the string. (Dan, 2026-10-11, correcting the earlier wording &quot;Error cases carry primitives&quot;.)</documentation>
         </element>
         <element xsi:type="archimate:Principle" name="Lower level errors are &quot;backstops&quot;" id="id-bf65575b9a63404ab530071a89ba9f7b">
           <documentation>When a function is called from a higher application tier, the caller should translate the lower level error into one that makes more sense for the highel level operation</documentation>

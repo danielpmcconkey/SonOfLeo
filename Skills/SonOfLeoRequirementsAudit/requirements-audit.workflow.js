@@ -565,8 +565,8 @@ EVALUATE:
    and queries identify things by ID, or carry codes and names in their place? Is a
    value read straight off a database row into a bare primitive, skipping its domain
    type's constructor? Sweep every record type below Src/Ui.* for this; don't sample.
-7. ERROR TYPES: do error cases carry primitives, or domain types that force a type to be
-   declared in the error module to satisfy compile order?
+7. ERROR TYPES: does any error case carry a type that compiles after its error module, or
+   force a domain type to be declared in the error module to satisfy compile order?
 
 Genuine idiom violations only — not F# golf.`,
 })
@@ -626,8 +626,9 @@ hit against every rule that could govern it:
   another entity's code or name where its ID would do.
 - RAW READS. Every RowReader.get* call outside an entity module's mapRawForDbRead. For
   each, is the value turned into its domain type before anything else sees it?
-- ERROR CASE FIELDS. Every error case whose fields include a non-primitive type, and every
-  type declared in an error module.
+- ERROR CASE FIELDS. Every error case whose fields include a type defined after its error
+  module in compile order (a lower-tier domain type, an exception or another IAppError is
+  fine), and every domain type declared in an error module.
 - EXPLANATORY COMMENTS. A comment that says a type or function sits somewhere "because of
   compile order", or marks a compromise with todo:, is a breach announcing itself. Check it
   against the rules.
