@@ -304,10 +304,11 @@ let ``convert [Agreement] to [AgreementReturn]``
 let ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
     (transition: PaymentPostingTransition)
     : PaymentPostingTransitionReturn =
-    { paymentId = transition.paymentId |> PaymentId.value
-      agreementName = transition.agreementName |> AgreementName.value
-      invoiceAmount = transition.invoiceAmount |> CashFlowComponent.InvoiceAmount.value |> Money.amount
-      journalEntryLineId = transition.journalEntryLineId |> JournalEntryLineId.value }
+    { paymentId = transition |> PaymentPostingTransition.paymentId |> PaymentId.value
+      agreementName = transition |> PaymentPostingTransition.agreementName |> AgreementName.value
+      invoiceAmount =
+        transition |> PaymentPostingTransition.invoiceAmount |> CashFlowComponent.InvoiceAmount.value |> Money.amount
+      journalEntryLineId = transition |> PaymentPostingTransition.journalEntryLineId |> JournalEntryLineId.value }
 
 let ``convert [PaymentPostingTransition list] to [PaymentPostingTransitionReturn list]``
     (transitions: PaymentPostingTransition list)

@@ -328,7 +328,7 @@ let ``convert [PaymentAgreementDecision] to [PaymentAgreementDecisionReturn]``
 
 let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceDecision) : InvoiceDecisionReturn =
     let outcome =
-        match decision.outcome with
+        match decision |> InvoiceDecision.outcome with
         | CashFlowComponent.PaymentCreated lineId ->
             InvoiceDecisionOutcomeReturn.PaymentCreated(lineId |> StageEntryLineId.value)
         | CashFlowComponent.ManyCandidateEntries lineIds ->
@@ -336,7 +336,7 @@ let ``convert [InvoiceDecision] to [InvoiceDecisionReturn]`` (decision: InvoiceD
         | CashFlowComponent.Overpayment -> InvoiceDecisionOutcomeReturn.Overpayment
         | CashFlowComponent.BlockerCleared blocker ->
             InvoiceDecisionOutcomeReturn.BlockerCleared(blocker |> ``convert [Blocker] to [BlockerContract]``)
-    { invoiceId = decision.invoiceId |> InvoiceId.value; outcome = outcome }
+    { invoiceId = decision |> InvoiceDecision.invoiceId |> InvoiceId.value; outcome = outcome }
 
 let ``convert [PaymentAgreementLink] to [PaymentAgreementLinkReturn]``
     (context: Context.Context)

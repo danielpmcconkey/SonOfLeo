@@ -401,17 +401,37 @@ type InvoiceDecisionOutcome =
     // the matched Payment brought a blocked Invoice to FullyPaid, so matching cleared this blocker
     | BlockerCleared of Blocker
 
-type InvoiceDecision = {
-    invoiceId: InvoiceId
-    outcome: InvoiceDecisionOutcome
-}
+type InvoiceDecision = private { invoiceId: InvoiceId; outcome: InvoiceDecisionOutcome }
 
-type PaymentPostingTransition = {
-    paymentId: PaymentId
-    agreementName: AgreementName
-    invoiceAmount: InvoiceAmount
-    journalEntryLineId: JournalEntryLineId
-}
+module InvoiceDecision =
+    let invoiceId (decision: InvoiceDecision) = decision.invoiceId
+    let outcome (decision: InvoiceDecision) = decision.outcome
+    let create (invoiceId: InvoiceId) (outcome: InvoiceDecisionOutcome) : InvoiceDecision =
+        { invoiceId = invoiceId; outcome = outcome }
+
+type PaymentPostingTransition =
+    private {
+        paymentId: PaymentId
+        agreementName: AgreementName
+        invoiceAmount: InvoiceAmount
+        journalEntryLineId: JournalEntryLineId
+    }
+
+module PaymentPostingTransition =
+    let paymentId (transition: PaymentPostingTransition) = transition.paymentId
+    let agreementName (transition: PaymentPostingTransition) = transition.agreementName
+    let invoiceAmount (transition: PaymentPostingTransition) = transition.invoiceAmount
+    let journalEntryLineId (transition: PaymentPostingTransition) = transition.journalEntryLineId
+    let create
+        (paymentId: PaymentId)
+        (agreementName: AgreementName)
+        (invoiceAmount: InvoiceAmount)
+        (journalEntryLineId: JournalEntryLineId)
+        : PaymentPostingTransition =
+        { paymentId = paymentId
+          agreementName = agreementName
+          invoiceAmount = invoiceAmount
+          journalEntryLineId = journalEntryLineId }
 
 type ProjectedInvoice = {
     invoiceId: InvoiceId

@@ -498,17 +498,14 @@ let private matchInvoicesAndCreatePayments
                                 context instanceId invoiceId lineId entryDate (blockerToClear |> Option.isSome)
                         let! overpaid = updated |> isOverpaid invoiceId
                         let created =
-                            { CashFlowComponent.invoiceId = invoiceId
-                              CashFlowComponent.outcome = CashFlowComponent.PaymentCreated lineId }
+                            CashFlowComponent.InvoiceDecision.create invoiceId (CashFlowComponent.PaymentCreated lineId)
                         let cleared =
                             blockerToClear
                             |> Option.map (fun blocker ->
-                                { CashFlowComponent.invoiceId = invoiceId
-                                  CashFlowComponent.outcome = CashFlowComponent.BlockerCleared blocker })
+                                CashFlowComponent.InvoiceDecision.create invoiceId (CashFlowComponent.BlockerCleared blocker))
                             |> Option.toList
                         let overpayment =
-                            if overpaid then [ { CashFlowComponent.invoiceId = invoiceId
-                                                 CashFlowComponent.outcome = CashFlowComponent.Overpayment } ]
+                            if overpaid then [ CashFlowComponent.InvoiceDecision.create invoiceId CashFlowComponent.Overpayment ]
                             else []
                         return
                             decisionsSoFar @ [ created ] @ cleared @ overpayment,
@@ -516,8 +513,7 @@ let private matchInvoicesAndCreatePayments
                             consideredSoFar
                     | manyLineIds ->
                         let contested =
-                            { CashFlowComponent.invoiceId = invoiceId
-                              CashFlowComponent.outcome = CashFlowComponent.ManyCandidateEntries manyLineIds }
+                            CashFlowComponent.InvoiceDecision.create invoiceId (CashFlowComponent.ManyCandidateEntries manyLineIds)
                         return decisionsSoFar @ [ contested ], claimedSoFar, consideredSoFar })
                 (Ok([], ineligibleLineIds, Set.empty))
         // a line that was offered to an invoice and lost is the operator's problem, not a data gap -- only a line no
@@ -883,10 +879,8 @@ let private transitionOneInstancesPaymentsToPosted
         return
             postings
             |> List.map (fun (payment, journalEntryLineId, invoice) ->
-                { paymentId = payment |> Payment.paymentId
-                  agreementName = agreementName
-                  invoiceAmount = invoice |> Invoice.amount
-                  journalEntryLineId = journalEntryLineId })
+                CashFlowComponent.PaymentPostingTransition.create
+                    (payment |> Payment.paymentId) agreementName (invoice |> Invoice.amount) journalEntryLineId)
     }
 
 /// confirmNoPaymentTargetsAVoidedEntry fails the whole transition when any staged line was posted as a journal entry

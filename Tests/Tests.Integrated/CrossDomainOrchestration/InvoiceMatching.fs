@@ -32,7 +32,7 @@ open Xunit
 let private linesOfferedIn (result: InstanceOrchestration.PaymentAgreementClassificationResult) =
     result.invoiceDecisionLog
     |> List.collect (fun decision ->
-        match decision.outcome with
+        match decision |> InvoiceDecision.outcome with
         | PaymentCreated lineId -> [ lineId ]
         | ManyCandidateEntries lineIds -> lineIds
         | Overpayment -> []

@@ -168,7 +168,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
         |> Result.map (Payment.transactionPointer >> TransactionPointer.stageEntryLineId)
 
 let private movedIds (transitions: PaymentPostingTransition list) =
-    transitions |> List.map _.paymentId |> Set.ofList
+    transitions |> List.map PaymentPostingTransition.paymentId |> Set.ofList
 
 [<Collection("SharedTestData")>]
 type PaymentsToPostedTests(fixture: TestDataFixture) =
@@ -415,7 +415,10 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                 let listed =
                     moved
                     |> List.map (fun t ->
-                        t.paymentId, (t.agreementName |> AgreementName.value), ((t.invoiceAmount |> CashFlowComponent.InvoiceAmount.value) |> Money.amount), t.journalEntryLineId)
+                        (t |> PaymentPostingTransition.paymentId),
+                        (t |> PaymentPostingTransition.agreementName |> AgreementName.value),
+                        (t |> PaymentPostingTransition.invoiceAmount |> CashFlowComponent.InvoiceAmount.value |> Money.amount),
+                        (t |> PaymentPostingTransition.journalEntryLineId))
                     |> Set.ofList
                 let expected =
                     set [ xPayments.[0], "CF-10.7 listed X", 100.00M, jeX

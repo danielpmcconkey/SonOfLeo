@@ -320,7 +320,7 @@ let private decisionsNaming (lineId: StageEntryLineId) (run: InstanceOrchestrati
     run.decisionLog |> List.filter (fun decision -> decision.stageEntryLineId = lineId)
 
 let private invoiceDecisionsFor (invoiceId: InvoiceId) (run: InstanceOrchestration.PaymentAgreementClassificationResult) =
-    run.invoiceDecisionLog |> List.filter (fun decision -> decision.invoiceId = invoiceId)
+    run.invoiceDecisionLog |> List.filter (fun decision -> (decision |> InvoiceDecision.invoiceId) = invoiceId)
 
 let private orphansIn (run: Result<'T, IAppError>) : Result<(Guid * Guid * string) list, IAppError> =
     match run with
@@ -330,7 +330,7 @@ let private orphansIn (run: Result<'T, IAppError>) : Result<(Guid * Guid * strin
 
 /// The candidate lines of a decision that found several, or an error naming what it found instead.
 let private manyCandidatesOf (decision: InvoiceDecision) : Result<Set<StageEntryLineId>, IAppError> =
-    match decision.outcome with
+    match decision |> InvoiceDecision.outcome with
     | ManyCandidateEntries lineIds -> Ok (lineIds |> Set.ofList)
     | other -> TestError.error (TestingError $"Expected several candidates; got {other}")
 
@@ -1276,7 +1276,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let payment = Assert.Single(payments)
                 Assert.Equal(TransactionPointer.Staged lineId, payment |> Payment.transactionPointer)
                 let decision = Assert.Single(run |> invoiceDecisionsFor invoiceId)
-                Assert.Equal(PaymentCreated lineId, decision.outcome)
+                Assert.Equal(PaymentCreated lineId, decision |> InvoiceDecision.outcome)
             })
         |> railroadWrapper
 
@@ -1342,7 +1342,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let! journalEntriesBefore = scenario.journalEntryCount ()
                 let! instancesBefore, invoicesBefore = scenario.instanceAndInvoiceIds ()
                 let! run = ClassificationOrchestration.classifyPaymentAgreements context
-                let outcomes = run |> invoiceDecisionsFor invoiceId |> List.map _.outcome
+                let outcomes = run |> invoiceDecisionsFor invoiceId |> List.map InvoiceDecision.outcome
                 Assert.Equal<InvoiceDecisionOutcome list>([ PaymentCreated lineId; Overpayment ], outcomes)
                 let! journalEntriesAfter = scenario.journalEntryCount ()
                 Assert.Equal(journalEntriesBefore, journalEntriesAfter)
@@ -1447,7 +1447,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                     run.decisionLog |> List.filter (fun d -> d.outcome = Linked) |> List.map _.stageEntryLineId |> Set.ofList
                 let paidInRun =
                     run.invoiceDecisionLog
-                    |> List.choose (fun d -> match d.outcome with PaymentCreated lineId -> Some lineId | _ -> None)
+                    |> List.choose (fun d -> match d |> InvoiceDecision.outcome with PaymentCreated lineId -> Some lineId | _ -> None)
                     |> Set.ofList
                 Assert.Contains(runLinkedLineId, linkedInRun)
                 Assert.DoesNotContain(preLinkedLineId, linkedInRun)
@@ -1569,7 +1569,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 Assert.Equal(FullyPaid, state |> InvoiceLifeCycleState.paymentState)
                 Assert.Equal(None, state |> InvoiceLifeCycleState.blocker)
                 let cleared =
-                    run |> invoiceDecisionsFor invoiceId |> List.choose (fun d -> match d.outcome with BlockerCleared b -> Some b | _ -> None)
+                    run |> invoiceDecisionsFor invoiceId |> List.choose (fun d -> match d |> InvoiceDecision.outcome with BlockerCleared b -> Some b | _ -> None)
                 Assert.Equal<Blocker list>([ blocker ], cleared)
             })
         |> railroadWrapper
@@ -1594,7 +1594,7 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
                 let state = composite |> InstanceOrchestration.invoice |> Invoice.invoiceLifeCycleState
                 Assert.Equal(PartiallyPaid, state |> InvoiceLifeCycleState.paymentState)
                 Assert.Equal(Some blocker, state |> InvoiceLifeCycleState.blocker)
-                let outcomes = run |> invoiceDecisionsFor invoiceId |> List.map _.outcome
+                let outcomes = run |> invoiceDecisionsFor invoiceId |> List.map InvoiceDecision.outcome
                 Assert.Equal<InvoiceDecisionOutcome list>([ PaymentCreated lines.[0] ], outcomes)
             })
         |> railroadWrapper
