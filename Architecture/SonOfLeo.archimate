@@ -1048,7 +1048,10 @@
             <documentation>Holdings as of each month-end in a range, totalled by one grouping.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Record investment activity" id="id-b4984805dae04db6b6858dd47f66510f">
-            <documentation>Replace an investment account's activity dated in a range with what the institution reported, each kind in its own shape and each security already held, and list it in the order supplied.</documentation>
+            <documentation>Replace an investment account's activity dated in a range with what the institution reported, each kind in its own shape and each security already held, add the range to the account's activity coverage merged with every covered range it overlaps or adjoins, and list it in the order supplied.</documentation>
+          </element>
+          <element xsi:type="archimate:ApplicationFunction" name="List activity coverage gaps" id="id-1e7a27f394a34407a948b9fc9594f0b5">
+            <documentation>For an investment account and two dates, both included, the stretches between them whose activity has never been supplied, in date order.</documentation>
           </element>
           <element xsi:type="archimate:ApplicationFunction" name="Record pre-ledger balances" id="id-e50917f2abcf4b2e918254af6a957e2d">
             <documentation>Record, replace, delete and list what an unlinked asset or liability ledger account held on a date before the earliest fiscal period, all of one request or none.</documentation>
@@ -1342,6 +1345,9 @@
               </element>
               <element xsi:type="archimate:ApplicationComponent" name="InvestmentActivity" id="id-fedc57f2329943e9b844606713886023">
                 <property key="path" value="Src/Business.FinancialServices.Positions/InvestmentActivity.fs"/>
+              </element>
+              <element xsi:type="archimate:ApplicationComponent" name="InvestmentActivityCoverage" id="id-21a51af7de614bd2875590a718fa5522">
+                <property key="path" value="Src/Business.FinancialServices.Positions/InvestmentActivityCoverage.fs"/>
               </element>
               <element xsi:type="archimate:ApplicationComponent" name="Property" id="id-49f6fa974a08486d965581725b83aae2">
                 <property key="path" value="Src/Business.FinancialServices.Positions/Property.fs"/>
@@ -4824,7 +4830,19 @@ A SQL query that F# writes and runs is not business logic in the database: F# st
     <element xsi:type="archimate:CompositionRelationship" id="id-0d88459711034231aa60e4a4575f09e7" source="id-086000a2a5a741b2aab0b8cba1053569" target="id-13a868b791964575aa46e377862f7fbf"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-9002b3a288e148969cab8de409a697af" source="id-13a868b791964575aa46e377862f7fbf" target="id-e66998a05c884289a16a6cd7cc25b288"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-ba42bde0f395487aa6b17b191917f056" source="id-086000a2a5a741b2aab0b8cba1053569" target="id-402b15ed0b5444f984d1cb6baa880508"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-9c80f30312a54c248d72b7b8d2d940f8" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-21a51af7de614bd2875590a718fa5522"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-bde1ac1545ca435b886ee265f5d30cfd" source="id-af06be959cef491c93e88d49e19f8f08" target="id-21a51af7de614bd2875590a718fa5522"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-0a7fe08548024e2cbb024f397f683cdb" source="id-23ed52a7bb864ed39a75bf4b991dee2e" target="id-21a51af7de614bd2875590a718fa5522"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-9938f1d01a784ffa8c1ee80cfa97ae4d" source="id-c9952561e4774c89891b4103fa405ce6" target="id-21a51af7de614bd2875590a718fa5522"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-7662742f396d4d96ba1d440f897e42ea" source="id-2224f7a8b5e24edc928b88a393ab0882" target="id-21a51af7de614bd2875590a718fa5522"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-3f080d8c36b64dda8865b22dc2264e5a" source="id-21a51af7de614bd2875590a718fa5522" target="id-402b15ed0b5444f984d1cb6baa880508"/>
+    <element xsi:type="archimate:ServingRelationship" id="id-93017d54e86c440787f9d24251e9d3ee" source="id-32c230cdc7304dd5b2405d432abac9d1" target="id-21a51af7de614bd2875590a718fa5522"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-85e626bfca3348f8bf0abdbb93a43fe3" source="id-402b15ed0b5444f984d1cb6baa880508" target="id-b4984805dae04db6b6858dd47f66510f"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-2005acd74fe348bf8db32780d889842c" source="id-98eeedd15ea9461e987d5a877ef678a9" target="id-21a51af7de614bd2875590a718fa5522"/>
+    <element xsi:type="archimate:CompositionRelationship" id="id-aa12ddad2d4e43bdbbae1e25ea6909fe" source="id-05d26ab59cae4a77850a00c0bca2fd44" target="id-1e7a27f394a34407a948b9fc9594f0b5"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-144c79fe161a41fc8d4c9632b7bd9c9d" source="id-21a51af7de614bd2875590a718fa5522" target="id-b4984805dae04db6b6858dd47f66510f"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-43021a199fb741d1957258f531c09e52" source="id-21a51af7de614bd2875590a718fa5522" target="id-1e7a27f394a34407a948b9fc9594f0b5"/>
+    <element xsi:type="archimate:RealizationRelationship" id="id-0861b4e13e9e4f11a778b113ce58424f" source="id-402b15ed0b5444f984d1cb6baa880508" target="id-1e7a27f394a34407a948b9fc9594f0b5"/>
     <element xsi:type="archimate:CompositionRelationship" id="id-9c25e0e6cd6b447aa4bdfba544346dcb" source="id-f6eaf03d33014961ba338d52b1230122" target="id-f5a9b36d8ff449a2a0631dfddba5f071"/>
     <element xsi:type="archimate:RealizationRelationship" id="id-0b86df4683b04921a690db573261b6aa" source="id-f5a9b36d8ff449a2a0631dfddba5f071" target="id-5f90aa0a0cd24cc8922ea056c3662fb1"/>
     <element xsi:type="archimate:ServingRelationship" id="id-57bdaa505b3b4f5d835c6d32d7a7cb85" source="id-a134ba2ed9614972bc862c8f246bdb70" target="id-95893e658c8d42d6b78c81de40715146"/>
