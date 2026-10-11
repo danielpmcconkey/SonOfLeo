@@ -10,6 +10,19 @@ open Business.FinancialServices.DataIngestion.StageEntryComponent
 open Business.FinancialServices.CashFlow
 open Business.FinancialServices.Classification.ClassificationError
 
+/// Why a staged line cannot be removed or have its amount, line type or account changed.
+type StageLineProtection =
+    | LinkedToPaymentAgreement
+    | ReferencedByPayment
+    | RecordedInClassificationRun
+
+module StageLineProtection =
+    let toString protection =
+        match protection with
+        | LinkedToPaymentAgreement -> "it is linked to a payment agreement; remove the link first"
+        | ReferencedByPayment -> "a Payment references it; remove the Payment first"
+        | RecordedInClassificationRun -> "a classification run recorded it, and those records are permanent"
+
 type ClassificationRuleId = private ClassificationRuleId of Guid
 
 module ClassificationRuleId =

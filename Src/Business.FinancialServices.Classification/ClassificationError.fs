@@ -3,18 +3,6 @@ module Business.FinancialServices.Classification.ClassificationError
 open System
 open App.Utility.IAppError
 
-/// StageLineProtection is why a staged line cannot be removed or have its amount, line type or account changed.
-type StageLineProtection =
-    | LinkedToPaymentAgreement
-    | ReferencedByPayment
-    | RecordedInClassificationRun
-
-let private describeProtection (protection: StageLineProtection) =
-    match protection with
-    | LinkedToPaymentAgreement -> "it is linked to a payment agreement; remove the link first"
-    | ReferencedByPayment -> "a Payment references it; remove the Payment first"
-    | RecordedInClassificationRun -> "a classification run recorded it, and those records are permanent"
-
 type ClassificationError =
     | ClassificationRuleGroupsEmpty
     | ClassificationRuleIdDoesntExist of Guid
@@ -35,8 +23,8 @@ type ClassificationError =
     | ClassificationRuleStoredPatternInvalid of Guid * string * string
     | ClassificationRuleStoredGroupsInvalid of Guid * string
     | ClassificationRulePatternTimedOut of Guid * string
-    | ClassificationStageEntryLineCannotBeRemoved of Guid * StageLineProtection
-    | ClassificationStageEntryLineCannotBeChanged of Guid * StageLineProtection
+    | ClassificationStageEntryLineCannotBeRemoved of Guid * string
+    | ClassificationStageEntryLineCannotBeChanged of Guid * string
     | ClassificationPaidStageEntryCannotBeExcluded of Guid * string
 
     interface IAppError with
@@ -73,9 +61,9 @@ type ClassificationError =
             | ClassificationRuleStoredGroupsInvalid (ruleUuid, reason) -> $"Classification rule {ruleUuid} is stored with rule groups that cannot be read: {reason} Correct the rule before running classification."
             | ClassificationRulePatternTimedOut (ruleUuid, pattern) -> $"Classification rule {ruleUuid}'s search pattern {pattern} took too long to evaluate and was stopped. Simplify the pattern; the classification run did not complete."
             | ClassificationStageEntryLineCannotBeRemoved (uuid, protection) ->
-                $"Staged line {uuid} cannot be removed because {protection |> describeProtection}."
+                $"Staged line {uuid} cannot be removed because {protection}."
             | ClassificationStageEntryLineCannotBeChanged (uuid, protection) ->
-                $"Staged line {uuid} cannot have its amount, line type or account changed because {protection |> describeProtection}."
+                $"Staged line {uuid} cannot have its amount, line type or account changed because {protection}."
             | ClassificationPaidStageEntryCannotBeExcluded (uuid, status) ->
                 $"Staged entry {uuid} cannot become {status}: a Payment references one of its lines."
 

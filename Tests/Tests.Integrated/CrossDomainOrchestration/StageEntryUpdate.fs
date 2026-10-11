@@ -33,6 +33,7 @@ open Tests.Helpers.EntityFunctions
 open NodaTime
 open App.Utility
 open App.DataAccessLayer.DalError
+open Business.FinancialServices.Classification
 open Business.FinancialServices.Classification.ClassificationError
 
 
@@ -592,8 +593,9 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ debitLineId ]
                     |> expectRejection contextForUpdate headerId
                         (function
-                         | AsError (ClassificationStageEntryLineCannotBeRemoved (uuid, LinkedToPaymentAgreement)) ->
+                         | AsError (ClassificationStageEntryLineCannotBeRemoved (uuid, protection)) ->
                              uuid = (debitLineId |> StageEntryLineId.value)
+                             && protection = ClassificationComponent.StageLineProtection.toString ClassificationComponent.LinkedToPaymentAgreement
                          | _ -> false) before
             })
         |> railroadWrapper
@@ -611,8 +613,9 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ debitLineId ]
                     |> expectRejection contextForUpdate headerId
                         (function
-                         | AsError (ClassificationStageEntryLineCannotBeRemoved (uuid, ReferencedByPayment)) ->
+                         | AsError (ClassificationStageEntryLineCannotBeRemoved (uuid, protection)) ->
                              uuid = (debitLineId |> StageEntryLineId.value)
+                             && protection = ClassificationComponent.StageLineProtection.toString ClassificationComponent.ReferencedByPayment
                          | _ -> false) before
             })
         |> railroadWrapper
@@ -636,8 +639,9 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [] [] [ debitLineId ]
                     |> expectRejection contextForUpdate headerId
                         (function
-                         | AsError (ClassificationStageEntryLineCannotBeRemoved (uuid, RecordedInClassificationRun)) ->
+                         | AsError (ClassificationStageEntryLineCannotBeRemoved (uuid, protection)) ->
                              uuid = (debitLineId |> StageEntryLineId.value)
+                             && protection = ClassificationComponent.StageLineProtection.toString ClassificationComponent.RecordedInClassificationRun
                          | _ -> false) before
             })
         |> railroadWrapper
@@ -664,8 +668,9 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [ lineUpdate ] [] []
                     |> expectRejection contextForUpdate headerId
                         (function
-                         | AsError (ClassificationStageEntryLineCannotBeChanged (uuid, LinkedToPaymentAgreement)) ->
+                         | AsError (ClassificationStageEntryLineCannotBeChanged (uuid, protection)) ->
                              uuid = (debitLineId |> StageEntryLineId.value)
+                             && protection = ClassificationComponent.StageLineProtection.toString ClassificationComponent.LinkedToPaymentAgreement
                          | _ -> false) before
             })
         |> railroadWrapper
@@ -692,8 +697,9 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                     updateStageEntry contextForUpdate (noChangeHeaderUpdates headerId) [ lineUpdate ] [] []
                     |> expectRejection contextForUpdate headerId
                         (function
-                         | AsError (ClassificationStageEntryLineCannotBeChanged (uuid, ReferencedByPayment)) ->
+                         | AsError (ClassificationStageEntryLineCannotBeChanged (uuid, protection)) ->
                              uuid = (debitLineId |> StageEntryLineId.value)
+                             && protection = ClassificationComponent.StageLineProtection.toString ClassificationComponent.ReferencedByPayment
                          | _ -> false) before
             })
         |> railroadWrapper
