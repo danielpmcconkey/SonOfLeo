@@ -48,6 +48,7 @@ type PositionsError =
     | PositionsDimensionValueUpdateNoOp
     | PositionsDisposalDateBeforeAcquisitionDate of LocalDate * LocalDate
     | PositionsHoldingAlreadyExists of string * string
+    | PositionsHoldingBasisMethodChangeStrandsLots of string * string * LocalDate * LocalDate
     | PositionsHoldingDoesntExist of string * string
     | PositionsHoldingIdDoesntExist of Guid
     | PositionsHoldingReferencedByActivities of string * string
@@ -193,6 +194,7 @@ type PositionsError =
             | PositionsDimensionValueUpdateNoOp -> "Updating the Dimension Value record failed because at least one updatable parameter must be set."
             | PositionsDisposalDateBeforeAcquisitionDate(acquisition, disposal) -> $"A Property's disposal date ({disposal}) cannot be before its acquisition date ({acquisition})."
             | PositionsHoldingAlreadyExists(account, security) -> $"Investment Account \"{account}\" already has a Holding of \"{security}\"."
+            | PositionsHoldingBasisMethodChangeStrandsLots(account, security, earliest, latest) -> $"The basis method of the Holding of \"{security}\" in Investment Account \"{account}\" cannot change: its snapshot lines carry Lots, the earliest dated {earliest} and the latest {latest}."
             | PositionsHoldingDoesntExist(account, security) -> $"Investment Account \"{account}\" has no Holding of \"{security}\"."
             | PositionsHoldingIdDoesntExist uuid -> $"No Holding exists with ID {uuid}."
             | PositionsHoldingReferencedByActivities(account, security) -> $"The Holding of \"{security}\" in Investment Account \"{account}\" cannot be deleted: an Activity names it."

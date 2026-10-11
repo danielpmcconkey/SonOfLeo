@@ -48,6 +48,20 @@ let private changeBasisMethod context account security basisMethod =
     withIds context account security
     |> Result.bind (fun (accountId, securityId) -> changeHoldingBasisMethod context accountId securityId basisMethod)
 
+let private lotsLine security (quantity: decimal) (price: decimal) (lots: (NodaTime.LocalDate * decimal) list) : AccountSnapshotLineInput =
+    { securityName = security
+      quantity = quantity
+      price = price
+      marketValue = quantity * price
+      reportedCostBasis = None
+      lots = lots |> List.map (fun (acquired, lotQuantity) -> { acquiredDate = acquired; quantity = lotQuantity; reportedCostBasis = None }) }
+
+let private recordSnapshot context account date (lines: AccountSnapshotLineInput list) =
+    ({ accountName = account; snapshotDate = date; provenance = "Reported"; contributionBasis = None; lines = lines }
+     : AccountSnapshotInput)
+    |> ``convert [AccountSnapshotInput] to [Snapshot]`` context
+    |> Result.bind (fun snapshot -> AccountSnapshotOrchestration.recordSnapshots context [ snapshot ])
+
 let private basisNotAllowed = function AsError (PositionsBasisMethodNotAllowed (a, s, t)) -> Some(a, s, t) | _ -> None
 
 let private fixtureHoldings : HoldingSummary list =
@@ -259,8 +273,31 @@ type HoldingMaintenanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-POS-5.7 changing the basis method of a Holding whose lines carry Lots on three snapshot dates, recorded out of date order, with a later snapshot whose line carries none, is rejected with a typed error naming the account, the Security and the earliest and latest of the Lot-carrying dates, and the basis method is unchanged`` () =
-        Assert.Fail "Not yet implemented"
+        let p = fixture.Data.positions
+        runCommandRouteAndAutoRollback PositionsUpdateHoldingBasisMethod (fun context ->
+            result {
+                // the fixture's own Lots are on d2; d4's line carries none
+                let lotOn date = [ lotsLine PF.totalMarket 50M 100.00M [ date, 50M ] ]
+                let! _ = recordSnapshot context PF.jointBrokerage p.d3 (lotOn p.d3)
+                let! _ = recordSnapshot context PF.jointBrokerage p.d1 (lotOn p.d1)
+                changeBasisMethod context PF.jointBrokerage PF.totalMarket (Some SpecificLot)
+                |> expectError
+                    (function AsError (PositionsHoldingBasisMethodChangeStrandsLots (a, s, e, l)) -> Some(a, s, e, l) | _ -> None)
+                    (fun found -> Assert.Equal((PF.jointBrokerage, PF.totalMarket, p.d1, p.d3), found))
+                let! holdings = holdingsOf context PF.jointBrokerage
+                Assert.Equal<HoldingSummary list>([ PF.jointBrokerage, PF.totalMarket, Some AverageCost ], holdings)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-5.7 REQ-POS-7.2 once every snapshot whose line of a Holding carried Lots is re-recorded with that line carrying none, changing the Holding's basis method succeeds and reads back the new method`` () =
-        Assert.Fail "Not yet implemented"
+        let p = fixture.Data.positions
+        runCommandRouteAndAutoRollback PositionsUpdateHoldingBasisMethod (fun context ->
+            result {
+                // d2 is the fixture's only snapshot whose line of this Holding carries Lots
+                let! _ = recordSnapshot context PF.jointBrokerage p.d2 [ lotsLine PF.totalMarket 50M 110.00M [] ]
+                let! _ = changeBasisMethod context PF.jointBrokerage PF.totalMarket (Some SpecificLot)
+                let! holdings = holdingsOf context PF.jointBrokerage
+                Assert.Equal<HoldingSummary list>([ PF.jointBrokerage, PF.totalMarket, Some SpecificLot ], holdings)
+            })
+        |> railroadWrapper

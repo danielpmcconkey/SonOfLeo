@@ -68,6 +68,25 @@ let constructNewAndPersist
         return holding
     }
 
+// A Lot's cost is read through its Holding's basis method, and the Holding keeps one method with no history.
+let private confirmNoLotsReinterpreted
+    (context: Context.Context)
+    (account: InvestmentAccount.InvestmentAccount)
+    (security: Security.Security)
+    (holding: Holding.Holding)
+    (basisMethod: BasisMethod option)
+    : Result<unit, IAppError> =
+    if basisMethod = (holding |> Holding.basisMethod) then Ok() else
+    result {
+        let! datesWithLots = holding |> Holding.holdingId |> AccountSnapshotLot.fetchSnapshotDatesWithLotsForHolding context
+        if not (datesWithLots |> List.isEmpty) then
+            let accountName = accountNameOf account
+            let securityName = securityNameOf security
+            let earliest = datesWithLots |> List.min
+            let latest = datesWithLots |> List.max
+            return! error (PositionsHoldingBasisMethodChangeStrandsLots(accountName, securityName, earliest, latest))
+    }
+
 let changeHoldingBasisMethod
     (context: Context.Context)
     (investmentAccountId: InvestmentAccountId)
@@ -78,6 +97,7 @@ let changeHoldingBasisMethod
         let! account, security, existing = fetchParts context investmentAccountId securityId
         let! holding = existingHolding account security existing
         do! confirmBasisMethodAllowed account security basisMethod
+        do! confirmNoLotsReinterpreted context account security holding basisMethod
         return!
             Holding.update context { holdingIdToUpdate = holding |> Holding.holdingId; basisMethodUpdate = SetTo basisMethod }
     }

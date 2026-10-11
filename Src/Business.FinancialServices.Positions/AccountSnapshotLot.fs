@@ -195,3 +195,23 @@ let fetchByAccountSnapshotLineIdList
     let predicate = $"snaplot.account_snapshot_line_id in ({names})"
     query context None select (Some joins) (Some predicate) None None None parameters AnyQuantityIsAcceptable
     |> Result.map inOrder
+
+/// The dates of the Holding's snapshots whose line carries a lot, in date order.
+let fetchSnapshotDatesWithLotsForHolding (context: Context.Context) (holdingId: HoldingId) : Result<LocalDate list, IAppError> =
+    let mapRawForDbRead (row: RowReader) =
+        (row |> RowReader.getDate "snapshot_date"), ()
+    let reconstitute raw =
+        let snapshotDate, _ = raw
+        Ok snapshotDate
+    let queryStatement =
+        """
+        select distinct snap.snapshot_date
+        from positions.account_snapshot_lot snaplot
+        join positions.account_snapshot_line snapl on snapl.unique_id = snaplot.account_snapshot_line_id
+        join positions.account_snapshot snap on snap.unique_id = snapl.account_snapshot_id
+        where snapl.holding_id = @holding_id
+        order by snap.snapshot_date;"""
+    let parameters = [ { name = "@holding_id"; value = UniqueId(holdingId |> HoldingId.value) } ]
+    executeReaderQuery
+        (context |> Context.getDatabaseTransaction) queryStatement parameters mapRawForDbRead reconstitute
+        AnyQuantityIsAcceptable
