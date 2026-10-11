@@ -251,8 +251,45 @@ type AccountSnapshotLotsTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-POS-7.3 REQ-POS-7.2 re-recording a date whose snapshot had lines carrying two Lots, one Lot and no Lot, with the two-Lot line re-supplied without Lots, returns it as a replacement carrying for each replaced line its Security and the number of Lots it carried (2, 1, 0), and the re-supplied line reads back with no Lots`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback PositionsRecordAccountSnapshots (fun context ->
+            result {
+                // alexBrokerage holds two Securities in the fixture; a third Holding gives the line that carries no Lot
+                let! accountId = PositionsLookups.investmentAccountIdOf context PF.alexBrokerage
+                let! bondFundId = PositionsLookups.securityIdOf context PF.bondFund
+                let! _ = HoldingOrchestration.constructNewAndPersist context accountId bondFundId (Some PositionsComponent.AverageCost)
+                let date = freshDate ()
+                let international = line PF.international 20M 25.00M 500.00M None [ lot lastYear 20M None ]
+                let bondFund = line PF.bondFund 100M 10.00M 1000.00M None []
+                let! _ =
+                    recordSnapshots context
+                        [ snapshot PF.alexBrokerage date
+                              [ line PF.totalMarket 10M 100.00M 1000.00M None [ lot lastYear 4M None; lot lastYear 6M None ]
+                                international
+                                bondFund ] ]
+                let! recorded =
+                    recordSnapshots context
+                        [ snapshot PF.alexBrokerage date [ line PF.totalMarket 10M 100.00M 1000.00M None []; international; bondFund ] ]
+                let only = recorded |> List.exactlyOne
+                Assert.True(only.replacedExisting)
+                Assert.Equal<(string * int) list>(
+                    [ PF.bondFund, 0; PF.international, 1; PF.totalMarket, 2 ],
+                    only.replacedLineLots |> List.map (fun l -> l.security, l.lotCount))
+                let! stored = storedLots context PF.alexBrokerage date
+                Assert.Equal<LotsSummary>(
+                    [ PF.bondFund, []; PF.international, [ lastYear, 20M, None ]; PF.totalMarket, [] ], stored)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-POS-7.3 recording a date with no existing snapshot returns it as not a replacement, with no replaced Lot counts`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback PositionsRecordAccountSnapshots (fun context ->
+            result {
+                let! recorded =
+                    recordSnapshots context
+                        [ snapshot PF.alexBrokerage (freshDate ())
+                              [ line PF.totalMarket 10M 100.00M 1000.00M None [ lot lastYear 10M None ] ] ]
+                let only = recorded |> List.exactlyOne
+                Assert.Equal<bool * (string * int) list>(
+                    (false, []), (only.replacedExisting, only.replacedLineLots |> List.map (fun l -> l.security, l.lotCount)))
+            })
+        |> railroadWrapper

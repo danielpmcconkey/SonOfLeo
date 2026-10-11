@@ -1156,4 +1156,27 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-POS-7.3 the AccountSnapshot Record route's return for a re-recorded date says it replaced a snapshot and carries each replaced line's Security name with its Lot count, the counts distinct and non-zero`` () =
-        Assert.Fail "Not yet implemented"
+        let name = unique "Route Account"
+        let withLots (l: C.AccountSnapshotLineInput) count : C.AccountSnapshotLineInput =
+            { l with lots = List.init count (fun _ -> ({ acquiredDate = p.accountsActiveBegin; quantity = l.quantity / decimal count; reportedCostBasis = None }: C.AccountSnapshotLotInput)) }
+        try
+            result {
+                do! accountHoldingTotalMarket name
+                let! _ = createHolding name PF.international (Some "AverageCost")
+                let! _ =
+                    record
+                        [ snapshotOf name p.d1
+                              [ withLots (line PF.totalMarket 10M 100.00M 1000.00M None) 2
+                                withLots (line PF.international 20M 25.00M 500.00M None) 1 ] ]
+                let! returned =
+                    record
+                        [ snapshotOf name p.d1
+                              [ line PF.totalMarket 10M 100.00M 1000.00M None
+                                withLots (line PF.international 20M 25.00M 500.00M None) 1 ] ]
+                Assert.Equal<(bool * (string * int) list) list>(
+                    [ true, [ PF.international, 1; PF.totalMarket, 2 ] ],
+                    returned |> List.map (fun r -> r.replacedExisting, r.replacedLineLots |> List.map (fun l -> l.security, l.lotCount)))
+            }
+            |> railroadWrapper
+        finally
+            cleanUp [ fun () -> cleanUpInvestmentAccountByName name ]

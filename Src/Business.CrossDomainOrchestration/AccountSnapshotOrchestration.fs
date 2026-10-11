@@ -36,9 +36,17 @@ type SnapshotView = {
     lines: SnapshotLineView list
 }
 
+/// One line of a replaced snapshot: its Security and how many lots it carried.
+type ReplacedLineLots = {
+    security: string
+    lotCount: int
+}
+
+/// A recorded snapshot. When it replaced one, the replaced snapshot's lot count per line, lines by Security name.
 type RecordedSnapshot = {
     snapshot: SnapshotView
     replacedExisting: bool
+    replacedLineLots: ReplacedLineLots list
 }
 
 let private accountNameOf account = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
@@ -206,6 +214,14 @@ let private recordOne (context: Context.Context) (input: Snapshot) : Result<Reco
             lineInputs
             |> List.map (buildLine context account snapshotDate accountSnapshotId)
             |> convertListOfResultsToResultsList
+        let! replacedLineLots =
+            match existing with
+            | Some existingHeader ->
+                viewSnapshot context accountName existingHeader
+                |> Result.map (fun replaced ->
+                    replaced.lines
+                    |> List.map (fun l -> { security = l.securityName; lotCount = l.lots |> List.length }))
+            | None -> Ok []
         let! header =
             match existing with
             | Some _ ->
@@ -233,7 +249,7 @@ let private recordOne (context: Context.Context) (input: Snapshot) : Result<Reco
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         let! view = viewSnapshot context accountName header
-        return { snapshot = view; replacedExisting = existing |> Option.isSome }
+        return { snapshot = view; replacedExisting = existing |> Option.isSome; replacedLineLots = replacedLineLots }
     }
 
 /// Records every snapshot or, on the first failure, returns its error; the caller's transaction makes that all or none.

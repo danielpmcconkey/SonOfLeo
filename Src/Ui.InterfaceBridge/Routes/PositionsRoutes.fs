@@ -228,7 +228,11 @@ let private recordAccountSnapshots payload _ =
                 recorded
                 |> List.map (fun r ->
                     { snapshot = r.snapshot |> ``convert [SnapshotView] to [AccountSnapshotReturn]``
-                      replacedExisting = r.replacedExisting })
+                      replacedExisting = r.replacedExisting
+                      replacedLineLots =
+                        r.replacedLineLots
+                        |> List.map (fun (replaced: AccountSnapshotOrchestration.ReplacedLineLots) ->
+                            ({ security = replaced.security; lotCount = replaced.lotCount }: ReplacedLineLotsReturn)) })
                 |> Json.toJson<RecordedAccountSnapshotReturn list>
         })
 

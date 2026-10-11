@@ -177,7 +177,13 @@ type AccountSnapshotReturn = {
     modifiedAt: Instant
 }
 
-type RecordedAccountSnapshotReturn = { snapshot: AccountSnapshotReturn; replacedExisting: bool }
+type ReplacedLineLotsReturn = { security: string; lotCount: int }
+
+type RecordedAccountSnapshotReturn = {
+    snapshot: AccountSnapshotReturn
+    replacedExisting: bool
+    replacedLineLots: ReplacedLineLotsReturn list
+}
 
 type AccountSnapshotDeleteInput = { accountName: string; snapshotDate: LocalDate }
 
