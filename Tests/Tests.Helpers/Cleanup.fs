@@ -371,6 +371,7 @@ let cleanUpInvestmentAccountByName (name: string) : Result<unit, IAppError> =
     let parameters = [ { name = "@name"; value = CharString name } ]
     let ofAccount = "(select unique_id from positions.investment_account where account_name = @name)"
     [ $"""delete from positions.investment_activity WHERE investment_account_id IN {ofAccount};"""
+      $"""delete from positions.investment_activity_coverage WHERE investment_account_id IN {ofAccount};"""
       $"""delete from positions.account_snapshot_lot WHERE account_snapshot_line_id IN
             (select unique_id from positions.account_snapshot_line WHERE account_snapshot_id IN
                 (select unique_id from positions.account_snapshot where investment_account_id IN {ofAccount}));"""

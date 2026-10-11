@@ -83,6 +83,10 @@ let private listActivity account beginDate endDate =
     call<C.InvestmentActivityListInput, C.InvestmentActivityReturn list> "InvestmentActivity" "List"
         { accountName = account; beginDate = beginDate; endDate = endDate }
 
+let private coverageGaps account beginDate endDate =
+    call<C.InvestmentActivityCoverageGapsInput, C.ActivityCoverageGapReturn list> "InvestmentActivity" "ListCoverageGaps"
+        { accountName = account; beginDate = beginDate; endDate = endDate }
+
 let private activityOf (a: C.InvestmentActivityReturn) =
     a.activityDate, a.kind, a.description, a.securityName, a.quantity, a.price, a.amount
 
@@ -395,4 +399,17 @@ type PositionsSliceTwoRoutesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-POS-13.7 an InvestmentActivity coverage gaps payload naming an account and two dates returns exactly the uncovered stretches, each with its begin and end date, in date order`` () =
-        Assert.Fail "Not yet implemented"
+        let name = unique "Route Coverage Account"
+        try
+            result {
+                do! accountHoldingTotalMarket name
+                let day (offset: int) = p.d1.PlusDays(offset)
+                let! _ = recordActivity [ rangeOf name (day 9) (day 12) []; rangeOf name (day 3) (day 5) [ interest (day 4) 1.00M ] ]
+                let! gaps = coverageGaps name (day 0) (day 15)
+                Assert.Equal<(LocalDate * LocalDate) list>(
+                    [ day 0, day 2; day 6, day 8; day 13, day 15 ],
+                    gaps |> List.map (fun (g: C.ActivityCoverageGapReturn) -> g.beginDate, g.endDate))
+            }
+            |> railroadWrapper
+        finally
+            cleanUp [ fun () -> cleanUpInvestmentAccountByName name ]
