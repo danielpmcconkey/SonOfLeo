@@ -259,6 +259,18 @@ let fetchByMasterAgreementIdList
     let predicate = $"pa.master_agreement_id in ({names})"
     fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
 
+/// The Master Agreement's Payment Agreements created at or before the instant.
+let fetchByMasterAgreementIdCreatedNoLaterThan
+    (context: Context.Context)
+    (createdNoLaterThan: Instant)
+    (masterAgreementId: MasterAgreementId)
+    : Result<PaymentAgreement list, IAppError> =
+    let parameters =
+        [ { name = "@master_agreement_id"; value = UniqueId(masterAgreementId |> MasterAgreementId.value) }
+          { name = "@created_no_later_than"; value = DbInstant createdNoLaterThan } ]
+    let predicate = "pa.master_agreement_id = @master_agreement_id and pa.created_at <= @created_no_later_than"
+    fetchAny context (Some predicate) None parameters AnyQuantityIsAcceptable
+
 let fetchByPaymentAgreementIdList
     (context: Context.Context)
     (paymentAgreementIds: PaymentAgreementId list)
