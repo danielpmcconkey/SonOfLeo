@@ -13,7 +13,7 @@ realEstate='Property Valuation RealEstateOrchestration'
 investment='DimensionValue Security InvestmentAccount Holding AccountSnapshotHeader AccountSnapshotLine
 DimensionValueOrchestration SecurityOrchestration InvestmentAccountOrchestration
 HoldingOrchestration AccountSnapshotOrchestration HoldingsAsOf InvestmentWealthHistory
-AccountSnapshotLot InvestmentActivity InvestmentActivityOrchestration UnitRollForward'
+AccountSnapshotLot InvestmentActivity InvestmentActivityCoverage InvestmentActivityOrchestration UnitRollForward'
 
 # Shared by both peers. PreLedgerBalance is here only until the D40 cash-and-debt positions
 # slice moves it out of the Positions project.

@@ -18,6 +18,7 @@
     <Compile Include="AccountSnapshotLine.fs" />
     <Compile Include="AccountSnapshotLot.fs" />
     <Compile Include="InvestmentActivity.fs" />
+    <Compile Include="InvestmentActivityCoverage.fs" />
     <Compile Include="Property.fs" />
     <Compile Include="Valuation.fs" />
     <Compile Include="PreLedgerBalance.fs" />
