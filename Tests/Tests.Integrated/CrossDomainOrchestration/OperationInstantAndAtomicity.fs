@@ -239,6 +239,21 @@ let private createdRecord (fixture: TestDataFixture) (kind: string) (creating: C
             // activity is never updated in place, so there is no update to give
             let update (_: Context.Context) : Result<unit, IAppError> = failwith "Investment Activity is never updated"
             return read, update
+        | "Activity Coverage" ->
+            let range: Ui.InterfaceBridge.InterfaceContracts.PositionsContracts.InvestmentActivityRangeInput =
+                { accountName = PositionsFixture.jordanCustodial; beginDate = p.d2; endDate = p.d2; activities = [] }
+            let! converted =
+                range
+                |> Ui.InterfaceBridge.BoundaryConverters.PositionsFieldConverters.``convert [InvestmentActivityRangeInput] to [ActivityRange]``
+                    creating
+            let! _ = InvestmentActivityOrchestration.recordActivity creating [ converted ]
+            let read context =
+                InvestmentActivityCoverage.fetchByInvestmentAccountBetween context jordanCustodialId p.d2 p.d2
+                |> Result.map List.exactlyOne
+                |> stamps InvestmentActivityCoverage.createdAt InvestmentActivityCoverage.modifiedAt
+            // coverage is never updated in place: a merge deletes the rows it absorbs and inserts a new one
+            let update (_: Context.Context) : Result<unit, IAppError> = failwith "Activity coverage is never updated"
+            return read, update
         | other -> return failwith $"No record kind \"{other}\""
     }
 
@@ -596,7 +611,8 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
     [<InlineData("Property")>]
     [<InlineData("Valuation")>]
     [<InlineData("Investment Activity")>]
-    member _.``REQ-SYS-3.2 for each of Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot, Property, Valuation and Investment Activity, creating one under a clock that advances on every read sets its created-at and modified-at both to the operation's initiation instant`` (kind: string) =
+    [<InlineData("Activity Coverage")>]
+    member _.``REQ-SYS-3.2 for each of Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot, Property, Valuation, Investment Activity and activity coverage, creating one under a clock that advances on every read sets its created-at and modified-at both to the operation's initiation instant`` (kind: string) =
         runCommandRouteAndAutoRollback PositionsCreateProperty (fun creating ->
             result {
                 let! read, _ = createdRecord fixture kind creating
