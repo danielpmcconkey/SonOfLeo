@@ -147,9 +147,28 @@ type JournalEntryCommentOrchestrationTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-JE-5.3 REQ-JE-1.56 amending the text of a comment whose primary entry is voided, and re-pointing its secondary entry to another entry, succeeds, and both read back as amended`` () =
-        Assert.Fail "Not yet implemented"
+    member this.``REQ-JE-5.3 REQ-JE-1.56 amending the text of a comment whose primary entry is voided, and re-pointing its secondary entry to another entry, succeeds, and both read back as amended`` () =
+        this.AmendsCommentOn fixture.Data.voidedJeId
 
     [<Fact>]
-    member _.``REQ-JE-5.3 REQ-JE-1.56 amending the text of a comment whose primary entry's fiscal period is closed, and re-pointing its secondary entry to another entry, succeeds, and both read back as amended`` () =
-        Assert.Fail "Not yet implemented"
+    member this.``REQ-JE-5.3 REQ-JE-1.56 amending the text of a comment whose primary entry's fiscal period is closed, and re-pointing its secondary entry to another entry, succeeds, and both read back as amended`` () =
+        this.AmendsCommentOn fixture.Data.jeInClosedPeriodId
+
+    (* In a rolled-back transaction: a comment on the given entry with no secondary entry, then one update that amends
+       its text and points its secondary entry at the fixture's basic entry. *)
+    member private _.AmendsCommentOn(primaryId: JournalEntryComponent.JournalEntryHeaderId) =
+        let secondaryId = fixture.Data.basicJeId
+        runCommandRouteAndAutoRollback JournalEntryUpdateComment (fun context ->
+            result {
+                let! original = "REQ-JE-5.3 comment as first written" |> JournalEntryComponent.CommentText.create
+                let! amended = "REQ-JE-5.3 comment as amended" |> JournalEntryComponent.CommentText.create
+                let! comment = JournalEntryCommentOrchestration.constructNewAndPersist context primaryId None original
+                let commentId = comment |> JournalEntryComment.journalEntryCommentId
+                let! returned =
+                    JournalEntryCommentOrchestration.updateComment context commentId (SetTo amended) (SetTo(Some secondaryId))
+                let! readBack = commentId |> JournalEntryComment.fetchById context
+                let fieldsOf c = c |> JournalEntryComment.commentText, c |> JournalEntryComment.secondaryJournalEntryId
+                Assert.Equal((amended, Some secondaryId), returned |> fieldsOf)
+                Assert.Equal((amended, Some secondaryId), readBack |> fieldsOf)
+            })
+        |> railroadWrapper
