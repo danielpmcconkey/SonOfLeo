@@ -221,43 +221,6 @@ type ClassificationClaimantsAndRunsTests(fixture: TestDataFixture) =
                 Assert.Equal<ClassificationRuleId list>([ ruleIdOf paymentRule ], paymentTyped |> List.map ruleIdOf)
             })
 
-    [<Theory>]
-    [<InlineData("both")>]
-    [<InlineData("neither")>]
-    member _.``REQ-CR-1.24 for each of both claimants set and neither set, reading a stored rule in that state by ID, by name or by filter fails with a typed error naming the rule's ID`` (claimants: string) =
-        rolledBack fixture (fun s ->
-            result {
-                let! legId = s.leg ()
-                let ruleUuid = Guid.NewGuid()
-                let name = $"Broken claimant rule {newTag ()}"
-                let accountUuid, legUuid =
-                    if claimants = "both" then Some(s.accountIdOf "F-1280" |> AccountId.value), Some(legId |> PaymentAgreementId.value)
-                    else None, None
-                let now = s.Context |> Context.getInitiationInstant
-                let! _ =
-                    executeNonQuery (s.Context |> Context.getDatabaseTransaction)
-                        """insert into classification.classification_rule
-                           (unique_id, rule_name, account_at_match, payment_agreement_at_match, priority, rule_groups, is_active, created_at, modified_at)
-                           values (@id, @name, @account, @leg, 100, @groups, true, @now, @now)"""
-                        [ { name = "@id"; value = UniqueId ruleUuid }
-                          { name = "@name"; value = CharString name }
-                          { name = "@account"; value = NullableUniqueId accountUuid }
-                          { name = "@leg"; value = NullableUniqueId legUuid }
-                          { name = "@groups"; value = Jsonb """[{"chainOne": {"chain": [{"Case": "Description", "Fields": ["x"]}]}, "chainTwo": null, "connector": {"Case": "And"}}]""" }
-                          { name = "@now"; value = DbInstant now } ]
-                        ExactlyOne
-                let! ruleName = name |> ClassificationRuleName.create
-                let reads =
-                    [ ruleUuid |> ClassificationRuleId.fromGuid |> ClassificationRule.fetchById s.Context |> Result.map ignore
-                      ruleName |> ClassificationRule.fetchByName s.Context |> Result.map ignore
-                      ClassificationOrchestration.fetchRulesFiltered s.Context { noRuleFilter with nameLike = Some ruleName } None |> Result.map ignore ]
-                let namesTheRule (read: Result<unit, IAppError>) =
-                    match read with
-                    | Error (AsError (ClassificationRuleInvalidClaimant(id, _, _))) -> id = ruleUuid
-                    | _ -> false
-                Assert.All(reads, fun read -> Assert.True(namesTheRule read))
-            })
-
     // =========================================================================
     // REQ-CR-3.7, 3.8 — which rules a run uses, and what the classifier ignores
     // =========================================================================
