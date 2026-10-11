@@ -79,28 +79,32 @@ type AccountTests(fixture: TestDataFixture) =
             cleanUpAccountId idToCleanUp |> ignore
 
     [<Fact>]
-    member _.``REQ-AC-1.5 an account created under the lower-cased form of an existing account's code is a distinct account, and each code resolves to its own account``() =
-        let incumbentId = fixture.Data.assets1000Id
-        let incumbentCode =
-            fixture.Data.accounts |> List.find(fun a -> a |> Account.accountId = incumbentId) |> Account.code |> AccountCode.value
-        let lowered = incumbentCode.ToLowerInvariant()
-        Assert.NotEqual<string>(incumbentCode, lowered)
+    member _.``REQ-AC-1.5 an account created under the lower-cased form of an existing account's code is a distinct account, each code resolves through the code lookup to its own account, and a case variant never created does not resolve to the existing account``() =
+        (* In a rolled-back transaction: an account coded Ab-1500, then one coded ab-1500. AB-1500 is never created. *)
+        let incumbentCode, lowered, neverCreated = "Ab-1500", "ab-1500", "AB-1500"
         runCommandRouteAndAutoRollback AccountCreate (fun context ->
             result {
-                let! created =
+                let create code =
                     AccountCreation.constructNewAndPersist
                         context
-                        (lowered |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
+                        (code |> AccountCode.create |> Result.defaultWith(fun (e: IAppError) -> failwith(e.ToMessage())))
                         genericAccountName
                         genericAccountType
                         genericActivityPeriod
                         genericAccountSubtype
                         genericAccountParentId
                         genericAccountReference
-                let! all = Account.fetchAll context false
-                let holderOf code = all |> List.filter(fun a -> a |> Account.code |> AccountCode.value = code) |> List.map Account.accountId
-                Assert.Equal<AccountId list>([ incumbentId ], holderOf incumbentCode)
-                Assert.Equal<AccountId list>([ created |> Account.accountId ], holderOf lowered)
+                let! incumbent = create incumbentCode
+                let! created = create lowered
+                let resolve code = code |> Account.codeToId.fetch (context |> Context.getDatabaseTransaction)
+                let! incumbentResolved = resolve incumbentCode
+                let! loweredResolved = resolve lowered
+                Assert.Equal(incumbent |> Account.accountId |> AccountId.value, incumbentResolved)
+                Assert.Equal(created |> Account.accountId |> AccountId.value, loweredResolved)
+                let () =
+                    match resolve neverCreated with
+                    | Ok resolved -> Assert.NotEqual(incumbent |> Account.accountId |> AccountId.value, resolved)
+                    | Error _ -> ()
                 return ()
             })
         |> railroadWrapper
