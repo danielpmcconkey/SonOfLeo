@@ -25,7 +25,7 @@ type QueryParameter = { name: string
                         value: QueryParameterValue }
 
 
-/// containsPattern is the LIKE pattern that finds the caller's text anywhere, taken literally (REQ-SYS-1.4). Backslash is
+/// containsPattern is the LIKE pattern that finds the caller's text anywhere, taken literally. Backslash is
 /// LIKE's escape character, so it is escaped first; then % and _ are escaped so each matches only itself.
 let containsPattern (text: string) : string =
     let escaped = text.Replace(@"\", @"\\").Replace("%", @"\%").Replace("_", @"\_")

@@ -15,7 +15,7 @@ open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Classification
 open Business.FinancialServices.Classification.ClassificationComponent
 
-/// One Payment referencing a staged line, with the Invoice it pays and that Invoice's Instance (REQ-RPT-7.4).
+/// One Payment referencing a staged line, with the Invoice it pays and that Invoice's Instance.
 type PrePostingPayment =
     { paymentId: PaymentId
       invoiceId: InvoiceId
@@ -26,7 +26,7 @@ type PrePostingPayment =
       paymentState: PaymentState
       instanceDate: LocalDate }
 
-/// The Payment Agreement a staged line is linked to (REQ-RPT-7.4).
+/// The Payment Agreement a staged line is linked to.
 type PrePostingAgreement =
     { paymentAgreementName: PaymentAgreementName
       masterAgreementName: AgreementName }
@@ -84,13 +84,13 @@ let private ruleNameForLine
 
 let private ifAny fetch ids = if ids |> List.isEmpty then Ok [] else fetch ids
 
-/// fetchPrePostingReview returns every postable staged entry (REQ-RPT-7.1), line by line (REQ-RPT-7.2 to 7.4), in
-/// entry date, source name, fi_reference order (REQ-RPT-7.6). A line with no account fails it (REQ-RPT-7.5).
+/// fetchPrePostingReview returns every postable staged entry, line by line, in
+/// entry date, source name, fi_reference order. A line with no account fails it.
 let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry list, IAppError> =
     result {
         let! entries = StageEntryOrchestration.fetchAllForPosting context
         let allLines = entries |> List.collect StageEntryOrchestration.seLines
-        // REQ-RPT-7.5: the first line with no account, in the order the report would show it, fails the review
+        // the first line with no account, in the order the report would show it, fails the review
         let! _ =
             entries
             |> List.sortBy (fun se ->
@@ -178,7 +178,7 @@ let fetchPrePostingReview (context: Context.Context) : Result<PrePostingEntry li
 
         let toLine (l: StageEntryLine.StageEntryLine) =
             let lineId = l |> StageEntryLine.stageEntryLineId
-            // REQ-RPT-7.5 was checked above, so every line has an account here
+            // a line with no account was refused above, so every line has an account here
             let accountId = l |> StageEntryLine.accountId |> Option.get
             let account = accountsById[accountId]
             { stageEntryLineId = lineId

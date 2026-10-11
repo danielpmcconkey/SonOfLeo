@@ -25,13 +25,13 @@ type TrialBalanceRowFlattened =
       totalDebits: Money.Money
       netBalance: Money.Money }
     
-/// childrenInTrialBalanceOrder is REQ-RPT-1.6's sibling rule: the accounts under parentId (None for top level), by code.
+/// childrenInTrialBalanceOrder is the trial balance's sibling rule: the accounts under parentId (None for top level), by code.
 let childrenInTrialBalanceOrder (allAccounts: Account.Account list) (parentId: AccountId option) : Account.Account list =
     allAccounts
     |> List.filter(fun a -> a |> Account.parentId = parentId)
     |> List.sortBy(fun a -> a |> Account.code |> AccountCode.value)
 
-/// accountsInTrialBalanceOrder is REQ-RPT-1.6's depth-first order: top-level accounts by code, each parent
+/// accountsInTrialBalanceOrder is the trial balance's depth-first order: top-level accounts by code, each parent
 /// immediately before its children.
 let accountsInTrialBalanceOrder (allAccounts: Account.Account list) : Account.Account list =
     let rec crawl (account: Account.Account) =

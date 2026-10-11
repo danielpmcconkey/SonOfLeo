@@ -182,7 +182,7 @@ type CreateUpcomingInstancesInput = { projectionHorizonInDays: int }
 
 type ProjectCashFlowInput = { projectionHorizonInDays: int }
 
-// a payment names its line only: its amount is the line's (REQ-CF-6.5)
+// a payment names its line only: its amount is the line's
 type CreatePaymentFieldsInput = {
     transactionPointer: TransactionPointerContract
     postedToFiDate: LocalDate option

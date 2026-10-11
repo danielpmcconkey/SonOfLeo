@@ -76,7 +76,7 @@ let updateComment
             | FieldUpdate.NoChange -> Ok FieldUpdate.NoChange
             | FieldUpdate.SetTo x ->
                 result {
-                    // the new secondary must exist, checked here rather than left to the foreign key (REQ-SYS-6.3)
+                    // the new secondary must exist, checked here rather than left to the foreign key
                     do! match x |> convertOptionToDesiredTypeWithFallibleConverter (confirmJournalEntryHeader context) with
                         | Error (AsError (JournalEntryHeaderIdDoesntExist uuid)) ->
                             Error (JournalEntryCommentSecondaryJeHeaderIdNotFound uuid)

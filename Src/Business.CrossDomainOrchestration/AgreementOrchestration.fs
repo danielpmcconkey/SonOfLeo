@@ -383,8 +383,8 @@ let private isThereAPaymentAgreementUpdate
     |> List.exists id
 
 /// updateAgreement changes the master agreement and its legs, and adds new legs. No leg is removed. Instances, Invoices
-/// and Payments change through the instance composite, which derives payment state, posted state and is-fulfilled
-/// (REQ-CF-9.11); a leg's new amount or accounts leave its existing Invoices and Payments as they are.
+/// and Payments change through the instance composite, which derives payment state, posted state and is-fulfilled;
+/// a leg's new amount or accounts leave its existing Invoices and Payments as they are.
 /// Note to caller, the updates are sent to the DB *before* aggregate validation. Make sure you wrap this in a
 /// transaction you can roll back
 /// confirmActivityPeriodUpdate checks the activity period an update leaves the agreement with. Either date can be

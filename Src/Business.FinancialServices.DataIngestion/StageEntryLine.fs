@@ -59,7 +59,7 @@ let create
                 journalEntryLineId = journalEntryLineId }
 
 /// applyFieldUpdates gives the line as an update would leave it, without writing anything, so the entry it belongs to
-/// can be validated as a whole before any of it reaches the database (REQ-STG-6.4).
+/// can be validated as a whole before any of it reaches the database.
 let applyFieldUpdates (fieldUpdates: StageEntryLineFieldUpdates) (line: StageEntryLine) : StageEntryLine =
     { line with
         amount = fieldUpdates.amountUpdate |> valueOrCurrent line.amount
@@ -314,7 +314,7 @@ let updateJournalEntryLineId
     update context fieldUpdates
 
 /// delete removes a line outright. Only a line nothing refers to can go: the manual update checks links, Payments and
-/// classification runs first (REQ-STG-6.5), and the foreign keys back that up.
+/// classification runs first, and the foreign keys back that up.
 let delete (context: Context.Context) (lineId: StageEntryLineId) : Result<unit, IAppError> =
     let queryStatement = "delete from ingestion.staged_entry_line where unique_id = @unique_id;"
     let uuid = lineId |> StageEntryLineId.value

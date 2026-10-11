@@ -48,7 +48,7 @@ let constructNewAndPersist (context: Context.Context) (periodKey: FiscalPeriodKe
 
 /// ensureFiscalPeriods creates an open period for every month from startKey through endKey, inclusive, that has none,
 /// and returns only those it created. Existing periods, open or closed, are left alone. Nothing missing is not a no-op
-/// error: the Saturday run calls this every week without checking first (REQ-FP-2.7, REQ-SYS-6.1.1).
+/// error: the Saturday run calls this every week without checking first.
 let ensureFiscalPeriods
     (context: Context.Context)
     (startKey: FiscalPeriodKey)

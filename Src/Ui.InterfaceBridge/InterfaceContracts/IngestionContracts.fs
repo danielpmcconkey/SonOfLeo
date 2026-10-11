@@ -87,7 +87,7 @@ type UpdateStageEntryLineInput = {
     memo: FieldUpdate<string option>
 }
 
-/// a line the operator adds in a manual update, for example to split one FI line across accounts (REQ-STG-6.4)
+/// a line the operator adds in a manual update, for example to split one FI line across accounts
 type AddStageEntryLineInput = {
     amount: decimal
     lineType: string
@@ -95,7 +95,7 @@ type AddStageEntryLineInput = {
     memo: string option
 }
 
-// no change mechanism: every status change made through the manual update is recorded as Operator (REQ-STG-6.2.1)
+// no change mechanism: every status change made through the manual update is recorded as Operator
 type StageEntryStatusUpdateInput = {
     newStatus: string
 }

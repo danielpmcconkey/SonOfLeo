@@ -327,7 +327,7 @@ let deduplicateStagedEntries
     : Result<DeduplicationResult, IAppError> =
     result {
         let! repeatedHeaders = StageEntryHeader.fetchDuplicates context
-        // an entry a Payment references is never flagged; it stays at its status and is reported (REQ-STG-6.7)
+        // an entry a Payment references is never flagged; it stays at its status and is reported
         let! paidHeaderIds =
             repeatedHeaders |> List.map StageEntryHeader.stageEntryHeaderId |> headerIdsWithAPaidLine context
         let duplicateHeaders =
@@ -423,7 +423,6 @@ let persistConstructed
     : Result<unit, IAppError> =
     result {
         // the transitions written are the ones constructFromRaw built, so the entries handed in match what is stored
-        // (REQ-STG-3.13)
         let! _ =
             entries
             |> List.map(fun e -> e |> stageEntryHeader |> StageEntryHeader.persist context)
@@ -563,7 +562,7 @@ let isThereALineUpdate
     |> List.exists id
     
 /// protectionsOf says, for each of the given lines, whatever keeps it from being removed or having its amount, line type
-/// or account changed (REQ-STG-6.5): a payment agreement link, a Payment, or a classification run's record of it.
+/// or account changed: a payment agreement link, a Payment, or a classification run's record of it.
 let private protectionsOf
     (context: Context.Context)
     (lineIds: StageEntryLineId list)
@@ -596,7 +595,7 @@ let private changesProtectedField (line: StageEntryLine.StageEntryLine) (lineUpd
     || differs (line |> StageEntryLine.accountId) lineUpdate.accountIdUpdate
 
 /// updateStageEntry is the operator's manual update. It can edit the entry and its lines, add lines and remove them in
-/// one operation, and only the entry as the whole operation leaves it is validated (REQ-STG-6.4): a split passes
+/// one operation, and only the entry as the whole operation leaves it is validated: a split passes
 /// through an unbalanced state on the way. Everything is checked before anything is written.
 let updateStageEntry
     (context: Context.Context)
@@ -619,12 +618,12 @@ let updateStageEntry
             headerId
             |> fetchByStageEntryHeaderId context
             |> whenNoRows (DataIngestionError.IngestionStageEntryHeaderIdDoesntExist headerUuid)
-        // a posted entry's lines are paired to its journal entry's lines; correcting it is void and repost (REQ-STG-6.6)
+        // a posted entry's lines are paired to its journal entry's lines; correcting it is void and repost
         do!
             if current.stageEntryHeader |> StageEntryHeader.currentStatus = Some Posted
             then Error(DataIngestionError.IngestionPostedStageEntryCannotBeModified headerUuid)
             else Ok ()
-        // an entry a Payment references cannot leave the set that posts (REQ-STG-6.7)
+        // an entry a Payment references cannot leave the set that posts
         do!
             match headerUpdates.statusUpdate with
             | SetTo (StagedEntryStatus.Duplicate | Ignored as excluded) ->
@@ -636,7 +635,7 @@ let updateStageEntry
                             Classification.ClassificationError.ClassificationPaidStageEntryCannotBeExcluded(
                                 headerUuid, excluded |> StagedEntryStatus.toString)))
             | _ -> Ok ()
-        // only batch post moves an entry to Posted (REQ-STG-4.8)
+        // only batch post moves an entry to Posted
         do!
             match headerUpdates.statusUpdate with
             | SetTo Posted -> Error(DataIngestionError.IngestionManualUpdateCannotSetStatus(Posted |> StagedEntryStatus.toString))

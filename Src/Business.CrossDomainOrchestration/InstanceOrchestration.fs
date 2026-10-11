@@ -49,7 +49,7 @@ let private isPostedPayment (payment: Payment.Payment) : bool =
     | CashFlowComponent.Staged _ -> false
 
 /// lineAmount is the amount of the line a transaction pointer names. A Payment's amount is its line's; no caller
-/// supplies one (REQ-CF-6.5, REQ-CF-9.8).
+/// supplies one.
 let lineAmount
     (context: Context.Context)
     (transactionPointer: CashFlowComponent.TransactionPointer)
@@ -601,7 +601,7 @@ let private preConstructNewInvoiceComposite
 
 /// updateInstanceComposite is the single door for editing an Instance and anything hanging off it. It assembles the
 /// composite the package would produce, validates that, and only then writes -- payment state, posted state and
-/// isFulfilled are derived here; no contract carries them (REQ-CF-9.11).
+/// isFulfilled are derived here; no contract carries them.
 let updateInstanceComposite
     (context: Context.Context)
     (compositeUpdate: InstanceCompositeUpdate)
@@ -722,7 +722,7 @@ let private confirmInstanceDateIsAfterLatestInstance
     }
 
 /// constructNewAndPersist takes each Invoice's invoice state and blocker only. Payment state, posted state
-/// and is-fulfilled are derived from the Payments (REQ-CF-9.8 through 9.11), the same way adding an Invoice to an
+/// and is-fulfilled are derived from the Payments, the same way adding an Invoice to an
 /// existing Instance derives them.
 let constructNewAndPersist
     (context: Context.Context)

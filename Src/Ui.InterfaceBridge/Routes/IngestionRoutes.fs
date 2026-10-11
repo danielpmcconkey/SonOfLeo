@@ -141,7 +141,7 @@ let private post payload _ =
     }
     
 /// The shadow reconciliation writes to the ledger, so it is a command, not a report, and its transaction is always
-/// rolled back (REQ-RPT-4.6).
+/// rolled back.
 let private shadowReconcile payload _ =
     result {
         let! input = Json.fromJson<ShadowReconcileInput> payload

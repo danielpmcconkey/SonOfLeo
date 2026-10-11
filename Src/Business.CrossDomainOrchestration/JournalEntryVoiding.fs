@@ -75,8 +75,8 @@ let private insertReason
     |> Result.map ignore
 
 /// A void is refused while any Payment points at one of the entry's lines: voiding it would leave the Invoice paid and
-/// posted on cash the ledger no longer records (REQ-JE-4.14). It runs before anything is written, the reason comment
-/// included. Nothing here touches staging (REQ-JE-4.13).
+/// posted on cash the ledger no longer records. It runs before anything is written, the reason comment
+/// included. Nothing here touches staging.
 let private confirmNoPaymentReferencesEntry
     (context: Context.Context)
     (journalEntryHeaderId: JournalEntryHeaderId)

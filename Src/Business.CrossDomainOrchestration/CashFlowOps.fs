@@ -34,7 +34,7 @@ let private spawnInstancesFromAgreement
         let today = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
         let horizonEnd = today.PlusDays(daysOut |> CashFlowComponent.ProjectionHorizonInDays.value)
         let master = agreement |> AgreementOrchestration.masterAgreement
-        // no Instance after the agreement's end date, even inside the horizon (REQ-CF-7.16)
+        // no Instance after the agreement's end date, even inside the horizon
         let cutOffDate =
             match master |> MasterAgreement.activityPeriod |> ActivityPeriod.activeEnd with
             | Some endDate when endDate < horizonEnd -> endDate
@@ -206,7 +206,7 @@ let private fetchAgreementsWithDirection
 
 /// selectLegsOfClaimedEntries collapses each (payment agreement, stage entry) claim down to the one line that carries
 /// the obligation. The kept lines are the lines a claiming rule matched; the expected-account default only breaks a tie
-/// among several of them, and never vetoes a line a rule singled out (REQ-CF-12.4).
+/// among several of them, and never vetoes a line a rule singled out.
 let private selectLegsOfClaimedEntries
     (agreementsById: Map<CashFlowComponent.PaymentAgreementId, PaymentAgreement.PaymentAgreement * CashFlowComponent.FlowDirection>)
     (linesById: Map<StageEntryComponent.StageEntryLineId, StageEntryLine.StageEntryLine>)
@@ -399,7 +399,7 @@ let private matchInvoicesAndCreatePayments
             |> List.filter (fun (_, _, _, _, overpaid) -> overpaid)
             |> List.map (fun (_, masterAgreementId, invoice, _, _) -> masterAgreementId, invoice)
         // every link, not only those on agreements with an open Invoice: a line whose agreement has no open Invoice at
-        // all, or no Instances yet, is an orphan too (REQ-CF-13.7)
+        // all, or no Instances yet, is an orphan too
         let! links = PaymentAgreementLink.fetchAll context
         if links |> List.isEmpty then return [] else
         let linkedLineIds = links |> List.map PaymentAgreementLink.stageEntryLineId |> List.distinct
