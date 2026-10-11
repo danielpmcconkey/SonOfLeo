@@ -45,6 +45,13 @@ let create
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
+/// The day the ledger began: the start of the earliest of the periods, when there is one. A date earlier than this is
+/// before the ledger began.
+let earliestStart (fiscalPeriods: FiscalPeriod list) : LocalDate option =
+    match fiscalPeriods with
+    | [] -> None
+    | _ -> fiscalPeriods |> List.map (fun fp -> fp.startDate) |> List.min |> Some
+
 let persist (context: Context.Context) (fp: FiscalPeriod) : Result<unit, IAppError> =
     let queryStatement =
         """

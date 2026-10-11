@@ -60,7 +60,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-2.4 FiscalPeriod Create happy path``() =
-        let expected = "1993-06"
+        let expected = "2093-06"
         let payload = createFiscalPeriodCreateInputPayload expected
         let mutable keyToCleanUp = None
         try
@@ -75,8 +75,8 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
                 Assert.Equal(expected, returnedKey)
                 let! fetched = id |> FiscalPeriod.fetchById context
                 Assert.Equal(expected, FiscalPeriodKey.value(FiscalPeriod.periodKey fetched))
-                Assert.Equal(NodaTime.LocalDate(1993, 6, 1), fetched |> FiscalPeriod.startDate)
-                Assert.Equal(NodaTime.LocalDate(1993, 6, 30), fetched |> FiscalPeriod.endDate)
+                Assert.Equal(NodaTime.LocalDate(2093, 6, 1), fetched |> FiscalPeriod.startDate)
+                Assert.Equal(NodaTime.LocalDate(2093, 6, 30), fetched |> FiscalPeriod.endDate)
                 Assert.True(fetched |> FiscalPeriod.isOpen)
                 ()
             }
@@ -127,7 +127,7 @@ type FiscalPeriodRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-FP-4.1 FiscalPeriod Close happy path``() =
-        let expected = "1992-05"
+        let expected = "2092-05"
         let payload = createFiscalPeriodCloseInputPayload expected
         let mutable keyToCleanUp = None
         try

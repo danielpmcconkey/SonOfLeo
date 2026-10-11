@@ -7,6 +7,28 @@ open App.Utility.Result
 open App.Session
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
+open Business.FinancialServices.Positions
+open Business.FinancialServices.Positions.PositionsError
+
+// A pre-ledger balance must stay dated before the ledger began. A new period that moves the ledger's start back to or
+// over a balance's date would leave net worth reading that date from the ledger, and the balance would silently stop
+// counting. Deleting or re-dating the balances is the operator's decision.
+let private confirmNoPreLedgerBalanceStranded
+    (context: Context.Context)
+    (fiscalPeriod: FiscalPeriod.FiscalPeriod)
+    : Result<unit, IAppError> =
+    result {
+        let! existing = FiscalPeriod.fetchAll context false
+        let! stranded =
+            match FiscalPeriod.earliestStart (fiscalPeriod :: existing) with
+            | Some ledgerStart -> PreLedgerBalance.fetchOnOrAfter context ledgerStart
+            | None -> Ok []
+        match stranded |> PreLedgerBalance.dateRange with
+        | Some(earliest, latest) ->
+            let period = fiscalPeriod |> FiscalPeriod.periodKey |> FiscalPeriodKey.value
+            return! error (PositionsPreLedgerBalancesBlockFiscalPeriod(period, earliest, latest))
+        | None -> return ()
+    }
 
 let constructNewAndPersist (context: Context.Context) (periodKey: FiscalPeriodKey) : Result<FiscalPeriod.FiscalPeriod, IAppError> =
     let fiscalPeriodId = FiscalPeriodId.create()
@@ -19,6 +41,7 @@ let constructNewAndPersist (context: Context.Context) (periodKey: FiscalPeriodKe
     let fiscalPeriod =
         FiscalPeriod.create fiscalPeriodId periodKey startDate endDate isOpen createdAt modifiedAt
     result {
+        do! confirmNoPreLedgerBalanceStranded context fiscalPeriod
         do! fiscalPeriod |> FiscalPeriod.persist context
         return fiscalPeriod
     }
@@ -48,8 +71,12 @@ let ensureFiscalPeriods
             |> List.unfold (fun month -> if month > lastMonth then None else Some(month, month.PlusMonths 1))
             |> List.map FiscalPeriodKey.ofDate
             |> List.filter (fun key -> existingKeys |> Set.contains (key |> FiscalPeriodKey.value) |> not)
+        // in month order, stopping at the first that fails, so a refused month leaves no later one created
         return!
             missingKeys
-            |> List.map (constructNewAndPersist context)
-            |> convertListOfResultsToResultsList
+            |> List.fold
+                (fun created key ->
+                    created |> Result.bind (fun soFar -> constructNewAndPersist context key |> Result.map (fun p -> p :: soFar)))
+                (Ok [])
+            |> Result.map List.rev
     }

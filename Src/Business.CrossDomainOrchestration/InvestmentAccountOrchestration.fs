@@ -1,5 +1,6 @@
 module Business.CrossDomainOrchestration.InvestmentAccountOrchestration
 
+open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
 open App.Utility.FieldUpdate
@@ -46,6 +47,7 @@ let private confirmInvestmentAccountLink
             | _ ->
                 let accountType, subtype = describeType account
                 error (PositionsInvestmentLedgerAccountNotAssetInvestment(codeOf account, accountType, subtype))
+        do! confirmCarriesNoPreLedgerBalance context account
         let! linked = ledgerAccountId |> InvestmentAccount.fetchByLedgerAccountId context
         match linked with
         | Some other when other |> InvestmentAccount.investmentAccountId <> self ->
@@ -183,24 +185,28 @@ let private confirmNoContributionBasisStranded
         }
     | _ -> Ok()
 
-let private confirmPeriodKeepsSnapshots
+let private confirmPeriodKeepsRecords
     (context: Context.Context)
     (account: InvestmentAccount.InvestmentAccount)
     (activityPeriod: ActivityPeriod.ActivityPeriod)
     : Result<unit, IAppError> =
+    let accountId = account |> InvestmentAccount.investmentAccountId
+    let earliestAndLatestOutside (dates: LocalDate list) =
+        match dates |> List.filter (fun d -> not (activityPeriod |> ActivityPeriod.isActive d)) with
+        | [] -> None
+        | offending -> Some(offending |> List.min, offending |> List.max)
     result {
-        let! snapshots = account |> InvestmentAccount.investmentAccountId |> AccountSnapshotHeader.fetchByInvestmentAccount context
-        let offendingDates =
-            snapshots
-            |> List.map AccountSnapshotHeader.snapshotDate
-            |> List.filter (fun d -> not (activityPeriod |> ActivityPeriod.isActive d))
-        if not (offendingDates |> List.isEmpty) then
+        let! snapshots = accountId |> AccountSnapshotHeader.fetchByInvestmentAccount context
+        let! activities = accountId |> InvestmentActivity.fetchByInvestmentAccount context
+        let offendingSnapshots = snapshots |> List.map AccountSnapshotHeader.snapshotDate |> earliestAndLatestOutside
+        let offendingActivities = activities |> List.map InvestmentActivity.activityDate |> earliestAndLatestOutside
+        if offendingSnapshots.IsSome || offendingActivities.IsSome then
             return!
                 error (
-                    PositionsActivePeriodExcludesSnapshots(
+                    PositionsActivePeriodExcludesRecords(
                         account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value,
-                        offendingDates |> List.min,
-                        offendingDates |> List.max
+                        offendingSnapshots,
+                        offendingActivities
                     )
                 )
     }
@@ -235,7 +241,7 @@ let updateInvestmentAccount
             | NoChange -> Ok()
         do!
             match fieldUpdates.activityPeriodUpdate with
-            | SetTo period -> confirmPeriodKeepsSnapshots context account period
+            | SetTo period -> confirmPeriodKeepsRecords context account period
             | NoChange -> Ok()
         do!
             match fieldUpdates.ledgerAccountIdUpdate with

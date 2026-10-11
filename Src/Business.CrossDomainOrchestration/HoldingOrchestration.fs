@@ -98,6 +98,12 @@ let deleteHolding
                 error (PositionsHoldingReferencedBySnapshots(accountNameOf account, securityNameOf security))
             else
                 Ok()
+        let! named = holdingId |> InvestmentActivity.existsForHolding context
+        do!
+            if named then
+                error (PositionsHoldingReferencedByActivities(accountNameOf account, securityNameOf security))
+            else
+                Ok()
         do! holdingId |> Holding.delete context
         return holding
     }

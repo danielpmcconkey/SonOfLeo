@@ -15,6 +15,7 @@ open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.JournalEntryOrchestration
 open Ui.InterfaceBridge.BoundaryConverters.PersonFieldConverters
+open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.PositionsFieldConverters
 open NodaTime
 open Tests.Helpers.EntityFunctions
@@ -37,12 +38,18 @@ Snapshots, each line's quantity times price equal to its market value:
                  EXTMX 5 @ 100.00 = 500.00 (no cost)          Example Bond Fund 100 @ 10.00 = 1000.00   total 1500.00
   Joint Brokerage (Taxable; Alex and Sam; Brokerage)
     d2 Reported  EXTMX 50 @ 110.00 = 5500.00 (cost 5000.00)                                             total 5500.00
+                 lots, in the order supplied (A is acquired after B and C; B and C are identical):
+                   A acquired lastYear + 60 days, 19.999998, cost 2000.00
+                   B acquired lastYear + 30 days, 15.000001, cost 1500.00
+                   C acquired lastYear + 30 days, 15.000001, cost 1500.00                          lots sum to 50
     d4 Reported  EXTMX 50 @ 115.00 = 5750.00 (cost 5000.00)                                             total 5750.00
   Sam 401k (TaxDeferred; Sam; Retirement)
     d1 Imported  EXTMX 20 @ 100.00 = 2000.00                  Example Bond Fund 200 @ 10.00 = 2000.00   total 4000.00
     d3 Reported  EXTMX 20.5 @ 105.00 = 2152.50
                  Example Bond Fund 210.123456 @ 9.876543 = 2075.29 (exact product 2075.293348492608)    total 4227.79
   Sam HSA (Hsa; Sam; Health)
+    samHsaPreLedgerDate (the 15th of month -7, a pre-ledger date)
+       Imported  Example Stable Value Fund 250 @ 1.00 = 250.00                                         total 250.00
     d1 Reported  Example Stable Value Fund 300 @ 1.00 = 300.00                                         total 300.00
     d3 Reported  no lines                                                                               total 0.00
   Old Brokerage (Taxable; Sam; Brokerage; active end monthEnd4)
@@ -56,6 +63,47 @@ Properties:
   34 Example Avenue (Rental; Sam), acquired a year ago, purchase basis 250,000.00, mortgage F-2320, no Valuations.
   7 Former Example Road (PrimaryResidence; Alex), acquired six years ago, disposed of on the first of month -5,
     purchase basis 200,000.00, no links.
+
+Activity, recorded as one range per account:
+
+  Sam 401k, range d1 - 1 to d3 + 1, between its d1 and d3 snapshots. Every kind appears at least once.
+    d1 - 1   Purchase EXTMX 7 @ 100.00, 700.00                      before the roll-forward window
+    d1       Purchase EXTMX 4 @ 100.00, 400.00                      on the first snapshot date: already in it
+    d1 + 1   Contribution EXTMX 2 @ 100.00, 200.00, source "Employee deferral"       EXTMX in 2
+    d1 + 2   Contribution, no Security, 150.00, source "Employer match"              no units
+    d1 + 3   RolloverIn Bond 10, 100.00                                              Bond in 10
+    d1 + 4   TransferIn EXTMX 1, 100.00                                              EXTMX in 1
+    d1 + 5   Purchase Bond 5 @ 10.00, 50.00                                          Bond in 5
+    d1 + 6   Reinvestment Bond 0.123456 @ 9.876543, 1.22                             Bond in 0.123456
+    d1 + 7   AdjustmentIn EXTMX 3, 0.00                                              EXTMX in 3
+    d1 + 8   Withdrawal EXTMX 1, 100.00                                              EXTMX out 1
+    d1 + 9   RolloverOut Bond 2, 20.00                                               Bond out 2
+    d1 + 10  TransferOut EXTMX 1.5, 150.00                                           EXTMX out 1.5
+    d1 + 11  Sale Bond 3 @ 10.00, 30.00                                              Bond out 3
+    d1 + 13  AdjustmentOut EXTMX 3, 0.00                                             EXTMX out 3
+    d1 + 14  Dividend EXTMX, 12.34                                                   no units
+    d1 + 15  Interest, no Security, 0.56                                             no units
+    d1 + 16  CapitalGainDistribution Bond, 7.89                                      no units
+    d3 - 1   Reinvestment EXTMX 0.125 @ 105.00, 13.13, twice, identical              EXTMX in 0.25
+    d3       Fee EXTMX 0.25, 25.00                                                   EXTMX out 0.25
+    d3 + 1   Sale EXTMX 6 @ 105.00, 630.00                          after the window
+  In the window EXTMX moves in 6.25 and out 5.75 (20 to 20.5), Bond in 15.123456 and out 5 (200 to 210.123456):
+  the roll-forward from d1 to d3 balances.
+
+  Alex Brokerage, range d3 + 1 to d4, between its d3 and d4 snapshots:
+    d3 + 2   Sale EXTMX 15 @ 105.00, 1575.00
+    d3 + 3   Dividend EXINX, 5.50
+  The roll-forward from d3 to d4 does not balance: EXTMX expected 12 - 15 = -3 against 12, a difference of 15;
+  EXINX expected 20 against 0 (it is not on d4), a difference of -20.
+
+Pre-ledger balances (the earliest fiscal period starts on ledgerStart, the first of month -5; monthEnd k is the last
+day of month -k):
+
+  F-1000 Assets                   100.00 on monthEnd8
+  F-1275 Fixture Positions Cash   2,000.00 on monthEnd8; 2,500.00 on monthEnd7
+  F-1280 Fixture Operating Cash   -15.00 on monthEnd8
+  F-2230 Fixture Loan Payable     1,500.00 on monthEnd8; 0.00 on monthEnd7
+  F-2320 Fixture Rental Mortgage  186,000.00 on monthEnd9; 185,000.00 on monthEnd8; 184,000.00 on monthEnd7
 
 Ledger entries, all dated ledgerEntryDate (the 5th of month -4) except the last:
 
@@ -78,6 +126,16 @@ type PositionsFixtureData =
       monthEnd3: LocalDate
       monthEnd2: LocalDate
       monthEnd1: LocalDate
+      /// The last day of months -5 to -9. Month -5 is the earliest fiscal period; months -6 to -9 are pre-ledger.
+      monthEnd5: LocalDate
+      monthEnd6: LocalDate
+      monthEnd7: LocalDate
+      monthEnd8: LocalDate
+      monthEnd9: LocalDate
+      /// The start of the earliest fiscal period, the first of month -5.
+      ledgerStart: LocalDate
+      /// The date of Sam HSA's one pre-ledger snapshot, the 15th of month -7.
+      samHsaPreLedgerDate: LocalDate
       /// Every account except Old Brokerage is active from this date with no end.
       accountsActiveBegin: LocalDate
       ledgerEntryDate: LocalDate
@@ -93,7 +151,9 @@ type PositionsFixtureData =
       residenceAtCost1510Id: AccountId
       residenceMortgage2310Id: AccountId
       rentalMortgage2320Id: AccountId
-      positionsEquity3040Id: AccountId }
+      positionsEquity3040Id: AccountId
+      operatingCash1280Id: AccountId
+      loanPayable2230Id: AccountId }
 
 /// Name-to-ID lookups for tests that address Persons and Positions entities by name, as the routes' converters do.
 module PositionsLookups =
@@ -267,7 +327,7 @@ module PositionsFixture =
             let! _ = holding oldBrokerage international (Some AverageCost)
 
             // Snapshots
-            let line security (quantity: decimal) (price: decimal) (marketValue: decimal) (costBasis: decimal option) =
+            let lotsLine security (quantity: decimal) (price: decimal) (marketValue: decimal) (costBasis: decimal option) lots =
                 PositionsLookups.securityIdOf context security
                 |> mustBe
                 |> fun securityId ->
@@ -275,7 +335,12 @@ module PositionsFixture =
                     (Quantity.fromDecimal quantity |> mustBe),
                     (Price.fromDecimal price |> mustBe),
                     money marketValue,
-                    (costBasis |> Option.map money)
+                    (costBasis |> Option.map money),
+                    (lots
+                     |> List.map (fun (acquired: LocalDate, lotQuantity: decimal, lotCost: decimal option) ->
+                         acquired, (Quantity.fromDecimal lotQuantity |> mustBe), (lotCost |> Option.map money)))
+            let line security quantity price marketValue costBasis = lotsLine security quantity price marketValue costBasis []
+            let samHsaPreLedgerDate = (monthStart 7).PlusDays(14)
             let snapshot account date provenance contributionBasis lines =
                 (PositionsLookups.investmentAccountIdOf context account |> mustBe),
                 date,
@@ -296,16 +361,80 @@ module PositionsFixture =
                       snapshot alexBrokerage d4 Reported None [ line totalMarket 12M 115.00M 1380.00M (Some 1110.00M) ]
                       snapshot alexRoth d1 Reported (Some 1200.00M)
                           [ line totalMarket 5M 100.00M 500.00M None; line bondFund 100M 10.00M 1000.00M None ]
-                      snapshot jointBrokerage d2 Reported None [ line totalMarket 50M 110.00M 5500.00M (Some 5000.00M) ]
+                      snapshot jointBrokerage d2 Reported None
+                          [ lotsLine totalMarket 50M 110.00M 5500.00M (Some 5000.00M)
+                                [ lastYear.PlusDays(60), 19.999998M, Some 2000.00M
+                                  lastYear.PlusDays(30), 15.000001M, Some 1500.00M
+                                  lastYear.PlusDays(30), 15.000001M, Some 1500.00M ] ]
                       snapshot jointBrokerage d4 Reported None [ line totalMarket 50M 115.00M 5750.00M (Some 5000.00M) ]
                       snapshot sam401k d1 Imported None
                           [ line totalMarket 20M 100.00M 2000.00M None; line bondFund 200M 10.00M 2000.00M None ]
                       snapshot sam401k d3 Reported None
                           [ line totalMarket 20.5M 105.00M 2152.50M None
                             line bondFund 210.123456M 9.876543M 2075.29M None ]
+                      snapshot samHsa samHsaPreLedgerDate Imported None [ line stableValue 250M 1.00M 250.00M None ]
                       snapshot samHsa d1 Reported None [ line stableValue 300M 1.00M 300.00M None ]
                       snapshot samHsa d3 Reported None []
                       snapshot oldBrokerage d1 Reported None [ line international 40M 25.00M 1000.00M (Some 950.00M) ] ]
+
+            // Activity
+            let activity date kind description source security (quantity: decimal option) (price: decimal option) amount =
+                (date: LocalDate),
+                (kind: ActivityKind),
+                (ActivityDescription.create description |> mustBe),
+                (source |> Option.map (ActivitySource.create >> mustBe)),
+                (security |> Option.map (PositionsLookups.securityIdOf context >> mustBe)),
+                (quantity |> Option.map (Quantity.fromDecimal >> mustBe)),
+                (price |> Option.map (Price.fromDecimal >> mustBe)),
+                money amount
+            let day (anchor: LocalDate) offset = anchor.PlusDays(offset)
+            let reinvestment = activity (day d3 -1) ActivityKind.Reinvestment "Dividend reinvested" None (Some totalMarket) (Some 0.125M) (Some 105.00M) 13.13M
+            let! _ =
+                InvestmentActivityOrchestration.recordActivity context
+                    [ (PositionsLookups.investmentAccountIdOf context sam401k |> mustBe),
+                      day d1 -1,
+                      day d3 1,
+                      [ activity (day d1 -1) ActivityKind.Purchase "Bought before the window" None (Some totalMarket) (Some 7M) (Some 100.00M) 700.00M
+                        activity d1 ActivityKind.Purchase "Bought on the first snapshot date" None (Some totalMarket) (Some 4M) (Some 100.00M) 400.00M
+                        activity (day d1 1) ActivityKind.Contribution "Payroll contribution" (Some "Employee deferral") (Some totalMarket) (Some 2M) (Some 100.00M) 200.00M
+                        activity (day d1 2) ActivityKind.Contribution "Employer contribution to cash" (Some "Employer match") None None None 150.00M
+                        activity (day d1 3) ActivityKind.RolloverIn "Rollover from a prior plan" None (Some bondFund) (Some 10M) None 100.00M
+                        activity (day d1 4) ActivityKind.TransferIn "Transfer in of shares" None (Some totalMarket) (Some 1M) None 100.00M
+                        activity (day d1 5) ActivityKind.Purchase "Exchange purchase" None (Some bondFund) (Some 5M) (Some 10.00M) 50.00M
+                        activity (day d1 6) ActivityKind.Reinvestment "Interest reinvested" None (Some bondFund) (Some 0.123456M) (Some 9.876543M) 1.22M
+                        activity (day d1 7) ActivityKind.AdjustmentIn "Share class conversion in" None (Some totalMarket) (Some 3M) None 0.00M
+                        activity (day d1 8) ActivityKind.Withdrawal "Hardship withdrawal" None (Some totalMarket) (Some 1M) None 100.00M
+                        activity (day d1 9) ActivityKind.RolloverOut "Rollover to another plan" None (Some bondFund) (Some 2M) None 20.00M
+                        activity (day d1 10) ActivityKind.TransferOut "Transfer out of shares" None (Some totalMarket) (Some 1.5M) None 150.00M
+                        activity (day d1 11) ActivityKind.Sale "Exchange sale" None (Some bondFund) (Some 3M) (Some 10.00M) 30.00M
+                        activity (day d1 13) ActivityKind.AdjustmentOut "Share class conversion out" None (Some totalMarket) (Some 3M) None 0.00M
+                        activity (day d1 14) ActivityKind.Dividend "Dividend paid" None (Some totalMarket) None None 12.34M
+                        activity (day d1 15) ActivityKind.Interest "Interest on cash" None None None None 0.56M
+                        activity (day d1 16) ActivityKind.CapitalGainDistribution "Capital gain paid" None (Some bondFund) None None 7.89M
+                        reinvestment
+                        reinvestment
+                        activity d3 ActivityKind.Fee "Advisory fee" None (Some totalMarket) (Some 0.25M) None 25.00M
+                        activity (day d3 1) ActivityKind.Sale "Sold after the window" None (Some totalMarket) (Some 6M) (Some 105.00M) 630.00M ]
+                      (PositionsLookups.investmentAccountIdOf context alexBrokerage |> mustBe),
+                      day d3 1,
+                      d4,
+                      [ activity (day d3 2) ActivityKind.Sale "Sale" None (Some totalMarket) (Some 15M) (Some 105.00M) 1575.00M
+                        activity (day d3 3) ActivityKind.Dividend "Dividend paid" None (Some international) None None 5.50M ] ]
+
+            // Pre-ledger balances
+            let! operatingCashId = "F-1280" |> fallibleConverterAccountCodeToAccountId context
+            let! loanPayableId = "F-2230" |> fallibleConverterAccountCodeToAccountId context
+            let! _ =
+                PreLedgerBalanceOrchestration.recordPreLedgerBalances context
+                    [ assets1000Id, monthEnd 8, money 100.00M
+                      positionsCashId, monthEnd 8, money 2000.00M
+                      positionsCashId, monthEnd 7, money 2500.00M
+                      operatingCashId, monthEnd 8, money -15.00M
+                      loanPayableId, monthEnd 8, money 1500.00M
+                      loanPayableId, monthEnd 7, money 0.00M
+                      rentalMortgageId, monthEnd 9, money 186000.00M
+                      rentalMortgageId, monthEnd 8, money 185000.00M
+                      rentalMortgageId, monthEnd 7, money 184000.00M ]
 
             // Properties and Valuations
             let property name propertyUse owners acquired disposed basis assetAccountIds mortgageIds =
@@ -345,6 +474,13 @@ module PositionsFixture =
                   monthEnd3 = monthEnd 3
                   monthEnd2 = monthEnd 2
                   monthEnd1 = monthEnd 1
+                  monthEnd5 = monthEnd 5
+                  monthEnd6 = monthEnd 6
+                  monthEnd7 = monthEnd 7
+                  monthEnd8 = monthEnd 8
+                  monthEnd9 = monthEnd 9
+                  ledgerStart = monthStart 5
+                  samHsaPreLedgerDate = samHsaPreLedgerDate
                   accountsActiveBegin = lastYear
                   ledgerEntryDate = ledgerEntryDate
                   mortgagePaymentDate = mortgagePaymentDate
@@ -359,7 +495,9 @@ module PositionsFixture =
                   residenceAtCost1510Id = residenceAtCostId
                   residenceMortgage2310Id = residenceMortgageId
                   rentalMortgage2320Id = rentalMortgageId
-                  positionsEquity3040Id = positionsEquityId }
+                  positionsEquity3040Id = positionsEquityId
+                  operatingCash1280Id = operatingCashId
+                  loanPayable2230Id = loanPayableId }
             let accounts = [ brokerageAtCost; positionsCash; residenceAtCost; residenceMortgage; rentalMortgage; positionsEquity ]
             let entries = [ brokerageEntry; cashEntry; residenceEntry; rentalEntry; mortgagePaymentEntry ]
             return data, accounts, (entries: JournalEntry list)

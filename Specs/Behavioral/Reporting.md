@@ -31,7 +31,7 @@ Behavioral specs for the reporting domain. Reports are read-only computations ov
 
 ## 3. HTML rendering
 
-REQ-RPT-3.1, 3.2 and 3.5 apply to every rendered report (trial balance, balance-sheet integrity, period activity, pre-posting review, net worth, investment wealth history), and the waivers on 3.2 and 3.5 cover every rendered report. REQ-RPT-3.3, 3.4 and 3.6 describe trial-balance account rows and apply to the trial balance only, as do their waivers. (Scope stated 2026-10-03; net worth and investment wealth history added 2026-10-04; amended 2026-10-05 — 3.3, 3.4 and 3.6 narrowed to the trial balance, which is the only report with trial-balance account rows.)
+REQ-RPT-3.1, 3.2 and 3.5 apply to every rendered report (trial balance, balance-sheet integrity, period activity, pre-posting review, net worth, investment wealth history, net worth history), and the waivers on 3.2 and 3.5 cover every rendered report. REQ-RPT-3.3, 3.4 and 3.6 describe trial-balance account rows and apply to the trial balance only, as do their waivers. (Scope stated 2026-10-03; net worth and investment wealth history added 2026-10-04; net worth history added 2026-10-10; amended 2026-10-05 — 3.3, 3.4 and 3.6 narrowed to the trial balance, which is the only report with trial-balance account rows.)
 
 - **REQ-RPT-3.1** The rendered HTML report must contain a header section displaying the report title and the as-of Calendar Date.
 - **REQ-RPT-3.2** The rendered HTML report must contain a footer section displaying the instant at which the report was generated: the initiation instant of the operation that rendered it (REQ-SYS-3.4). (Amended 2026-10-03)
@@ -96,18 +96,29 @@ What is about to post, line by line, with how each line was classified and what 
 ## 8. Net worth
 
 What the household is worth on a date: the ledger's assets and liabilities, with investments and
-property at market value in place of whatever cost the ledger carries for them.
+property at market value in place of whatever the ledger carries for them. Before the ledger
+began, the assets and liabilities come from pre-ledger balances (Positions §15) instead.
+(Pre-ledger dates added 2026-10-10.)
 
-- **REQ-RPT-8.1** The system must provide a net worth computation that accepts an as-of Calendar Date. The date must fall within an existing fiscal period; otherwise the computation fails with a typed error naming the date.
-  - *Why:* liabilities come only from the ledger, and the ledger holds nothing before its first fiscal period. A net worth for an earlier date would count every asset and no debt. Investment wealth over time (§9) has no such limit. (2026-10-04)
+A **pre-ledger date** is a date earlier than the start date of the earliest fiscal period (see
+Definitions).
+
+- **REQ-RPT-8.1** The system must provide a net worth computation that accepts an as-of Calendar Date. The date must fall within an existing fiscal period or be a pre-ledger date; otherwise the computation fails with a typed error naming the date. (Amended 2026-10-10 — pre-ledger dates allowed.)
+  - *Why a date after the last fiscal period, or in a gap between two, still fails:* the ledger is the only record of those dates' cash and debts, and it has none. (2026-10-10)
+- **REQ-RPT-8.7** An account's balance on a date, wherever this section uses it, is:
+  - on a date within a fiscal period, its net balance in the ledger as of the date, following the trial balance rules (REQ-RPT-1.8 to 1.10), the account's own balance only, with no roll-up into parents;
+  - on a pre-ledger date, the balance of its latest Pre-ledger Balance (Positions REQ-POS-15.1) dated on or before the date. An account with none on or before the date has no balance on that date: it contributes nothing and is not listed.
+
+  A date never draws on both. (2026-10-10)
+  - *Why not zero for an account with no pre-ledger balance:* older records cover fewer accounts than the ledger does. An account that did not exist yet, or was not recorded, is unknown, not empty; listing it at zero would claim a fact nobody recorded. (2026-10-10)
 - **REQ-RPT-8.2** Net worth is the sum of:
-  - the net balance, as of the date, of every Asset account that is not linked to an Investment Account or a Property (Positions REQ-POS-4.8, REQ-POS-9.7). A Property may link several asset accounts; its value replaces all of them (amended 2026-10-05);
+  - the balance on the date (REQ-RPT-8.7) of every Asset account that is not linked to an Investment Account or a Property (Positions REQ-POS-4.8, REQ-POS-9.7). A Property may link several asset accounts; its value replaces all of them (amended 2026-10-05);
   - the market value of every line in the holdings as of the date (Positions REQ-POS-8.1);
   - the value on the date (Positions REQ-POS-10.4) of every Property owned on the date (Positions REQ-POS-9.4);
 
-  less the net balance, as of the date, of every Liability account. Balances follow the trial balance rules (REQ-RPT-1.8 to 1.10), each account's own balance only, with no roll-up into parents, so no amount is counted twice.
-  - *Why linked accounts are left out:* a linked ledger account carries an investment or a property at cost; its market value is already counted from Positions. (2026-10-04)
-- **REQ-RPT-8.3** A Property's equity on the date is its value less the net balance of each of its mortgage Accounts (Positions REQ-POS-9.8) as of the date.
+  less the balance on the date (REQ-RPT-8.7) of every Liability account. Each account's own balance only, with no roll-up into parents, so no amount is counted twice. (Amended 2026-10-10 — balances per REQ-RPT-8.7.)
+  - *Why linked accounts are left out:* a linked ledger account carries an investment or a property at cost, or as the net of money that crossed into and out of it; its market value is already counted from Positions. (2026-10-04; amended 2026-10-10)
+- **REQ-RPT-8.3** A Property's equity on the date is its value less the balance on the date (REQ-RPT-8.7) of each of its mortgage Accounts (Positions REQ-POS-9.8). (Amended 2026-10-10)
 - **REQ-RPT-8.4** Investable wealth is net worth less the equity of the Property whose use is 'PrimaryResidence' and that is owned on the date, if there is one.
   - *Why equity, not value:* investable wealth answers "what would we be worth if the house and its loan did not exist". Removing the value but keeping the mortgage would charge the household for a debt secured by an asset no longer counted. (2026-10-04)
 - **REQ-RPT-8.5** The computation returns:
@@ -116,8 +127,12 @@ property at market value in place of whatever cost the ledger carries for them.
   - each included Investment Account (name, owners' names, account group, tax treatment, snapshot date, provenance, total market value, contribution basis);
   - each owned Property (name, use, owners' names, value, the date of the Valuation it came from or an indication that it is the purchase basis, each mortgage Account with code, name and balance, and equity);
   - totals: counted ledger assets, investments, property values, liabilities (the Liability accounts listed above), mortgages of owned Properties, net worth, and investable wealth. Counted ledger assets plus investments plus property values, less liabilities and less mortgages of owned Properties, equals net worth (amended 2026-10-05: the owned-property mortgages total is added so the totals add up to net worth);
-  - investment market value totalled by tax treatment, and by account group.
+  - investment market value totalled by tax treatment, and by account group;
+  - whether the date is a pre-ledger date, and on a pre-ledger date, for each listed account, the date of the Pre-ledger Balance its balance came from (added 2026-10-10);
+  - the components absent on the date (REQ-RPT-8.8) (added 2026-10-10).
   - *Why the tax-treatment totals:* whether tax is owed on all of a balance, only its growth, or none of it is the first thing anyone settling the household's affairs needs to know. (2026-10-04)
+- **REQ-RPT-8.8** Each of five components may be absent on a date: counted ledger assets, investments, property values, liabilities, and mortgages of owned Properties. A component is absent when nothing contributes to it on the date: no Asset account has a balance (counted ledger assets), no Investment Account is included (investments), no Property is owned (property values), no Liability account other than an owned Property's mortgage has a balance (liabilities), or no mortgage Account of an owned Property has a balance (mortgages). An absent component's total is 0.00 and it is named as absent. (2026-10-10)
+  - *Why:* older records do not cover everything. A net worth from years when cash and debts were not recorded reads higher than it was, and the figure must say so, not pass for complete. On a date within a fiscal period every account has a ledger balance, so neither ledger component is absent while the chart of accounts has accounts of that type. (2026-10-10)
 - **REQ-RPT-8.6** Net worth is a read-only report (REQ-RPT-2.6) and supports the output modes of §2: data-only, and rendered HTML written to a caller-provided path. Date interpolation (REQ-RPT-2.4) appends the as-of date.
 
 ## 9. Investment wealth history
@@ -131,6 +146,17 @@ How invested wealth has grown, month by month, split along any one line.
 - **REQ-RPT-9.4** Investment wealth history is not limited to fiscal periods. A point with no holdings is reported with a zero total.
   - *Why:* investment history reaches back years before the ledger began. (2026-10-04)
 - **REQ-RPT-9.5** Investment wealth history is a read-only report (REQ-RPT-2.6) and supports the output modes of §2. Rendered, it is a table with one row per point and one column per group value; a group with no holdings at a point shows 0.00, not a blank cell (REQ-RPT-9.2). Date interpolation (REQ-RPT-2.4) appends the begin and end dates as `-yyyy-MM-dd_yyyy-MM-dd`. The rendered header (REQ-RPT-3.1) shows the begin and end dates and the grouping in place of an as-of date. (Amended 2026-10-05)
+
+## 10. Net worth history
+
+Net worth, month by month, back as far as there are records.
+
+- **REQ-RPT-10.1** The system must provide a net worth history computation that accepts a begin and an end Calendar Date. The end date may not be earlier than the begin date; otherwise the computation fails with a typed error naming both dates. (2026-10-10)
+- **REQ-RPT-10.2** The computation returns one point for every month-end date (the last day of a calendar month) on or after the begin date and on or before the end date, in date order. Each point is the net worth computation (§8) on that date, reduced to: the date; whether it is a pre-ledger date; the totals of REQ-RPT-8.5 (counted ledger assets, investments, property values, liabilities, mortgages of owned Properties, net worth, investable wealth); and the components absent on it (REQ-RPT-8.8). (2026-10-10)
+  - *Why month-ends:* as for investment wealth history (REQ-RPT-9.2). (2026-10-10)
+- **REQ-RPT-10.3** When any month-end in the range is neither within a fiscal period nor a pre-ledger date, the computation fails with a typed error naming the earliest such date. (2026-10-10)
+  - *Why fail rather than skip it:* a missing month in a series reads as a month with nothing to report. The range is the caller's to choose. (2026-10-10)
+- **REQ-RPT-10.4** Net worth history is a read-only report (REQ-RPT-2.6) and supports the output modes of §2. Rendered, it is a table with one row per point and one column per total, plus a column naming that point's absent components, empty when none is absent; a point on a pre-ledger date is marked as such. Date interpolation (REQ-RPT-2.4) appends the begin and end dates as `-yyyy-MM-dd_yyyy-MM-dd`. The rendered header (REQ-RPT-3.1) shows the begin and end dates in place of an as-of date. (2026-10-10)
 
 ## Waived from testing
 

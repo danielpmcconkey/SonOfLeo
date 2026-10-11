@@ -426,7 +426,7 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
                     activeBeginUpdate = SetTo(p.d1.PlusDays(1))
                     activeEndUpdate = SetTo(Some(p.d4.PlusDays(-1))) }
             |> expectError
-                (function AsError (PositionsActivePeriodExcludesSnapshots (a, earliest, latest)) -> Some(a, earliest, latest) | _ -> None)
+                (function AsError (PositionsActivePeriodExcludesRecords (a, Some(earliest, latest), None)) -> Some(a, earliest, latest) | _ -> None)
                 (fun found -> Assert.Equal((PF.alexBrokerage, p.d1, p.d4), found))
             |> Ok)
         |> railroadWrapper
@@ -522,5 +522,59 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
                 let! found = listed context "Basisless Roth"
                 let _, _, _, treatment, _, _, _, _ = found |> List.exactlyOne
                 Assert.Equal(TaxTreatment.TaxDeferred, treatment)
+            })
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-11.4 narrowing an account's active period so that activities fall before the new begin and after the new end is rejected with a typed error naming the earliest and latest offending activity dates, and the active period is unchanged`` () =
+        // Sam 401k's snapshots are on d1 and d3; its activity runs from the day before d1 to the day after d3
+        let p = fixture.Data.positions
+        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
+            result {
+                updateInvestmentAccount
+                    context { noChange PF.sam401k with activeBeginUpdate = SetTo p.d1; activeEndUpdate = SetTo(Some p.d3) }
+                |> expectError
+                    (function AsError (PositionsActivePeriodExcludesRecords (a, None, Some(earliest, latest))) -> Some(a, earliest, latest) | _ -> None)
+                    (fun found -> Assert.Equal((PF.sam401k, p.d1.PlusDays(-1), p.d3.PlusDays(1)), found))
+                let! found = listed context PF.sam401k
+                let _, _, _, _, _, _, activeBegin, activeEnd = found |> List.exactlyOne
+                Assert.Equal((p.accountsActiveBegin, None), (activeBegin, activeEnd))
+            })
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-11.4 narrowing an account's active period so that both snapshots and activities fall outside it is rejected with one typed error naming the earliest and latest offending snapshot dates and the earliest and latest offending activity dates`` () =
+        // outside d1 + 1 to d3 - 1 fall both snapshots and the activities of d1 - 1, d1, d3 and d3 + 1
+        let p = fixture.Data.positions
+        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
+            updateInvestmentAccount
+                context
+                { noChange PF.sam401k with
+                    activeBeginUpdate = SetTo(p.d1.PlusDays(1))
+                    activeEndUpdate = SetTo(Some(p.d3.PlusDays(-1))) }
+            |> expectError
+                (function AsError (PositionsActivePeriodExcludesRecords (a, snapshots, activities)) -> Some(a, snapshots, activities) | _ -> None)
+                (fun found ->
+                    Assert.Equal(
+                        (PF.sam401k, Some(p.d1, p.d3), Some(p.d1.PlusDays(-1), p.d3.PlusDays(1))),
+                        found))
+            |> Ok)
+        |> railroadWrapper
+
+    [<Fact>]
+    member _.``REQ-POS-11.4 narrowing an account's active period to exactly its earliest and latest activity dates, which are outside its first and last snapshot dates, succeeds`` () =
+        let p = fixture.Data.positions
+        runCommandRouteAndAutoRollback PositionsUpdateInvestmentAccount (fun context ->
+            result {
+                let! updated =
+                    updateInvestmentAccount
+                        context
+                        { noChange PF.sam401k with
+                            activeBeginUpdate = SetTo(p.d1.PlusDays(-1))
+                            activeEndUpdate = SetTo(Some(p.d3.PlusDays(1))) }
+                let period = updated |> InvestmentAccount.activityPeriod
+                Assert.Equal(
+                    (p.d1.PlusDays(-1), Some(p.d3.PlusDays(1))),
+                    (period |> ActivityPeriod.activeBegin, period |> ActivityPeriod.activeEnd))
             })
         |> railroadWrapper

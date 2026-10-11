@@ -139,7 +139,7 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
                 let! _ = HoldingOrchestration.constructNewAndPersist context accountId totalMarketId (Some AverageCost)
                 let! _ =
                     recordSnapshots context
-                        [ accountId, p.d2, Reported, None, [ totalMarketId, toQuantity 1M, toPrice 110.00M, toMoney 110.00M, None ] ]
+                        [ accountId, p.d2, Reported, None, [ totalMarketId, toQuantity 1M, toPrice 110.00M, toMoney 110.00M, None, [] ] ]
                 let! point = pointAt context p.monthEnd3 ByAccountGroup
                 // Brokerage: Alex Brokerage 1,620.00 + Joint Brokerage 5,500.00; Retirement: 1,500.00 + 4,000.00
                 Assert.Equal<Map<WealthGroup, decimal>>(

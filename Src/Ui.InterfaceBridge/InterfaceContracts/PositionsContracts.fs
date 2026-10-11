@@ -105,6 +105,9 @@ type HoldingListInput = { accountName: string option }
 
 type HoldingFetchAsOfInput = { asOf: LocalDate }
 
+// a lot as the institution reported it; a line's lots come back in the order they were sent
+type AccountSnapshotLotReturn = { acquiredDate: LocalDate; quantity: decimal; reportedCostBasis: decimal option }
+
 type HoldingsAsOfLineReturn = {
     securityName: string
     ticker: string option
@@ -114,6 +117,7 @@ type HoldingsAsOfLineReturn = {
     price: decimal
     marketValue: decimal
     reportedCostBasis: decimal option
+    lots: AccountSnapshotLotReturn list
 }
 
 type HoldingsAsOfAccountReturn = {
@@ -131,12 +135,16 @@ type HoldingsAsOfAccountReturn = {
 
 // ---- Account Snapshots ----
 
+type AccountSnapshotLotInput = { acquiredDate: LocalDate; quantity: decimal; reportedCostBasis: decimal option }
+
+// lots are recorded in the order sent; an empty list means the institution supplied none for the line
 type AccountSnapshotLineInput = {
     securityName: string
     quantity: decimal
     price: decimal
     marketValue: decimal
     reportedCostBasis: decimal option
+    lots: AccountSnapshotLotInput list
 }
 
 type AccountSnapshotInput = {
@@ -156,6 +164,7 @@ type AccountSnapshotLineReturn = {
     price: decimal
     marketValue: decimal
     reportedCostBasis: decimal option
+    lots: AccountSnapshotLotReturn list
 }
 
 type AccountSnapshotReturn = {
@@ -177,6 +186,99 @@ type AccountSnapshotFetchInput = { accountName: string; snapshotDate: LocalDate 
 type AccountSnapshotListDatesInput = { accountName: string; beginDate: LocalDate; endDate: LocalDate }
 
 type AccountSnapshotDateReturn = { snapshotDate: LocalDate; provenance: string }
+
+// ---- Investment Activity ----
+
+// kind is one of the fifteen activity kinds, by its case name; quantity and price cross unrounded
+type InvestmentActivityInput = {
+    activityDate: LocalDate
+    kind: string
+    description: string
+    source: string option
+    securityName: string option
+    quantity: decimal option
+    price: decimal option
+    amount: decimal
+}
+
+// every activity of the account dated in the range, in the order the institution reported them; the range's stored
+// activity is replaced with these, and an empty list clears it
+type InvestmentActivityRangeInput = {
+    accountName: string
+    beginDate: LocalDate
+    endDate: LocalDate
+    activities: InvestmentActivityInput list
+}
+
+// every range is recorded, or none is
+type InvestmentActivityRecordInput = { ranges: InvestmentActivityRangeInput list }
+
+type RecordedActivityRangeReturn = {
+    accountName: string
+    beginDate: LocalDate
+    endDate: LocalDate
+    removed: int
+    recorded: int
+}
+
+type InvestmentActivityListInput = { accountName: string; beginDate: LocalDate; endDate: LocalDate }
+
+type InvestmentActivityReturn = {
+    accountName: string
+    activityDate: LocalDate
+    kind: string
+    description: string
+    source: string option
+    securityName: string option
+    quantity: decimal option
+    price: decimal option
+    amount: decimal
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+// ---- Unit roll-forward ----
+
+type InvestmentAccountRollForwardInput = { accountName: string; firstDate: LocalDate; secondDate: LocalDate }
+
+// expected and difference may be negative
+type RollForwardRowReturn = {
+    securityName: string
+    startQuantity: decimal
+    unitsIn: decimal
+    unitsOut: decimal
+    expected: decimal
+    endQuantity: decimal
+    difference: decimal
+}
+
+type RollForwardReturn = {
+    accountName: string
+    firstDate: LocalDate
+    secondDate: LocalDate
+    rows: RollForwardRowReturn list
+}
+
+// ---- Pre-ledger Balances ----
+
+type PreLedgerBalanceEntryInput = { accountCode: string; balanceDate: LocalDate; balance: decimal }
+
+// every balance is recorded, or none is
+type PreLedgerBalanceRecordInput = { balances: PreLedgerBalanceEntryInput list }
+
+type PreLedgerBalanceReturn = {
+    ledgerAccount: LedgerAccountReturn
+    balanceDate: LocalDate
+    balance: decimal
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+type RecordedPreLedgerBalanceReturn = { balance: PreLedgerBalanceReturn; replacedExisting: bool }
+
+type PreLedgerBalanceDeleteInput = { accountCode: string; balanceDate: LocalDate }
+
+type PreLedgerBalanceListInput = { accountCode: string option; beginDate: LocalDate; endDate: LocalDate }
 
 // ---- Properties ----
 

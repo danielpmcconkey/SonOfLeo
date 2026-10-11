@@ -46,7 +46,7 @@ let private summary (view: SnapshotView) : SnapshotSummary =
     view.lines |> List.map lineSummary
 
 let private line security (q: decimal) (p: decimal) (mv: decimal) (cb: decimal option) : AccountSnapshotLineInput =
-    { securityName = security; quantity = q; price = p; marketValue = mv; reportedCostBasis = cb }
+    { securityName = security; quantity = q; price = p; marketValue = mv; reportedCostBasis = cb; lots = [] }
 
 let private snapshot account date provenance (contribution: decimal option) lines : AccountSnapshotInput =
     { accountName = account

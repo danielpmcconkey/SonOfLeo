@@ -39,6 +39,9 @@ A calendar coordinate: the name of a single day within a specific calendar (e.g.
 ## Calendar period
 The frequency of a regular event, expressed only in terms of years, days, months, weeks, or quarters. Never in temporal slices smaller than a single day. These are always relative to a specific calendar.
 
+## Pre-ledger date
+A Calendar Date earlier than the start date of the earliest fiscal period: a date the ledger holds nothing for. Net worth on a pre-ledger date takes ledger accounts' balances from Pre-ledger Balances (Positions §15) instead of journal entries (Reporting REQ-RPT-8.7). When no fiscal period exists, no date is a pre-ledger date. (2026-10-10)
+
 ## Staged entry
 A record in `ingestion.staged_entry` representing one economic event held in the staging area. A staged entry is a draft journal entry: it carries the same header-level fields (date, description, source) and is composed of staged lines that mirror journal entry lines. A staged entry becomes a journal entry only when batch-posted through the domain model. Until then it exists outside the ledger and does not affect balances. A staged entry is **not an entity** per this document's Entity definition — it is a transient pipeline artifact with a full audit trail (`ingestion.staged_entry_audit`) that records every status transition. Entity-level policies (e.g. REQ-SYS-3.1 timestamps) do not apply.
 

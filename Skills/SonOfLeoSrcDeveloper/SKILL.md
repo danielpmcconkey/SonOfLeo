@@ -356,6 +356,22 @@ within one file. Before picking one for a new entity, check this list and
 | `ledger.journal_entry_line` | `jel` |
 | `ledger.journal_entry_comment` | `jec` |
 | `ledger.journal_entry_ext_reference` | `jer` |
+| `general.person` | `per` |
+| `positions.account_snapshot` | `snap` |
+| `positions.account_snapshot_line` | `snapl` |
+| `positions.account_snapshot_lot` | `snaplot` |
+| `positions.dimension_value` | `dv` |
+| `positions.holding` | `hol` |
+| `positions.investment_account` | `ia` |
+| `positions.investment_account_owner` | `iao` |
+| `positions.investment_activity` | `invact` |
+| `positions.pre_ledger_balance` | `plb` |
+| `positions.property` | `prop` |
+| `positions.property_asset_account` | `paa` |
+| `positions.property_mortgage_account` | `pma` |
+| `positions.property_owner` | `prow` |
+| `positions.security` | `sec` |
+| `positions.valuation` | `val` |
 
 Pick something short, mnemonic, and not an SQL reserved word (`in`, `on`, `as` — avoid these
 even though most are technically usable quoted; it isn't worth the risk). Add the new row to

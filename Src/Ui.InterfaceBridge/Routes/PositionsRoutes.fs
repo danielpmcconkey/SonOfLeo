@@ -262,6 +262,86 @@ let private listAccountSnapshotDates payload _ =
                 |> Json.toJson<AccountSnapshotDateReturn list>
         })
 
+// ---- Investment Activity ----
+
+let private recordInvestmentActivity payload _ =
+    runCommandRouteAndAutoCompleteTransaction PositionsRecordInvestmentActivity (fun context ->
+        result {
+            let! input = Json.fromJson<InvestmentActivityRecordInput> payload
+            let! ranges =
+                input.ranges
+                |> List.map (``convert [InvestmentActivityRangeInput] to [ActivityRange]`` context)
+                |> convertListOfResultsToResultsList
+            let! recorded = InvestmentActivityOrchestration.recordActivity context ranges
+            return!
+                recorded
+                |> List.map ``convert [RecordedRange] to [RecordedActivityRangeReturn]``
+                |> Json.toJson<RecordedActivityRangeReturn list>
+        })
+
+let private listInvestmentActivity payload _ =
+    readOnly (fun context ->
+        result {
+            let! input = Json.fromJson<InvestmentActivityListInput> payload
+            let! accountId = input.accountName |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
+            let! views = InvestmentActivityOrchestration.listActivity context accountId input.beginDate input.endDate
+            return!
+                views
+                |> List.map ``convert [ActivityView] to [InvestmentActivityReturn]``
+                |> Json.toJson<InvestmentActivityReturn list>
+        })
+
+let private rollInvestmentAccountForward payload _ =
+    readOnly (fun context ->
+        result {
+            let! input = Json.fromJson<InvestmentAccountRollForwardInput> payload
+            let! accountId = input.accountName |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
+            let! rolled = UnitRollForward.rollForward context accountId input.firstDate input.secondDate
+            return! rolled |> ``convert [RollForward] to [RollForwardReturn]`` |> Json.toJson<RollForwardReturn>
+        })
+
+// ---- Pre-ledger Balances ----
+
+let private recordPreLedgerBalances payload _ =
+    runCommandRouteAndAutoCompleteTransaction PositionsRecordPreLedgerBalances (fun context ->
+        result {
+            let! input = Json.fromJson<PreLedgerBalanceRecordInput> payload
+            let! balances =
+                input.balances
+                |> List.map (``convert [PreLedgerBalanceEntryInput] to [PreLedgerBalanceInput]`` context)
+                |> convertListOfResultsToResultsList
+            let! recorded = PreLedgerBalanceOrchestration.recordPreLedgerBalances context balances
+            return!
+                recorded
+                |> List.map (fun r ->
+                    ({ balance = r.balance |> ``convert [PreLedgerBalanceView] to [PreLedgerBalanceReturn]``
+                       replacedExisting = r.replacedExisting }
+                     : RecordedPreLedgerBalanceReturn))
+                |> Json.toJson<RecordedPreLedgerBalanceReturn list>
+        })
+
+let private deletePreLedgerBalance payload _ =
+    runCommandRouteAndAutoCompleteTransaction PositionsDeletePreLedgerBalance (fun context ->
+        result {
+            let! input = Json.fromJson<PreLedgerBalanceDeleteInput> payload
+            let! accountId = input.accountCode |> fallibleConverterAccountCodeToAccountId context
+            let! deleted = PreLedgerBalanceOrchestration.deletePreLedgerBalance context accountId input.balanceDate
+            return! deleted |> ``convert [PreLedgerBalanceView] to [PreLedgerBalanceReturn]`` |> Json.toJson<PreLedgerBalanceReturn>
+        })
+
+let private listPreLedgerBalances payload _ =
+    readOnly (fun context ->
+        result {
+            let! input = Json.fromJson<PreLedgerBalanceListInput> payload
+            let! accountId =
+                input.accountCode |> convertOptionToDesiredTypeWithFallibleConverter (fallibleConverterAccountCodeToAccountId context)
+            let! views = PreLedgerBalanceOrchestration.listPreLedgerBalances context accountId input.beginDate input.endDate
+            return!
+                views
+                |> List.map ``convert [PreLedgerBalanceView] to [PreLedgerBalanceReturn]``
+                |> Json.toJson<PreLedgerBalanceReturn list>
+        })
+
 // ---- Properties ----
 
 let private propertyReturn context property =
@@ -416,6 +496,13 @@ let positionsDomainCommandRoutes =
         inputContract = typeof<NoInput>.Name
         outputContract = typeof<InvestmentAccountReturn list>.Name
         handler = listInvestmentAccounts }
+      { domain = "InvestmentAccount"
+        verb = "RollForward"
+        description =
+          "Roll an Investment Account's units forward between two of its snapshot dates, the first earlier than the second: for each Security on either snapshot or moved by an Activity dated after the first date and on or before the second, its start quantity, units in, units out, expected quantity, end quantity and the difference. A difference is data, not an error. Read-only."
+        inputContract = typeof<InvestmentAccountRollForwardInput>.Name
+        outputContract = typeof<RollForwardReturn>.Name
+        handler = rollInvestmentAccountForward }
       { domain = "Holding"
         verb = "Create"
         description =
@@ -432,7 +519,7 @@ let positionsDomainCommandRoutes =
       { domain = "Holding"
         verb = "Delete"
         description =
-          "Delete the Holding of a Security in an Investment Account, given by account and Security name. Refused while any Account Snapshot line references it. Returns the Holding as it stood."
+          "Delete the Holding of a Security in an Investment Account, given by account and Security name. Refused while any Account Snapshot line or any Activity references it. Returns the Holding as it stood."
         inputContract = typeof<HoldingDeleteInput>.Name
         outputContract = typeof<HoldingReturn>.Name
         handler = deleteHolding }
@@ -446,14 +533,14 @@ let positionsDomainCommandRoutes =
       { domain = "Holding"
         verb = "FetchAsOf"
         description =
-          "Holdings as of a date: for every Investment Account active on it with a snapshot on or before it, that account's latest such snapshot with its lines. Accounts ordered by name, lines by Security name. Read-only."
+          "Holdings as of a date: for every Investment Account active on it with a snapshot on or before it, that account's latest such snapshot with its lines and each line's lots. Accounts ordered by name, lines by Security name. Read-only."
         inputContract = typeof<HoldingFetchAsOfInput>.Name
         outputContract = typeof<HoldingsAsOfAccountReturn list>.Name
         handler = fetchHoldingsAsOf }
       { domain = "AccountSnapshot"
         verb = "Record"
         description =
-          "Record one or more Account Snapshots in one operation: all are recorded or none is. A snapshot for an account and date that already has one replaces it entirely. Lines name Securities the account already holds. Returns each snapshot as stored, marked new or replacement."
+          "Record one or more Account Snapshots in one operation: all are recorded or none is. A snapshot for an account and date that already has one replaces it entirely, lots included. Lines name Securities the account already holds; a line in a Taxable account may carry lots, in the order reported, whose quantities sum exactly to the line's. Returns each snapshot as stored, marked new or replacement."
         inputContract = typeof<AccountSnapshotRecordInput>.Name
         outputContract = typeof<RecordedAccountSnapshotReturn list>.Name
         handler = recordAccountSnapshots }
@@ -466,7 +553,7 @@ let positionsDomainCommandRoutes =
         handler = deleteAccountSnapshot }
       { domain = "AccountSnapshot"
         verb = "Fetch"
-        description = "Fetch the Account Snapshot for an Investment Account and date, with its lines. Read-only."
+        description = "Fetch the Account Snapshot for an Investment Account and date, with its lines and each line's lots. Read-only."
         inputContract = typeof<AccountSnapshotFetchInput>.Name
         outputContract = typeof<AccountSnapshotReturn>.Name
         handler = fetchAccountSnapshot }
@@ -477,6 +564,41 @@ let positionsDomainCommandRoutes =
         inputContract = typeof<AccountSnapshotListDatesInput>.Name
         outputContract = typeof<AccountSnapshotDateReturn list>.Name
         handler = listAccountSnapshotDates }
+      { domain = "InvestmentActivity"
+        verb = "Record"
+        description =
+          "Record the activity of one or more Investment Accounts in one operation: all are recorded or none is. Each account gives a begin and end date and every Activity dated between them, in the order reported; the activity already stored in that range is replaced, and an empty list clears it. Kind is one of Contribution, RolloverIn, TransferIn, Purchase, Reinvestment, AdjustmentIn, Withdrawal, RolloverOut, TransferOut, Sale, Fee, AdjustmentOut, Dividend, Interest, CapitalGainDistribution. Returns, per account and range, how many were removed and recorded."
+        inputContract = typeof<InvestmentActivityRecordInput>.Name
+        outputContract = typeof<RecordedActivityRangeReturn list>.Name
+        handler = recordInvestmentActivity }
+      { domain = "InvestmentActivity"
+        verb = "List"
+        description =
+          "List an Investment Account's Activities between two dates, both included, in date order and then in the order reported. Read-only."
+        inputContract = typeof<InvestmentActivityListInput>.Name
+        outputContract = typeof<InvestmentActivityReturn list>.Name
+        handler = listInvestmentActivity }
+      { domain = "PreLedgerBalance"
+        verb = "Record"
+        description =
+          "Record one or more Pre-ledger Balances in one operation: all are recorded or none is. Each is an Asset or Liability ledger account by code, a date before the first fiscal period, and its balance in the account's normal direction. A balance for an account and date that already has one replaces it. Returns each as stored, marked new or replacement."
+        inputContract = typeof<PreLedgerBalanceRecordInput>.Name
+        outputContract = typeof<RecordedPreLedgerBalanceReturn list>.Name
+        handler = recordPreLedgerBalances }
+      { domain = "PreLedgerBalance"
+        verb = "Delete"
+        description =
+          "Delete the Pre-ledger Balance of a ledger account, by code, for a date. Returns it as it stood before deletion. This is a hard delete."
+        inputContract = typeof<PreLedgerBalanceDeleteInput>.Name
+        outputContract = typeof<PreLedgerBalanceReturn>.Name
+        handler = deletePreLedgerBalance }
+      { domain = "PreLedgerBalance"
+        verb = "List"
+        description =
+          "List Pre-ledger Balances between two dates, both included, optionally of one ledger account by code, ordered by account code and then date. Read-only."
+        inputContract = typeof<PreLedgerBalanceListInput>.Name
+        outputContract = typeof<PreLedgerBalanceReturn list>.Name
+        handler = listPreLedgerBalances }
       { domain = "Property"
         verb = "Create"
         description =
