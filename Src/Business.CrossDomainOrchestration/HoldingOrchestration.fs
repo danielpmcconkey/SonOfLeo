@@ -8,13 +8,6 @@ open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 
-/// A Holding as listed, with its account's and Security's names.
-type HoldingView = {
-    holding: Holding.Holding
-    investmentAccountName: string
-    securityName: string
-}
-
 let private accountNameOf account = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
 
 let private securityNameOf security = security |> Security.securityName |> SecurityName.value
@@ -128,17 +121,11 @@ let deleteHolding
         return holding
     }
 
-let viewHolding (context: Context.Context) (holding: Holding.Holding) : Result<HoldingView, IAppError> =
-    result {
-        let! account = holding |> Holding.investmentAccountId |> InvestmentAccount.fetchById context
-        let! security = holding |> Holding.securityId |> Security.fetchById context
-        return { holding = holding; investmentAccountName = accountNameOf account; securityName = securityNameOf security }
-    }
-
+/// The account's Holdings, or every Holding when no account is given, ordered by account name then Security name.
 let listHoldings
     (context: Context.Context)
     (investmentAccountId: InvestmentAccountId option)
-    : Result<HoldingView list, IAppError> =
+    : Result<Holding.Holding list, IAppError> =
     result {
         let! holdings =
             match investmentAccountId with
@@ -147,6 +134,19 @@ let listHoldings
                 |> InvestmentAccount.fetchById context
                 |> Result.bind (fun _ -> Holding.fetchByInvestmentAccount context id)
             | None -> Holding.fetchAll context
-        let! views = holdings |> List.map (viewHolding context) |> convertListOfResultsToResultsList
-        return views |> List.sortBy (fun v -> v.investmentAccountName, v.securityName)
+        let! accounts = InvestmentAccount.fetchAll context
+        let! securities = Security.fetchAll context
+        let accountNames = accounts |> List.map (fun a -> InvestmentAccount.investmentAccountId a, accountNameOf a) |> Map.ofList
+        let securityNames = securities |> List.map (fun s -> Security.securityId s, securityNameOf s) |> Map.ofList
+        let! keyed =
+            holdings
+            |> List.map (fun holding ->
+                let accountId = holding |> Holding.investmentAccountId
+                let securityId = holding |> Holding.securityId
+                match accountNames |> Map.tryFind accountId, securityNames |> Map.tryFind securityId with
+                | Some accountName, Some securityName -> Ok((accountName, securityName), holding)
+                | None, _ -> error (PositionsInvestmentAccountIdDoesntExist(accountId |> InvestmentAccountId.value))
+                | _, None -> error (PositionsSecurityIdDoesntExist(securityId |> SecurityId.value)))
+            |> convertListOfResultsToResultsList
+        return keyed |> List.sortBy fst |> List.map snd
     }

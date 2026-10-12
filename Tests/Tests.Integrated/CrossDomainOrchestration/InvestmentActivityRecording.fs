@@ -26,13 +26,13 @@ module PF = PositionsFixture
 type private ActivitySummary =
     LocalDate * string * string * string option * string option * decimal option * decimal option * decimal
 
-let private summary (view: ActivityView) : ActivitySummary =
+let private summary context (view: ActivityView) : ActivitySummary =
     let a = view.activity
     a |> InvestmentActivity.activityDate,
     a |> InvestmentActivity.kind |> ActivityKind.toString,
     a |> InvestmentActivity.description |> ActivityDescription.value,
     a |> InvestmentActivity.source |> Option.map ActivitySource.value,
-    view.securityName,
+    view.securityId |> Option.map (PositionsLookups.securityNameOf context),
     a |> InvestmentActivity.quantity |> Option.map Quantity.amount,
     a |> InvestmentActivity.price |> Option.map Price.amount,
     a |> InvestmentActivity.amount |> Money.amount
@@ -67,13 +67,14 @@ let private record context (ranges: InvestmentActivityRangeInput list) =
 let private listed context account beginDate endDate =
     PositionsLookups.investmentAccountIdOf context account
     |> Result.bind (fun accountId -> listActivity context accountId beginDate endDate)
-    |> Result.map (List.map summary)
+    |> Result.map (List.map (summary context))
 
 let private today (context: Context.Context) = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
 
 let private notHeld = function AsError (PositionsActivitySecurityNotHeld (a, s)) -> Some(a, s) | _ -> None
 
-let private recordedSummary (r: RecordedRange) = r.investmentAccountName, r.beginDate, r.endDate, r.removed, r.recorded
+let private recordedSummary context (r: RecordedRange) =
+    r.investmentAccountId |> PositionsLookups.investmentAccountNameOf context, r.beginDate, r.endDate, r.removed, r.recorded
 
 [<Collection("SharedTestData")>]
 type InvestmentActivityRecordingTests(fixture: TestDataFixture) =
@@ -231,7 +232,7 @@ type InvestmentActivityRecordingTests(fixture: TestDataFixture) =
             result {
                 let! recorded =
                     record context [ range PF.alexBrokerage (day p.d3 1) p.d4 (alexBrokerageFixtureActivity |> List.map inputOf) ]
-                Assert.Equal((PF.alexBrokerage, day p.d3 1, p.d4, 2, 2), recorded |> List.exactlyOne |> recordedSummary)
+                Assert.Equal((PF.alexBrokerage, day p.d3 1, p.d4, 2, 2), recorded |> List.exactlyOne |> recordedSummary context)
                 let! stored = listed context PF.alexBrokerage (day p.d3 1) p.d4
                 Assert.Equal<ActivitySummary list>(alexBrokerageFixtureActivity, stored)
             })
@@ -249,7 +250,7 @@ type InvestmentActivityRecordingTests(fixture: TestDataFixture) =
                               [ interest (day p.d3 1) 1.00M; interest (day p.d3 2) 2.00M; interest p.d4 3.00M ] ]
                 Assert.Equal<(string * LocalDate * LocalDate * int * int) list>(
                     [ PF.sam401k, day p.d1 1, day p.d1 5, 5, 1; PF.alexBrokerage, day p.d3 1, p.d4, 2, 3 ],
-                    recorded |> List.map recordedSummary)
+                    recorded |> List.map (recordedSummary context))
             })
         |> railroadWrapper
 

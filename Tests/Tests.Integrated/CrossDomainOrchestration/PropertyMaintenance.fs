@@ -33,19 +33,21 @@ module PF = PositionsFixture
 type private PropertySummary =
     string * PropertyUse * string list * LocalDate * LocalDate option * decimal * (string * string) list * (string * string) list
 
-let private summary (view: PropertyView) : PropertySummary =
-    let p = view.property
+let private summary context (p: Property.Property) : PropertySummary =
+    // a Property's accounts are listed in code order
+    let codesAndNamesOf accountIds =
+        accountIds |> Set.toList |> List.map (PositionsLookups.ledgerCodeAndNameOf context) |> List.sortBy fst
     p |> Property.propertyName |> PropertyName.value,
     p |> Property.propertyUse,
-    view.ownerNames,
+    p |> Property.owners |> PositionsLookups.personNamesOf context,
     p |> Property.ownedPeriod |> OwnedPeriod.acquisitionDate,
     p |> Property.ownedPeriod |> OwnedPeriod.disposalDate,
     p |> Property.purchaseBasis |> PurchaseBasis.value |> Money.amount,
-    view.assetAccountCodesAndNames,
-    view.mortgageAccountCodesAndNames
+    p |> Property.assetAccountIds |> codesAndNamesOf,
+    p |> Property.mortgageAccountIds |> codesAndNamesOf
 
 let private listed context name =
-    listProperties context |> Result.map (List.map summary >> List.filter (fun (n, _, _, _, _, _, _, _) -> n = name))
+    listProperties context |> Result.map (List.map (summary context) >> List.filter (fun (n, _, _, _, _, _, _, _) -> n = name))
 
 let private listedOne context name = listed context name |> Result.map List.exactlyOne
 
@@ -454,7 +456,8 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-POS-11.6 listing Properties returns every fixture Property ordered by name, with its owners' names and its asset and mortgage accounts' codes and names, and no other Property`` () =
-        listProperties (Context.create NoTransaction FetchOnly)
+        let readOnly = Context.create NoTransaction FetchOnly
+        listProperties readOnly
         |> Result.map (fun all ->
             Assert.Equal<PropertySummary list>(
                 [ PF.residence, PrimaryResidence, [ PF.alex; PF.sam ], p.residenceAcquired, None, 400000.00M,
@@ -462,7 +465,7 @@ type PropertyMaintenanceTests(fixture: TestDataFixture) =
                   PF.rental, Rental, [ PF.sam ], p.rentalAcquired, None, 250000.00M, [], [ "F-2320", "Fixture Rental Mortgage" ]
                   PF.formerResidence, PrimaryResidence, [ PF.alex ], p.formerResidenceAcquired, Some p.formerResidenceDisposed,
                   200000.00M, [], [] ],
-                all |> List.map summary))
+                all |> List.map (summary readOnly)))
         |> railroadWrapper
 
     [<Fact>]

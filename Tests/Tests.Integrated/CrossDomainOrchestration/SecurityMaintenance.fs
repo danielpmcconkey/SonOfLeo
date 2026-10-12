@@ -22,16 +22,18 @@ open Xunit
 /// A Security as the list shows it: name, ticker and each of the seven dimensions' value name, in Dimension.all order.
 type private SecuritySummary = string * string option * (Dimension * string option) list
 
-let private summary (view: SecurityView) : SecuritySummary =
-    view.security |> Security.securityName |> SecurityName.value,
-    view.security |> Security.ticker |> Option.map Ticker.value,
-    Dimension.all |> List.map (fun d -> d, view.dimensionValueNames |> Map.tryFind d)
+let private summary context (security: Security.Security) : SecuritySummary =
+    security |> Security.securityName |> SecurityName.value,
+    security |> Security.ticker |> Option.map Ticker.value,
+    Dimension.all
+    |> List.map (fun d ->
+        d, security |> Security.dimensionValues |> Map.tryFind d |> Option.map (PositionsLookups.dimensionValueNameOf context))
 
 let private withValues (values: (Dimension * string) list) =
     Dimension.all |> List.map (fun d -> d, values |> List.tryFind (fun (vd, _) -> vd = d) |> Option.map snd)
 
 let private listed context name =
-    listSecurities context |> Result.map (List.map summary >> List.filter (fun (n, _, _) -> n = name))
+    listSecurities context |> Result.map (List.map (summary context) >> List.filter (fun (n, _, _) -> n = name))
 
 let private valueNamesIn context dimension =
     listDimensionValues context dimension |> Result.map (List.map (DimensionValue.dimensionValueName >> DimensionValueName.value))
@@ -211,7 +213,7 @@ type SecurityMaintenanceTests(fixture: TestDataFixture) =
             result {
                 let! _ = createSecurity context "EXAMPLE BOND FUND" None []
                 let! all = listSecurities context
-                let names = all |> List.map (fun v -> v.security |> Security.securityName |> SecurityName.value)
+                let names = all |> List.map (Security.securityName >> SecurityName.value)
                 Assert.Contains("EXAMPLE BOND FUND", names)
                 Assert.Contains(PositionsFixture.bondFund, names)
             })
@@ -310,14 +312,15 @@ type SecurityMaintenanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-POS-11.2 listing Securities returns every fixture Security ordered by name, each with its ticker and the name of its value in each of the seven dimensions or nothing, and no other Security`` () =
-        listSecurities (Context.create NoTransaction FetchOnly)
+        let readOnly = Context.create NoTransaction FetchOnly
+        listSecurities readOnly
         |> Result.map (fun all ->
             Assert.Equal<SecuritySummary list>(
                 [ PositionsFixture.bondFund, None, withValues [ InvestmentType, "Bond Fund" ]
                   PositionsFixture.international, Some "EXINX", withValues [ InvestmentType, "Equity Fund"; Region, "International" ]
                   PositionsFixture.stableValue, None, withValues []
                   PositionsFixture.totalMarket, Some "EXTMX", withValues allSevenOfTotalMarket ],
-                all |> List.map summary))
+                all |> List.map (summary readOnly)))
         |> railroadWrapper
 
     [<Fact>]

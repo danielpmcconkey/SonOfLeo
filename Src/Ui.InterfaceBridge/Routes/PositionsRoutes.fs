@@ -65,9 +65,7 @@ let private listDimensionValues payload _ =
 // ---- Securities ----
 
 let private securityReturn context security =
-    SecurityOrchestration.viewSecurity context security
-    |> Result.map ``convert [SecurityView] to [SecurityReturn]``
-    |> Result.bind Json.toJson<SecurityReturn>
+    security |> ``convert [Security] to [SecurityReturn]`` context |> Result.bind Json.toJson<SecurityReturn>
 
 let private createSecurity payload _ =
     runCommandRouteAndAutoCompleteTransaction PositionsCreateSecurity (fun context ->
@@ -99,15 +97,16 @@ let private updateSecurity payload _ =
 let private listSecurities _ _ =
     readOnly (fun context ->
         result {
-            let! views = SecurityOrchestration.listSecurities context
-            return! views |> List.map ``convert [SecurityView] to [SecurityReturn]`` |> Json.toJson<SecurityReturn list>
+            let! securities = SecurityOrchestration.listSecurities context
+            let! returned = securities |> List.map (``convert [Security] to [SecurityReturn]`` context) |> convertListOfResultsToResultsList
+            return! returned |> Json.toJson<SecurityReturn list>
         })
 
 // ---- Investment Accounts ----
 
 let private investmentAccountReturn context account =
-    InvestmentAccountOrchestration.viewInvestmentAccount context account
-    |> Result.map ``convert [InvestmentAccountView] to [InvestmentAccountReturn]``
+    account
+    |> ``convert [InvestmentAccount] to [InvestmentAccountReturn]`` context
     |> Result.bind Json.toJson<InvestmentAccountReturn>
 
 let private createInvestmentAccount payload _ =
@@ -142,19 +141,18 @@ let private updateInvestmentAccount payload _ =
 let private listInvestmentAccounts _ _ =
     readOnly (fun context ->
         result {
-            let! views = InvestmentAccountOrchestration.listInvestmentAccounts context
-            return!
-                views
-                |> List.map ``convert [InvestmentAccountView] to [InvestmentAccountReturn]``
-                |> Json.toJson<InvestmentAccountReturn list>
+            let! accounts = InvestmentAccountOrchestration.listInvestmentAccounts context
+            let! returned =
+                accounts
+                |> List.map (``convert [InvestmentAccount] to [InvestmentAccountReturn]`` context)
+                |> convertListOfResultsToResultsList
+            return! returned |> Json.toJson<InvestmentAccountReturn list>
         })
 
 // ---- Holdings ----
 
 let private holdingReturn context holding =
-    HoldingOrchestration.viewHolding context holding
-    |> Result.map ``convert [HoldingView] to [HoldingReturn]``
-    |> Result.bind Json.toJson<HoldingReturn>
+    holding |> ``convert [Holding] to [HoldingReturn]`` context |> Result.bind Json.toJson<HoldingReturn>
 
 let private createHolding payload _ =
     runCommandRouteAndAutoCompleteTransaction PositionsCreateHolding (fun context ->
@@ -197,8 +195,9 @@ let private listHoldings payload _ =
                 |> convertOptionToDesiredTypeWithFallibleConverter (
                     ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
                 )
-            let! views = HoldingOrchestration.listHoldings context accountId
-            return! views |> List.map ``convert [HoldingView] to [HoldingReturn]`` |> Json.toJson<HoldingReturn list>
+            let! holdings = HoldingOrchestration.listHoldings context accountId
+            let! returned = holdings |> List.map (``convert [Holding] to [HoldingReturn]`` context) |> convertListOfResultsToResultsList
+            return! returned |> Json.toJson<HoldingReturn list>
         })
 
 let private fetchHoldingsAsOf payload _ =
@@ -225,16 +224,11 @@ let private recordAccountSnapshots payload _ =
                 |> List.map (``convert [AccountSnapshotInput] to [Snapshot]`` context)
                 |> convertListOfResultsToResultsList
             let! recorded = AccountSnapshotOrchestration.recordSnapshots context snapshots
-            return!
+            let! returned =
                 recorded
-                |> List.map (fun r ->
-                    { snapshot = r.snapshot |> ``convert [SnapshotView] to [AccountSnapshotReturn]``
-                      replacedExisting = r.replacedExisting
-                      replacedLineLots =
-                        r.replacedLineLots
-                        |> List.map (fun (replaced: AccountSnapshotOrchestration.ReplacedLineLots) ->
-                            ({ security = replaced.security; lotCount = replaced.lotCount }: ReplacedLineLotsReturn)) })
-                |> Json.toJson<RecordedAccountSnapshotReturn list>
+                |> List.map (``convert [RecordedSnapshot] to [RecordedAccountSnapshotReturn]`` context)
+                |> convertListOfResultsToResultsList
+            return! returned |> Json.toJson<RecordedAccountSnapshotReturn list>
         })
 
 let private deleteAccountSnapshot payload _ =
@@ -243,7 +237,8 @@ let private deleteAccountSnapshot payload _ =
             let! input = Json.fromJson<AccountSnapshotDeleteInput> payload
             let! accountId = input.accountName |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
             let! deleted = AccountSnapshotOrchestration.deleteSnapshot context accountId input.snapshotDate
-            return! deleted |> ``convert [SnapshotView] to [AccountSnapshotReturn]`` |> Json.toJson<AccountSnapshotReturn>
+            let! returned = deleted |> ``convert [SnapshotView] to [AccountSnapshotReturn]`` context
+            return! returned |> Json.toJson<AccountSnapshotReturn>
         })
 
 let private fetchAccountSnapshot payload _ =
@@ -252,7 +247,8 @@ let private fetchAccountSnapshot payload _ =
             let! input = Json.fromJson<AccountSnapshotFetchInput> payload
             let! accountId = input.accountName |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
             let! snapshot = AccountSnapshotOrchestration.fetchSnapshot context accountId input.snapshotDate
-            return! snapshot |> ``convert [SnapshotView] to [AccountSnapshotReturn]`` |> Json.toJson<AccountSnapshotReturn>
+            let! returned = snapshot |> ``convert [SnapshotView] to [AccountSnapshotReturn]`` context
+            return! returned |> Json.toJson<AccountSnapshotReturn>
         })
 
 let private listAccountSnapshotDates payload _ =
@@ -278,10 +274,11 @@ let private recordInvestmentActivity payload _ =
                 |> List.map (``convert [InvestmentActivityRangeInput] to [ActivityRange]`` context)
                 |> convertListOfResultsToResultsList
             let! recorded = InvestmentActivityOrchestration.recordActivity context ranges
-            return!
+            let! returned =
                 recorded
-                |> List.map ``convert [RecordedRange] to [RecordedActivityRangeReturn]``
-                |> Json.toJson<RecordedActivityRangeReturn list>
+                |> List.map (``convert [RecordedRange] to [RecordedActivityRangeReturn]`` context)
+                |> convertListOfResultsToResultsList
+            return! returned |> Json.toJson<RecordedActivityRangeReturn list>
         })
 
 let private listInvestmentActivity payload _ =
@@ -290,10 +287,11 @@ let private listInvestmentActivity payload _ =
             let! input = Json.fromJson<InvestmentActivityListInput> payload
             let! accountId = input.accountName |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
             let! views = InvestmentActivityOrchestration.listActivity context accountId input.beginDate input.endDate
-            return!
+            let! returned =
                 views
-                |> List.map ``convert [ActivityView] to [InvestmentActivityReturn]``
-                |> Json.toJson<InvestmentActivityReturn list>
+                |> List.map (``convert [ActivityView] to [InvestmentActivityReturn]`` context)
+                |> convertListOfResultsToResultsList
+            return! returned |> Json.toJson<InvestmentActivityReturn list>
         })
 
 let private listInvestmentActivityCoverageGaps payload _ =
@@ -364,9 +362,7 @@ let private listPreLedgerBalances payload _ =
 // ---- Properties ----
 
 let private propertyReturn context property =
-    RealEstateOrchestration.viewProperty context property
-    |> Result.map ``convert [PropertyView] to [PropertyReturn]``
-    |> Result.bind Json.toJson<PropertyReturn>
+    property |> ``convert [Property] to [PropertyReturn]`` context |> Result.bind Json.toJson<PropertyReturn>
 
 let private createProperty payload _ =
     runCommandRouteAndAutoCompleteTransaction PositionsCreateProperty (fun context ->
@@ -407,8 +403,9 @@ let private deleteProperty payload _ =
 let private listProperties _ _ =
     readOnly (fun context ->
         result {
-            let! views = RealEstateOrchestration.listProperties context
-            return! views |> List.map ``convert [PropertyView] to [PropertyReturn]`` |> Json.toJson<PropertyReturn list>
+            let! properties = RealEstateOrchestration.listProperties context
+            let! returned = properties |> List.map (``convert [Property] to [PropertyReturn]`` context) |> convertListOfResultsToResultsList
+            return! returned |> Json.toJson<PropertyReturn list>
         })
 
 // ---- Valuations ----

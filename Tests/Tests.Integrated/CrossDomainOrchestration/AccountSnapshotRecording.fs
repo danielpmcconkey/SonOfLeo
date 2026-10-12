@@ -31,19 +31,19 @@ type private LineSummary = string * decimal * decimal * decimal * decimal option
 /// A snapshot as stored: account, date, provenance, contribution basis and lines in Security-name order.
 type private SnapshotSummary = string * LocalDate * Provenance * decimal option * LineSummary list
 
-let private lineSummary (view: SnapshotLineView) : LineSummary =
-    view.securityName,
+let private lineSummary context (view: SnapshotLineView) : LineSummary =
+    view.securityId |> PositionsLookups.securityNameOf context,
     view.line |> AccountSnapshotLine.quantity |> Quantity.amount,
     view.line |> AccountSnapshotLine.price |> Price.amount,
     view.line |> AccountSnapshotLine.marketValue |> Money.amount,
     view.line |> AccountSnapshotLine.reportedCostBasis |> Option.map Money.amount
 
-let private summary (view: SnapshotView) : SnapshotSummary =
-    view.investmentAccountName,
+let private summary context (view: SnapshotView) : SnapshotSummary =
+    view.header |> AccountSnapshotHeader.investmentAccountId |> PositionsLookups.investmentAccountNameOf context,
     view.header |> AccountSnapshotHeader.snapshotDate,
     view.header |> AccountSnapshotHeader.provenance,
     view.header |> AccountSnapshotHeader.contributionBasis |> Option.map (ContributionBasis.value >> Money.amount),
-    view.lines |> List.map lineSummary
+    view.lines |> List.map (lineSummary context)
 
 let private line security (q: decimal) (p: decimal) (mv: decimal) (cb: decimal option) : AccountSnapshotLineInput =
     { securityName = security; quantity = q; price = p; marketValue = mv; reportedCostBasis = cb; lots = [] }
@@ -76,7 +76,7 @@ let private listSnapshotDates context account beginDate endDate =
     |> Result.bind (fun accountId -> AccountSnapshotOrchestration.listSnapshotDates context accountId beginDate endDate)
 
 let private fetched context account date =
-    fetchSnapshot context account date |> Result.map summary
+    fetchSnapshot context account date |> Result.map (summary context)
 
 let private today (context: Context.Context) = context |> Context.getInitiationInstant |> Calendar.dateFromInstant
 
@@ -104,7 +104,7 @@ type AccountSnapshotRecordingTests(fixture: TestDataFixture) =
                       PF.totalMarket, 6M, 110.00M, 660.00M, None ]
                 let only = recorded |> List.exactlyOne
                 Assert.False(only.replacedExisting)
-                Assert.Equal(expected, only.snapshot |> summary)
+                Assert.Equal(expected, only.snapshot |> summary context)
                 let! stored = fetched context PF.alexRoth p.d2
                 Assert.Equal(expected, stored)
             })
@@ -160,7 +160,7 @@ type AccountSnapshotRecordingTests(fixture: TestDataFixture) =
                 let expected : SnapshotSummary = PF.alexRoth, p.d1, Imported, Some 1250.00M, [ PF.bondFund, 120M, 10.00M, 1200.00M, None ]
                 let only = recorded |> List.exactlyOne
                 Assert.True(only.replacedExisting)
-                Assert.Equal(expected, only.snapshot |> summary)
+                Assert.Equal(expected, only.snapshot |> summary context)
                 let! stored = fetched context PF.alexRoth p.d1
                 Assert.Equal(expected, stored)
             })
@@ -263,7 +263,7 @@ type AccountSnapshotRecordingTests(fixture: TestDataFixture) =
                 |> expectError notHeld (fun found -> Assert.Equal((PF.samHsa, PF.totalMarket), found))
                 let! samHsaId = PositionsLookups.investmentAccountIdOf context PF.samHsa
                 let! holdings = HoldingOrchestration.listHoldings context (Some samHsaId)
-                Assert.Equal<string list>([ PF.stableValue ], holdings |> List.map (fun h -> h.securityName))
+                Assert.Equal<string list>([ PF.stableValue ], holdings |> List.map (Holding.securityId >> PositionsLookups.securityNameOf context))
             })
         |> railroadWrapper
 

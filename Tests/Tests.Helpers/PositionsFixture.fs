@@ -165,6 +165,38 @@ module PositionsLookups =
     let investmentAccountIdOf context name = name |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
     let propertyIdOf context name = name |> ``convert [PropertyNameString] to [PropertyId]`` context
 
+    let private orFail (r: Result<'T, IAppError>) : 'T =
+        match r with
+        | Ok v -> v
+        | Error e -> failwith (e.ToMessage())
+
+    // ID-to-name lookups read the entity, not a LookupCache, so a test sees what its own transaction wrote. A missing
+    // record fails the test.
+    let securityNameOf context securityId =
+        securityId
+        |> Business.FinancialServices.Positions.Security.fetchById context
+        |> orFail
+        |> Business.FinancialServices.Positions.Security.securityName
+        |> SecurityName.value
+    let investmentAccountNameOf context investmentAccountId =
+        investmentAccountId
+        |> Business.FinancialServices.Positions.InvestmentAccount.fetchById context
+        |> orFail
+        |> Business.FinancialServices.Positions.InvestmentAccount.investmentAccountName
+        |> InvestmentAccountName.value
+    let dimensionValueNameOf context dimensionValueId =
+        dimensionValueId
+        |> Business.FinancialServices.Positions.DimensionValue.fetchById context
+        |> orFail
+        |> Business.FinancialServices.Positions.DimensionValue.dimensionValueName
+        |> DimensionValueName.value
+    /// The owners' names, sorted.
+    let personNamesOf context (personIds: Set<PersonId>) =
+        personIds |> Set.toList |> List.map (Person.fetchById context >> orFail >> Person.personName >> PersonName.value) |> List.sort
+    let ledgerCodeAndNameOf context accountId =
+        let account = accountId |> Account.fetchById context |> orFail
+        account |> Account.code |> AccountCode.value, account |> Account.accountName |> AccountName.value
+
 module PositionsFixture =
     let alex = "Alex Example"
     let sam = "Sam Example"

@@ -22,23 +22,22 @@ type SnapshotLine = SecurityId * Quantity.Quantity * Price.Price * Money.Money *
 /// One snapshot to record: the account, the date, provenance, contribution basis and lines.
 type Snapshot = InvestmentAccountId * LocalDate * Provenance * ContributionBasis option * SnapshotLine list
 
-/// A line as stored, with its lots in the order supplied.
+/// A line as stored, with its Security and its lots in the order supplied.
 type SnapshotLineView = {
     line: AccountSnapshotLine.AccountSnapshotLine
-    securityName: string
+    securityId: SecurityId
     lots: AccountSnapshotLot.AccountSnapshotLot list
 }
 
 /// A snapshot as stored, its lines ordered by Security name.
 type SnapshotView = {
     header: AccountSnapshotHeader.AccountSnapshotHeader
-    investmentAccountName: string
     lines: SnapshotLineView list
 }
 
 /// One line of a replaced snapshot: its Security and how many lots it carried.
 type ReplacedLineLots = {
-    security: string
+    securityId: SecurityId
     lotCount: int
 }
 
@@ -169,7 +168,6 @@ let private buildLine
 
 let private viewSnapshot
     (context: Context.Context)
-    (accountName: string)
     (header: AccountSnapshotHeader.AccountSnapshotHeader)
     : Result<SnapshotView, IAppError> =
     result {
@@ -186,14 +184,14 @@ let private viewSnapshot
                 |> Holding.fetchById context
                 |> Result.bind (Holding.securityId >> Security.fetchById context)
                 |> Result.map (fun security ->
+                    security |> Security.securityName |> SecurityName.value,
                     { line = line
-                      securityName = security |> Security.securityName |> SecurityName.value
+                      securityId = security |> Security.securityId
                       lots = lotsOf line }))
             |> convertListOfResultsToResultsList
         return
             { header = header
-              investmentAccountName = accountName
-              lines = lineViews |> List.sortBy (fun l -> l.securityName) }
+              lines = lineViews |> List.sortBy fst |> List.map snd }
     }
 
 let private recordOne (context: Context.Context) (input: Snapshot) : Result<RecordedSnapshot, IAppError> =
@@ -217,10 +215,10 @@ let private recordOne (context: Context.Context) (input: Snapshot) : Result<Reco
         let! replacedLineLots =
             match existing with
             | Some existingHeader ->
-                viewSnapshot context accountName existingHeader
+                viewSnapshot context existingHeader
                 |> Result.map (fun replaced ->
                     replaced.lines
-                    |> List.map (fun l -> { security = l.securityName; lotCount = l.lots |> List.length }))
+                    |> List.map (fun l -> { securityId = l.securityId; lotCount = l.lots |> List.length }))
             | None -> Ok []
         let! header =
             match existing with
@@ -248,7 +246,7 @@ let private recordOne (context: Context.Context) (input: Snapshot) : Result<Reco
                 |> Result.map ignore)
             |> convertListOfResultsToResultsList
             |> Result.map ignore
-        let! view = viewSnapshot context accountName header
+        let! view = viewSnapshot context header
         return { snapshot = view; replacedExisting = existing |> Option.isSome; replacedLineLots = replacedLineLots }
     }
 
@@ -264,14 +262,13 @@ let private fetchHeader
     (context: Context.Context)
     (investmentAccountId: InvestmentAccountId)
     (snapshotDate: LocalDate)
-    : Result<string * AccountSnapshotHeader.AccountSnapshotHeader, IAppError> =
+    : Result<AccountSnapshotHeader.AccountSnapshotHeader, IAppError> =
     result {
         let! account = investmentAccountId |> InvestmentAccount.fetchById context
-        let accountName = accountNameOf account
         let! header = AccountSnapshotHeader.fetchByInvestmentAccountAndDate context investmentAccountId snapshotDate
         match header with
-        | Some h -> return accountName, h
-        | None -> return! error (PositionsSnapshotDoesntExist(accountName, snapshotDate))
+        | Some h -> return h
+        | None -> return! error (PositionsSnapshotDoesntExist(accountNameOf account, snapshotDate))
     }
 
 /// Deletes the snapshot and its lines with their lots, and returns it as it stood before deletion.
@@ -281,8 +278,8 @@ let deleteSnapshot
     (snapshotDate: LocalDate)
     : Result<SnapshotView, IAppError> =
     result {
-        let! accountName, header = fetchHeader context investmentAccountId snapshotDate
-        let! view = viewSnapshot context accountName header
+        let! header = fetchHeader context investmentAccountId snapshotDate
+        let! view = viewSnapshot context header
         let accountSnapshotId = header |> AccountSnapshotHeader.accountSnapshotId
         do! AccountSnapshotLot.deleteByAccountSnapshot context accountSnapshotId
         do! AccountSnapshotLine.deleteByAccountSnapshot context accountSnapshotId
@@ -296,8 +293,8 @@ let fetchSnapshot
     (snapshotDate: LocalDate)
     : Result<SnapshotView, IAppError> =
     result {
-        let! accountName, header = fetchHeader context investmentAccountId snapshotDate
-        return! viewSnapshot context accountName header
+        let! header = fetchHeader context investmentAccountId snapshotDate
+        return! viewSnapshot context header
     }
 
 /// Each snapshot date in the range, both ends included, with its provenance, in date order.

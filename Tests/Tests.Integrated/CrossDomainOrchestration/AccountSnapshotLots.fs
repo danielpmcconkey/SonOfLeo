@@ -30,8 +30,8 @@ let private lotSummary (lot: AccountSnapshotLot.AccountSnapshotLot) : LotSummary
     lot |> AccountSnapshotLot.quantity |> Quantity.amount,
     lot |> AccountSnapshotLot.reportedCostBasis |> Option.map Money.amount
 
-let private lotsOf (view: SnapshotView) : LotsSummary =
-    view.lines |> List.map (fun l -> l.securityName, l.lots |> List.map lotSummary)
+let private lotsOf context (view: SnapshotView) : LotsSummary =
+    view.lines |> List.map (fun l -> l.securityId |> PositionsLookups.securityNameOf context, l.lots |> List.map lotSummary)
 
 let private lot (acquired: LocalDate) (q: decimal) (cost: decimal option) : AccountSnapshotLotInput =
     { acquiredDate = acquired; quantity = q; reportedCostBasis = cost }
@@ -56,7 +56,7 @@ let private fetchSnapshot context account date =
     PositionsLookups.investmentAccountIdOf context account
     |> Result.bind (fun accountId -> AccountSnapshotOrchestration.fetchSnapshot context accountId date)
 
-let private storedLots context account date = fetchSnapshot context account date |> Result.map lotsOf
+let private storedLots context account date = fetchSnapshot context account date |> Result.map (lotsOf context)
 
 let private lotsDontSum =
     function
@@ -92,7 +92,7 @@ type AccountSnapshotLotsTests(fixture: TestDataFixture) =
                 let expected : LotsSummary =
                     [ PF.international, [ lastYear.PlusDays 5, 20M, Some 0.00M ]
                       PF.totalMarket, [ lastYear.PlusDays 10, 4.25M, Some 380.50M; lastYear.PlusDays 20, 5.75M, None ] ]
-                Assert.Equal<LotsSummary>(expected, (recorded |> List.exactlyOne).snapshot |> lotsOf)
+                Assert.Equal<LotsSummary>(expected, (recorded |> List.exactlyOne).snapshot |> lotsOf context)
                 let! stored = storedLots context PF.alexBrokerage date
                 Assert.Equal<LotsSummary>(expected, stored)
             })
@@ -155,7 +155,7 @@ type AccountSnapshotLotsTests(fixture: TestDataFixture) =
                     Assert.Equal((PF.jointBrokerage, p.d2, PF.totalMarket, 49.999999M, 50M), found))
                 let! after = fetchSnapshot context PF.jointBrokerage p.d2
                 Assert.Equal(before, after)
-                Assert.Equal<LotsSummary>([ PF.totalMarket, fixtureJointLots ], after |> lotsOf)
+                Assert.Equal<LotsSummary>([ PF.totalMarket, fixtureJointLots ], after |> lotsOf context)
             })
         |> railroadWrapper
 
@@ -229,7 +229,7 @@ type AccountSnapshotLotsTests(fixture: TestDataFixture) =
             result {
                 let! accountId = PositionsLookups.investmentAccountIdOf context PF.jointBrokerage
                 let! deleted = AccountSnapshotOrchestration.deleteSnapshot context accountId p.d2
-                Assert.Equal<LotsSummary>([ PF.totalMarket, fixtureJointLots ], deleted |> lotsOf)
+                Assert.Equal<LotsSummary>([ PF.totalMarket, fixtureJointLots ], deleted |> lotsOf context)
                 fetchSnapshot context PF.jointBrokerage p.d2
                 |> expectError
                     (function AsError(PositionsSnapshotDoesntExist(a, d)) -> Some(a, d) | _ -> None)
@@ -273,7 +273,7 @@ type AccountSnapshotLotsTests(fixture: TestDataFixture) =
                 Assert.True(only.replacedExisting)
                 Assert.Equal<(string * int) list>(
                     [ PF.bondFund, 0; PF.international, 1; PF.totalMarket, 2 ],
-                    only.replacedLineLots |> List.map (fun l -> l.security, l.lotCount))
+                    only.replacedLineLots |> List.map (fun l -> l.securityId |> PositionsLookups.securityNameOf context, l.lotCount))
                 let! stored = storedLots context PF.alexBrokerage date
                 Assert.Equal<LotsSummary>(
                     [ PF.bondFund, []; PF.international, [ lastYear, 20M, None ]; PF.totalMarket, [] ], stored)
@@ -290,6 +290,6 @@ type AccountSnapshotLotsTests(fixture: TestDataFixture) =
                               [ line PF.totalMarket 10M 100.00M 1000.00M None [ lot lastYear 10M None ] ] ]
                 let only = recorded |> List.exactlyOne
                 Assert.Equal<bool * (string * int) list>(
-                    (false, []), (only.replacedExisting, only.replacedLineLots |> List.map (fun l -> l.security, l.lotCount)))
+                    (false, []), (only.replacedExisting, only.replacedLineLots |> List.map (fun l -> l.securityId |> PositionsLookups.securityNameOf context, l.lotCount)))
             })
         |> railroadWrapper

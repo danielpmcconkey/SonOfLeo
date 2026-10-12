@@ -24,14 +24,16 @@ module PF = PositionsFixture
 /// A Holding as listed: account name, Security name and basis method.
 type private HoldingSummary = string * string * BasisMethod option
 
-let private summary (view: HoldingView) : HoldingSummary =
-    view.investmentAccountName, view.securityName, view.holding |> Holding.basisMethod
+let private summary context (holding: Holding.Holding) : HoldingSummary =
+    holding |> Holding.investmentAccountId |> PositionsLookups.investmentAccountNameOf context,
+    holding |> Holding.securityId |> PositionsLookups.securityNameOf context,
+    holding |> Holding.basisMethod
 
 // the route path: accounts and Securities are addressed by name, resolved to IDs as the routes' converters resolve them
 let private holdingsOf context account =
     PositionsLookups.investmentAccountIdOf context account
     |> Result.bind (Some >> listHoldings context)
-    |> Result.map (List.map summary)
+    |> Result.map (List.map (summary context))
 
 let private withIds context account security =
     result {
@@ -115,7 +117,7 @@ type HoldingMaintenanceTests(fixture: TestDataFixture) =
                 let! _ = create context PF.jordanCustodial PF.international (Some AverageCost)
                 let! all = listHoldings context None
                 let holdersOfInternational =
-                    all |> List.map summary |> List.filter (fun (_, s, _) -> s = PF.international) |> List.map (fun (a, _, _) -> a)
+                    all |> List.map (summary context) |> List.filter (fun (_, s, _) -> s = PF.international) |> List.map (fun (a, _, _) -> a)
                 Assert.Equal<string list>([ PF.alexBrokerage; PF.jordanCustodial; PF.oldBrokerage ], holdersOfInternational)
             })
         |> railroadWrapper
@@ -180,8 +182,9 @@ type HoldingMaintenanceTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-POS-11.5 listing Holdings with no account filter returns every fixture Holding ordered by account name then Security name, each with its basis method, and no other Holding`` () =
-        listHoldings (Context.create NoTransaction FetchOnly) None
-        |> Result.map (fun all -> Assert.Equal<HoldingSummary list>(fixtureHoldings, all |> List.map summary))
+        let readOnly = Context.create NoTransaction FetchOnly
+        listHoldings readOnly None
+        |> Result.map (fun all -> Assert.Equal<HoldingSummary list>(fixtureHoldings, all |> List.map (summary readOnly)))
         |> railroadWrapper
 
     [<Fact>]

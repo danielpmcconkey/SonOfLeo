@@ -499,3 +499,13 @@ type RollForward = {
     secondDate: LocalDate
     rows: RollForwardRow list
 }
+
+/// What recording one account's range of activity did: how many activities dated in it were removed, and how many
+/// recorded.
+type RecordedRange = {
+    investmentAccountId: InvestmentAccountId
+    beginDate: LocalDate
+    endDate: LocalDate
+    removed: int
+    recorded: int
+}

@@ -24,16 +24,40 @@ open Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
 open Ui.InterfaceBridge.BoundaryConverters.PersonFieldConverters
 open Ui.InterfaceBridge.BoundaryConverters.AccountFieldConverters
 
-let ``convert [string * string] to [LedgerAccountReturn]`` (codeAndName: string * string) : LedgerAccountReturn =
-    let code, name = codeAndName
-    { code = code; name = name }
-
 let private ``convert [Map<Dimension, string>] to [DimensionValueReturn list]``
     (valueNames: Map<Dimension, string>)
     : DimensionValueReturn list =
     Dimension.all
     |> List.choose (fun d ->
         valueNames |> Map.tryFind d |> Option.map (fun name -> { dimension = d |> Dimension.toString; valueName = name }))
+
+let private ``convert [Map<Dimension, DimensionValueId>] to [Map<Dimension, string>]``
+    (context: Context.Context)
+    (valueIds: Map<Dimension, DimensionValueId>)
+    : Result<Map<Dimension, string>, IAppError> =
+    valueIds
+    |> Map.toList
+    |> List.map (fun (d, id) -> id |> DimensionValue.idToName context |> Result.map (fun n -> d, n |> DimensionValueName.value))
+    |> convertListOfResultsToResultsList
+    |> Result.map Map.ofList
+
+/// The owners' names, sorted.
+let private ownerNamesOf (context: Context.Context) (ownerIds: Set<PersonComponent.PersonId>) : Result<string list, IAppError> =
+    ownerIds
+    |> Set.toList
+    |> List.map (Person.idToName context >> Result.map PersonComponent.PersonName.value)
+    |> convertListOfResultsToResultsList
+    |> Result.map List.sort
+
+let private ``convert [AccountId] to [LedgerAccountReturn]``
+    (context: Context.Context)
+    (accountId: AccountId)
+    : Result<LedgerAccountReturn, IAppError> =
+    result {
+        let! code = accountId |> ``convert AccountId to AccountCodeString`` context
+        let! name = accountId |> ``convert AccountId to AccountNameString`` context
+        return { code = code; name = name }
+    }
 
 // ---- Name lookups ----
 
@@ -92,12 +116,16 @@ let ``convert [DimensionValue] to [DimensionValueReturn]`` (dimensionValue: Dime
 
 // ---- Securities ----
 
-let ``convert [SecurityView] to [SecurityReturn]`` (view: SecurityView) : SecurityReturn =
-    { securityName = view.security |> Security.securityName |> SecurityName.value
-      ticker = view.security |> Security.ticker |> Option.map Ticker.value
-      dimensionValues = view.dimensionValueNames |> ``convert [Map<Dimension, string>] to [DimensionValueReturn list]``
-      createdAt = view.security |> Security.createdAt
-      modifiedAt = view.security |> Security.modifiedAt }
+let ``convert [Security] to [SecurityReturn]`` (context: Context.Context) (security: Security.Security) : Result<SecurityReturn, IAppError> =
+    security
+    |> Security.dimensionValues
+    |> ``convert [Map<Dimension, DimensionValueId>] to [Map<Dimension, string>]`` context
+    |> Result.map (fun valueNames ->
+        { securityName = security |> Security.securityName |> SecurityName.value
+          ticker = security |> Security.ticker |> Option.map Ticker.value
+          dimensionValues = valueNames |> ``convert [Map<Dimension, string>] to [DimensionValueReturn list]``
+          createdAt = security |> Security.createdAt
+          modifiedAt = security |> Security.modifiedAt })
 
 let ``convert [SecurityDimensionValueInput list] to [(Dimension * DimensionValueId) list]``
     (context: Context.Context)
@@ -131,19 +159,29 @@ let ``convert [DimensionValueUpdateInput list] to [(Dimension * DimensionValueId
 
 // ---- Investment Accounts ----
 
-let ``convert [InvestmentAccountView] to [InvestmentAccountReturn]`` (view: InvestmentAccountView) : InvestmentAccountReturn =
-    let account = view.investmentAccount
-    let period = account |> InvestmentAccount.activityPeriod
-    { accountName = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
-      institution = account |> InvestmentAccount.institution |> Institution.value
-      accountGroup = account |> InvestmentAccount.accountGroup |> AccountGroup.value
-      taxTreatment = account |> InvestmentAccount.taxTreatment |> TaxTreatment.toString
-      owners = view.ownerNames
-      activeBegin = period |> ActivityPeriod.activeBegin
-      activeEnd = period |> ActivityPeriod.activeEnd
-      ledgerAccount = view.ledgerAccountCodeAndName |> Option.map ``convert [string * string] to [LedgerAccountReturn]``
-      createdAt = account |> InvestmentAccount.createdAt
-      modifiedAt = account |> InvestmentAccount.modifiedAt }
+let ``convert [InvestmentAccount] to [InvestmentAccountReturn]``
+    (context: Context.Context)
+    (account: InvestmentAccount.InvestmentAccount)
+    : Result<InvestmentAccountReturn, IAppError> =
+    result {
+        let period = account |> InvestmentAccount.activityPeriod
+        let! owners = account |> InvestmentAccount.owners |> ownerNamesOf context
+        let! ledgerAccount =
+            account
+            |> InvestmentAccount.ledgerAccountId
+            |> convertOptionToDesiredTypeWithFallibleConverter (``convert [AccountId] to [LedgerAccountReturn]`` context)
+        return
+            { accountName = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
+              institution = account |> InvestmentAccount.institution |> Institution.value
+              accountGroup = account |> InvestmentAccount.accountGroup |> AccountGroup.value
+              taxTreatment = account |> InvestmentAccount.taxTreatment |> TaxTreatment.toString
+              owners = owners
+              activeBegin = period |> ActivityPeriod.activeBegin
+              activeEnd = period |> ActivityPeriod.activeEnd
+              ledgerAccount = ledgerAccount
+              createdAt = account |> InvestmentAccount.createdAt
+              modifiedAt = account |> InvestmentAccount.modifiedAt }
+    }
 
 let ``convert [InvestmentAccountUpdateInput] to [InvestmentAccountFieldUpdates]``
     (context: Context.Context)
@@ -197,22 +235,17 @@ let ``convert [AccountSnapshotLot] to [AccountSnapshotLotReturn]``
       quantity = lot |> AccountSnapshotLot.quantity |> Quantity.amount
       reportedCostBasis = lot |> AccountSnapshotLot.reportedCostBasis |> Option.map Money.amount }
 
-let ``convert [HoldingView] to [HoldingReturn]`` (view: HoldingView) : HoldingReturn =
-    { accountName = view.investmentAccountName
-      securityName = view.securityName
-      basisMethod = view.holding |> Holding.basisMethod |> Option.map BasisMethod.toString
-      createdAt = view.holding |> Holding.createdAt
-      modifiedAt = view.holding |> Holding.modifiedAt }
-
-let private ``convert [Map<Dimension, DimensionValueId>] to [Map<Dimension, string>]``
-    (context: Context.Context)
-    (valueIds: Map<Dimension, DimensionValueId>)
-    : Result<Map<Dimension, string>, IAppError> =
-    valueIds
-    |> Map.toList
-    |> List.map (fun (d, id) -> id |> DimensionValue.idToName context |> Result.map (fun n -> d, n |> DimensionValueName.value))
-    |> convertListOfResultsToResultsList
-    |> Result.map Map.ofList
+let ``convert [Holding] to [HoldingReturn]`` (context: Context.Context) (holding: Holding.Holding) : Result<HoldingReturn, IAppError> =
+    result {
+        let! accountName = holding |> Holding.investmentAccountId |> InvestmentAccount.idToName context
+        let! securityName = holding |> Holding.securityId |> Security.idToName context
+        return
+            { accountName = accountName |> InvestmentAccountName.value
+              securityName = securityName |> SecurityName.value
+              basisMethod = holding |> Holding.basisMethod |> Option.map BasisMethod.toString
+              createdAt = holding |> Holding.createdAt
+              modifiedAt = holding |> Holding.modifiedAt }
+    }
 
 let ``convert [HoldingsAsOfLine] to [HoldingsAsOfLineReturn]``
     (context: Context.Context)
@@ -245,26 +278,17 @@ let ``convert [HoldingsAsOfAccount] to [HoldingsAsOfAccountReturn]``
     : Result<HoldingsAsOfAccountReturn, IAppError> =
     result {
         let! accountName = account.investmentAccountId |> InvestmentAccount.idToName context
-        let! owners =
-            account.ownerIds
-            |> Set.toList
-            |> List.map (Person.idToName context >> Result.map PersonComponent.PersonName.value)
-            |> convertListOfResultsToResultsList
+        let! owners = account.ownerIds |> ownerNamesOf context
         let! ledgerAccount =
             account.ledgerAccountId
-            |> convertOptionToDesiredTypeWithFallibleConverter (fun id ->
-                result {
-                    let! code = id |> ``convert AccountId to AccountCodeString`` context
-                    let! name = id |> ``convert AccountId to AccountNameString`` context
-                    return ``convert [string * string] to [LedgerAccountReturn]`` (code, name)
-                })
+            |> convertOptionToDesiredTypeWithFallibleConverter (``convert [AccountId] to [LedgerAccountReturn]`` context)
         let! lines = account.lines |> List.map (``convert [HoldingsAsOfLine] to [HoldingsAsOfLineReturn]`` context) |> convertListOfResultsToResultsList
         return
             { accountName = accountName |> InvestmentAccountName.value
               institution = account.institution |> Institution.value
               accountGroup = account.accountGroup |> AccountGroup.value
               taxTreatment = account.taxTreatment |> TaxTreatment.toString
-              owners = owners |> List.sort
+              owners = owners
               ledgerAccount = ledgerAccount
               snapshotDate = account.snapshotDate
               provenance = account.provenance |> Provenance.toString
@@ -306,24 +330,53 @@ let ``convert [AccountSnapshotInput] to [Snapshot]`` (context: Context.Context) 
         return (accountId, input.snapshotDate, provenance, contributionBasis, lines): Snapshot
     }
 
-let ``convert [SnapshotView] to [AccountSnapshotReturn]`` (view: SnapshotView) : AccountSnapshotReturn =
-    { accountName = view.investmentAccountName
-      snapshotDate = view.header |> AccountSnapshotHeader.snapshotDate
-      provenance = view.header |> AccountSnapshotHeader.provenance |> Provenance.toString
-      contributionBasis =
-        view.header |> AccountSnapshotHeader.contributionBasis |> Option.map (ContributionBasis.value >> Money.amount)
-      lines =
-        view.lines
-        |> List.map (fun l ->
-            ({ securityName = l.securityName
-               quantity = l.line |> AccountSnapshotLine.quantity |> Quantity.amount
-               price = l.line |> AccountSnapshotLine.price |> Price.amount
-               marketValue = l.line |> AccountSnapshotLine.marketValue |> Money.amount
-               reportedCostBasis = l.line |> AccountSnapshotLine.reportedCostBasis |> Option.map Money.amount
-               lots = l.lots |> List.map ``convert [AccountSnapshotLot] to [AccountSnapshotLotReturn]`` }
-             : AccountSnapshotLineReturn))
-      createdAt = view.header |> AccountSnapshotHeader.createdAt
-      modifiedAt = view.header |> AccountSnapshotHeader.modifiedAt }
+let ``convert [SnapshotView] to [AccountSnapshotReturn]``
+    (context: Context.Context)
+    (view: SnapshotView)
+    : Result<AccountSnapshotReturn, IAppError> =
+    result {
+        let! accountName = view.header |> AccountSnapshotHeader.investmentAccountId |> InvestmentAccount.idToName context
+        let! lines =
+            view.lines
+            |> List.map (fun l ->
+                l.securityId
+                |> Security.idToName context
+                |> Result.map (fun securityName ->
+                    ({ securityName = securityName |> SecurityName.value
+                       quantity = l.line |> AccountSnapshotLine.quantity |> Quantity.amount
+                       price = l.line |> AccountSnapshotLine.price |> Price.amount
+                       marketValue = l.line |> AccountSnapshotLine.marketValue |> Money.amount
+                       reportedCostBasis = l.line |> AccountSnapshotLine.reportedCostBasis |> Option.map Money.amount
+                       lots = l.lots |> List.map ``convert [AccountSnapshotLot] to [AccountSnapshotLotReturn]`` }
+                     : AccountSnapshotLineReturn)))
+            |> convertListOfResultsToResultsList
+        return
+            { accountName = accountName |> InvestmentAccountName.value
+              snapshotDate = view.header |> AccountSnapshotHeader.snapshotDate
+              provenance = view.header |> AccountSnapshotHeader.provenance |> Provenance.toString
+              contributionBasis =
+                view.header |> AccountSnapshotHeader.contributionBasis |> Option.map (ContributionBasis.value >> Money.amount)
+              lines = lines
+              createdAt = view.header |> AccountSnapshotHeader.createdAt
+              modifiedAt = view.header |> AccountSnapshotHeader.modifiedAt }
+    }
+
+let ``convert [RecordedSnapshot] to [RecordedAccountSnapshotReturn]``
+    (context: Context.Context)
+    (recorded: RecordedSnapshot)
+    : Result<RecordedAccountSnapshotReturn, IAppError> =
+    result {
+        let! snapshot = recorded.snapshot |> ``convert [SnapshotView] to [AccountSnapshotReturn]`` context
+        let! replacedLineLots =
+            recorded.replacedLineLots
+            |> List.map (fun replaced ->
+                replaced.securityId
+                |> Security.idToName context
+                |> Result.map (fun securityName ->
+                    ({ security = securityName |> SecurityName.value; lotCount = replaced.lotCount }: ReplacedLineLotsReturn)))
+            |> convertListOfResultsToResultsList
+        return { snapshot = snapshot; replacedExisting = recorded.replacedExisting; replacedLineLots = replacedLineLots }
+    }
 
 // ---- Investment Activity ----
 
@@ -352,26 +405,41 @@ let ``convert [InvestmentActivityRangeInput] to [ActivityRange]``
         return (accountId, input.beginDate, input.endDate, activities): ActivityRange
     }
 
-let ``convert [RecordedRange] to [RecordedActivityRangeReturn]`` (recorded: RecordedRange) : RecordedActivityRangeReturn =
-    { accountName = recorded.investmentAccountName
-      beginDate = recorded.beginDate
-      endDate = recorded.endDate
-      removed = recorded.removed
-      recorded = recorded.recorded }
+let ``convert [RecordedRange] to [RecordedActivityRangeReturn]``
+    (context: Context.Context)
+    (recorded: RecordedRange)
+    : Result<RecordedActivityRangeReturn, IAppError> =
+    recorded.investmentAccountId
+    |> InvestmentAccount.idToName context
+    |> Result.map (fun accountName ->
+        { accountName = accountName |> InvestmentAccountName.value
+          beginDate = recorded.beginDate
+          endDate = recorded.endDate
+          removed = recorded.removed
+          recorded = recorded.recorded })
 
-let ``convert [ActivityView] to [InvestmentActivityReturn]`` (view: ActivityView) : InvestmentActivityReturn =
+let ``convert [ActivityView] to [InvestmentActivityReturn]``
+    (context: Context.Context)
+    (view: ActivityView)
+    : Result<InvestmentActivityReturn, IAppError> =
     let activity = view.activity
-    { accountName = view.investmentAccountName
-      activityDate = activity |> InvestmentActivity.activityDate
-      kind = activity |> InvestmentActivity.kind |> ActivityKind.toString
-      description = activity |> InvestmentActivity.description |> ActivityDescription.value
-      source = activity |> InvestmentActivity.source |> Option.map ActivitySource.value
-      securityName = view.securityName
-      quantity = activity |> InvestmentActivity.quantity |> Option.map Quantity.amount
-      price = activity |> InvestmentActivity.price |> Option.map Price.amount
-      amount = activity |> InvestmentActivity.amount |> Money.amount
-      createdAt = activity |> InvestmentActivity.createdAt
-      modifiedAt = activity |> InvestmentActivity.modifiedAt }
+    result {
+        let! accountName = activity |> InvestmentActivity.investmentAccountId |> InvestmentAccount.idToName context
+        let! securityName =
+            view.securityId |> convertOptionToDesiredTypeWithFallibleConverter (Security.idToName context)
+        return
+            { accountName = accountName |> InvestmentAccountName.value
+              activityDate = activity |> InvestmentActivity.activityDate
+              kind = activity |> InvestmentActivity.kind |> ActivityKind.toString
+              description = activity |> InvestmentActivity.description |> ActivityDescription.value
+              source = activity |> InvestmentActivity.source |> Option.map ActivitySource.value
+              securityName = securityName |> Option.map SecurityName.value
+              quantity = activity |> InvestmentActivity.quantity |> Option.map Quantity.amount
+              price = activity |> InvestmentActivity.price |> Option.map Price.amount
+              amount = activity |> InvestmentActivity.amount |> Money.amount
+              createdAt = activity |> InvestmentActivity.createdAt
+              modifiedAt = activity |> InvestmentActivity.modifiedAt }
+    }
 
 let ``convert [ActivityCoverageGap] to [InvestmentActivityCoverageGapReturn]`` (gap: ActivityCoverageGap) : InvestmentActivityCoverageGapReturn =
     { beginDate = gap.firstUncoveredDate; endDate = gap.lastUncoveredDate }
@@ -419,7 +487,7 @@ let ``convert [PreLedgerBalanceEntryInput] to [PreLedgerBalanceInput]``
 
 let ``convert [PreLedgerBalanceView] to [PreLedgerBalanceReturn]`` (view: PreLedgerBalanceView) : PreLedgerBalanceReturn =
     let preLedgerBalance = view.preLedgerBalance
-    { ledgerAccount = ``convert [string * string] to [LedgerAccountReturn]`` (view.accountCode, view.accountName)
+    { ledgerAccount = { code = view.accountCode; name = view.accountName }
       balanceDate = preLedgerBalance |> PreLedgerBalance.balanceDate
       balance = preLedgerBalance |> PreLedgerBalance.balance |> Money.amount
       createdAt = preLedgerBalance |> PreLedgerBalance.createdAt
@@ -427,19 +495,31 @@ let ``convert [PreLedgerBalanceView] to [PreLedgerBalanceReturn]`` (view: PreLed
 
 // ---- Properties ----
 
-let ``convert [PropertyView] to [PropertyReturn]`` (view: PropertyView) : PropertyReturn =
-    let property = view.property
+let ``convert [Property] to [PropertyReturn]`` (context: Context.Context) (property: Property.Property) : Result<PropertyReturn, IAppError> =
     let period = property |> Property.ownedPeriod
-    { propertyName = property |> Property.propertyName |> PropertyName.value
-      propertyUse = property |> Property.propertyUse |> PropertyUse.toString
-      owners = view.ownerNames
-      acquisitionDate = period |> OwnedPeriod.acquisitionDate
-      disposalDate = period |> OwnedPeriod.disposalDate
-      purchaseBasis = property |> Property.purchaseBasis |> PurchaseBasis.value |> Money.amount
-      assetAccounts = view.assetAccountCodesAndNames |> List.map ``convert [string * string] to [LedgerAccountReturn]``
-      mortgageAccounts = view.mortgageAccountCodesAndNames |> List.map ``convert [string * string] to [LedgerAccountReturn]``
-      createdAt = property |> Property.createdAt
-      modifiedAt = property |> Property.modifiedAt }
+    // a Property's accounts are shown in code order
+    let ledgerAccountsOf accountIds =
+        accountIds
+        |> Set.toList
+        |> List.map (``convert [AccountId] to [LedgerAccountReturn]`` context)
+        |> convertListOfResultsToResultsList
+        |> Result.map (List.sortBy (fun a -> a.code))
+    result {
+        let! owners = property |> Property.owners |> ownerNamesOf context
+        let! assetAccounts = property |> Property.assetAccountIds |> ledgerAccountsOf
+        let! mortgageAccounts = property |> Property.mortgageAccountIds |> ledgerAccountsOf
+        return
+            { propertyName = property |> Property.propertyName |> PropertyName.value
+              propertyUse = property |> Property.propertyUse |> PropertyUse.toString
+              owners = owners
+              acquisitionDate = period |> OwnedPeriod.acquisitionDate
+              disposalDate = period |> OwnedPeriod.disposalDate
+              purchaseBasis = property |> Property.purchaseBasis |> PurchaseBasis.value |> Money.amount
+              assetAccounts = assetAccounts
+              mortgageAccounts = mortgageAccounts
+              createdAt = property |> Property.createdAt
+              modifiedAt = property |> Property.modifiedAt }
+    }
 
 let ``convert [decimal] to [PurchaseBasis]`` (raw: decimal) : Result<PurchaseBasis, IAppError> =
     raw |> Money.fromDecimal |> Result.bind PurchaseBasis.create

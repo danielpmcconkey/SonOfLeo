@@ -33,20 +33,19 @@ module PF = PositionsFixture
 type private AccountSummary =
     string * string * string * TaxTreatment * string list * (string * string) option * LocalDate * LocalDate option
 
-let private summary (view: InvestmentAccountView) : AccountSummary =
-    let a = view.investmentAccount
+let private summary context (a: InvestmentAccount.InvestmentAccount) : AccountSummary =
     a |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value,
     a |> InvestmentAccount.institution |> Institution.value,
     a |> InvestmentAccount.accountGroup |> AccountGroup.value,
     a |> InvestmentAccount.taxTreatment,
-    view.ownerNames,
-    view.ledgerAccountCodeAndName,
+    a |> InvestmentAccount.owners |> PositionsLookups.personNamesOf context,
+    a |> InvestmentAccount.ledgerAccountId |> Option.map (PositionsLookups.ledgerCodeAndNameOf context),
     a |> InvestmentAccount.activityPeriod |> ActivityPeriod.activeBegin,
     a |> InvestmentAccount.activityPeriod |> ActivityPeriod.activeEnd
 
 let private listed context name =
     listInvestmentAccounts context
-    |> Result.map (List.map summary >> List.filter (fun (n, _, _, _, _, _, _, _) -> n = name))
+    |> Result.map (List.map (summary context) >> List.filter (fun (n, _, _, _, _, _, _, _) -> n = name))
 
 let private ownersOf context name =
     listed context name |> Result.map (List.exactlyOne >> fun (_, _, _, _, owners, _, _, _) -> owners)
@@ -409,7 +408,7 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
                 let! holdings = listHoldings context (Some sam401kId)
                 Assert.Equal<(string * BasisMethod option) list>(
                     [ PF.bondFund, None; PF.totalMarket, None ],
-                    holdings |> List.map (fun v -> v.securityName, v.holding |> Holding.basisMethod))
+                    holdings |> List.map (fun h -> h |> Holding.securityId |> PositionsLookups.securityNameOf context, h |> Holding.basisMethod))
                 let! found = listed context PF.sam401k
                 let _, _, _, treatment, _, _, _, _ = found |> List.exactlyOne
                 Assert.Equal(TaxTreatment.Roth, treatment)
@@ -457,7 +456,8 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-POS-11.3 listing Investment Accounts returns every fixture account ordered by name, each with its institution, account group, tax treatment, owners' names, linked account's code and name, active begin and active end, and no other account`` () =
         let p = fixture.Data.positions
-        listInvestmentAccounts (Context.create NoTransaction FetchOnly)
+        let readOnly = Context.create NoTransaction FetchOnly
+        listInvestmentAccounts readOnly
         |> Result.map (fun all ->
             Assert.Equal<AccountSummary list>(
                 [ PF.alexBrokerage, "Example Brokerage", "Brokerage", TaxTreatment.Taxable, [ PF.alex ],
@@ -468,7 +468,7 @@ type InvestmentAccountMaintenanceTests(fixture: TestDataFixture) =
                   PF.oldBrokerage, "Example Brokerage", "Brokerage", TaxTreatment.Taxable, [ PF.sam ], None, begin', Some p.monthEnd4
                   PF.sam401k, "Example Retirement Services", "Retirement", TaxTreatment.TaxDeferred, [ PF.sam ], None, begin', None
                   PF.samHsa, "Example Health Bank", "Health", TaxTreatment.Hsa, [ PF.sam ], None, begin', None ],
-                all |> List.map summary))
+                all |> List.map (summary readOnly)))
         |> railroadWrapper
 
     [<Fact>]

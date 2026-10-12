@@ -8,12 +8,6 @@ open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 
-/// A Security as listed: the name of its value in each dimension that has one.
-type SecurityView = {
-    security: Security.Security
-    dimensionValueNames: Map<Dimension, string>
-}
-
 let private confirmSecurityNameFree
     (context: Context.Context)
     (name: SecurityName)
@@ -123,23 +117,6 @@ let updateSecurity
                   dimensionValueUpdates = confirmed }
     }
 
-let private dimensionValueNamesById (context: Context.Context) : Result<Map<DimensionValueId, string>, IAppError> =
-    DimensionValue.fetchAll context
-    |> Result.map (
-        List.map (fun dv -> dv |> DimensionValue.dimensionValueId, dv |> DimensionValue.dimensionValueName |> DimensionValueName.value)
-        >> Map.ofList
-    )
-
-let private viewWith (valueNames: Map<DimensionValueId, string>) (security: Security.Security) : SecurityView =
-    { security = security
-      dimensionValueNames = security |> Security.dimensionValues |> Map.map (fun _ valueId -> valueNames |> Map.find valueId) }
-
-let viewSecurity (context: Context.Context) (security: Security.Security) : Result<SecurityView, IAppError> =
-    dimensionValueNamesById context |> Result.map (fun valueNames -> viewWith valueNames security)
-
-let listSecurities (context: Context.Context) : Result<SecurityView list, IAppError> =
-    result {
-        let! securities = Security.fetchAll context
-        let! valueNames = dimensionValueNamesById context
-        return securities |> List.sortBy (Security.securityName >> SecurityName.value) |> List.map (viewWith valueNames)
-    }
+/// Every Security, ordered by name.
+let listSecurities (context: Context.Context) : Result<Security.Security list, IAppError> =
+    Security.fetchAll context |> Result.map (List.sortBy (Security.securityName >> SecurityName.value))

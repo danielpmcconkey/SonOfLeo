@@ -16,14 +16,6 @@ open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.PositionsLedgerLinks
 
-/// A Property as listed: its owners' names and its linked accounts' codes and names.
-type PropertyView = {
-    property: Property.Property
-    ownerNames: string list
-    assetAccountCodesAndNames: (string * string) list
-    mortgageAccountCodesAndNames: (string * string) list
-}
-
 let private confirmPropertyNameFree
     (context: Context.Context)
     (name: PropertyName)
@@ -97,8 +89,8 @@ let private accountSetOf
     match accountIds |> List.countBy id |> List.tryFind (fun (_, count) -> count > 1) with
     | Some(repeated, _) ->
         result {
-            let! code, _ = repeated |> ledgerAccountCodeAndName context
-            return! error (repeatedError(propertyName |> PropertyName.value, code))
+            let! account = repeated |> fetchLedgerAccount context
+            return! error (repeatedError(propertyName |> PropertyName.value, codeOf account))
         }
     | None -> Ok(accountIds |> Set.ofList)
 
@@ -252,33 +244,9 @@ let updateProperty
         return! Property.update context fieldUpdates
     }
 
-let viewProperty (context: Context.Context) (property: Property.Property) : Result<PropertyView, IAppError> =
-    result {
-        let! ownerNames = property |> Property.owners |> PersonOrchestration.personNamesOf context
-        let codesAndNamesOf accountIds =
-            accountIds
-            |> Set.toList
-            |> List.map (ledgerAccountCodeAndName context)
-            |> convertListOfResultsToResultsList
-            |> Result.map (List.sortBy fst)
-        let! assetAccounts = property |> Property.assetAccountIds |> codesAndNamesOf
-        let! mortgageAccounts = property |> Property.mortgageAccountIds |> codesAndNamesOf
-        return
-            { property = property
-              ownerNames = ownerNames
-              assetAccountCodesAndNames = assetAccounts
-              mortgageAccountCodesAndNames = mortgageAccounts }
-    }
-
-let listProperties (context: Context.Context) : Result<PropertyView list, IAppError> =
-    result {
-        let! properties = Property.fetchAll context
-        return!
-            properties
-            |> List.sortBy (Property.propertyName >> PropertyName.value)
-            |> List.map (viewProperty context)
-            |> convertListOfResultsToResultsList
-    }
+/// Every Property, ordered by name.
+let listProperties (context: Context.Context) : Result<Property.Property list, IAppError> =
+    Property.fetchAll context |> Result.map (List.sortBy (Property.propertyName >> PropertyName.value))
 
 /// Deletes the Property with its owners and ledger links, and returns it as it stood before deletion.
 let deleteProperty (context: Context.Context) (propertyId: PropertyId) : Result<Property.Property, IAppError> =

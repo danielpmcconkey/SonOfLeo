@@ -14,13 +14,6 @@ open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.PositionsLedgerLinks
 
-/// An Investment Account as listed: its owners' names and its linked ledger account's code and name.
-type InvestmentAccountView = {
-    investmentAccount: InvestmentAccount.InvestmentAccount
-    ownerNames: string list
-    ledgerAccountCodeAndName: (string * string) option
-}
-
 let private confirmInvestmentAccountNameFree
     (context: Context.Context)
     (name: InvestmentAccountName)
@@ -250,25 +243,7 @@ let updateInvestmentAccount
         return! InvestmentAccount.update context fieldUpdates
     }
 
-let viewInvestmentAccount
-    (context: Context.Context)
-    (account: InvestmentAccount.InvestmentAccount)
-    : Result<InvestmentAccountView, IAppError> =
-    result {
-        let! ownerNames = account |> InvestmentAccount.owners |> PersonOrchestration.personNamesOf context
-        let! ledger =
-            account
-            |> InvestmentAccount.ledgerAccountId
-            |> convertOptionToDesiredTypeWithFallibleConverter (ledgerAccountCodeAndName context)
-        return { investmentAccount = account; ownerNames = ownerNames; ledgerAccountCodeAndName = ledger }
-    }
-
-let listInvestmentAccounts (context: Context.Context) : Result<InvestmentAccountView list, IAppError> =
-    result {
-        let! accounts = InvestmentAccount.fetchAll context
-        return!
-            accounts
-            |> List.sortBy (InvestmentAccount.investmentAccountName >> InvestmentAccountName.value)
-            |> List.map (viewInvestmentAccount context)
-            |> convertListOfResultsToResultsList
-    }
+/// Every Investment Account, ordered by name.
+let listInvestmentAccounts (context: Context.Context) : Result<InvestmentAccount.InvestmentAccount list, IAppError> =
+    InvestmentAccount.fetchAll context
+    |> Result.map (List.sortBy (InvestmentAccount.investmentAccountName >> InvestmentAccountName.value))

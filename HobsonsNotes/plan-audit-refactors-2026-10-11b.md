@@ -707,6 +707,25 @@ the fetched Securities' names, and live in `PositionsComponent`.
 converter, which owns the order now) and `UnitRollForward.fs` resolve
 names by ID; three route tests changed setup only (§5.1).
 
+**D2. R2 positions views** (#013, #016, #023, #029–#033, #035, #046–#050,
+#052, #059 part, #060, #074). One commit. `SnapshotLineView` carries
+`securityId`; `SnapshotView` drops the account name; `viewSnapshot` and
+`fetchHeader` lose their name halves and lines stay in Security-name order
+(each line's Security fetched to sort). `ReplacedLineLots` carries
+`securityId`, in the same order. `HoldingView`, `InvestmentAccountView`,
+`PropertyView`, `SecurityView`, `viewHolding`, `viewInvestmentAccount`,
+`viewProperty`, `viewSecurity`, `dimensionValueNamesById`,
+`securityNamesById` and `ledgerAccountCodeAndName` are deleted; the list
+functions return entities in the same name orders (`listHoldings` fetches
+all accounts and Securities once to sort by account then Security name).
+`ActivityView` is `{ activity; securityId }`; `RecordedRange` carries
+`investmentAccountId` and moved to `PositionsComponent`. Every positions
+converter that named something now takes a context and returns `Result`;
+the Property converter sorts its account lists by code; the owners helper
+sorts names. `personNamesOf` stays for D3. Tests: the seven Business-tier
+maintenance and recording files resolve names by ID through new
+entity-reading `PositionsLookups` helpers; no route test changed.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 

@@ -20,36 +20,22 @@ type ActivityInput =
 /// range, in the order the institution reported them.
 type ActivityRange = InvestmentAccountId * LocalDate * LocalDate * ActivityInput list
 
-/// An activity as stored, with the name of the Security it names, if any.
+/// An activity as stored, with the Security its Holding holds, if it names one.
 type ActivityView = {
     activity: InvestmentActivity.InvestmentActivity
-    investmentAccountName: string
-    securityName: string option
-}
-
-/// What recording one account's range did: how many activities dated in it were removed, and how many recorded.
-type RecordedRange = {
-    investmentAccountName: string
-    beginDate: LocalDate
-    endDate: LocalDate
-    removed: int
-    recorded: int
+    securityId: SecurityId option
 }
 
 type ActivityCoverageGap = { firstUncoveredDate: LocalDate; lastUncoveredDate: LocalDate }
 
 let private accountNameOf account = account |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
 
-let private securityNamesById (context: Context.Context) : Result<Map<SecurityId, string>, IAppError> =
-    Security.fetchAll context
-    |> Result.map (List.map (fun s -> Security.securityId s, s |> Security.securityName |> SecurityName.value) >> Map.ofList)
-
 // The Holding must already exist, as for snapshot lines; a Security the account doesn't hold is for the operator to
 // look at.
 let private buildActivity
+    (context: Context.Context)
     (account: InvestmentAccount.InvestmentAccount)
     (holdingsBySecurity: Map<SecurityId, Holding.Holding>)
-    (securityNames: Map<SecurityId, string>)
     (beginDate: LocalDate)
     (endDate: LocalDate)
     (instant: Instant)
@@ -71,8 +57,10 @@ let private buildActivity
                 match holdingsBySecurity |> Map.tryFind id with
                 | Some holding -> Ok(Some(holding |> Holding.holdingId))
                 | None ->
-                    let securityName = securityNames |> Map.tryFind id |> Option.defaultValue $"{id |> SecurityId.value}"
-                    error (PositionsActivitySecurityNotHeld(accountName, securityName))
+                    id
+                    |> Security.fetchById context
+                    |> Result.bind (fun security ->
+                        error (PositionsActivitySecurityNotHeld(accountName, security |> Security.securityName |> SecurityName.value)))
         return
             InvestmentActivity.create
                 (InvestmentActivityId.create ())
@@ -104,7 +92,6 @@ let private withOrdinals (inputs: ActivityInput list) : (int * ActivityInput) li
 
 let private recordRange
     (context: Context.Context)
-    (securityNames: Map<SecurityId, string>)
     (account: InvestmentAccount.InvestmentAccount, (_, beginDate, endDate, inputs): ActivityRange)
     : Result<RecordedRange, IAppError> =
     let accountId = account |> InvestmentAccount.investmentAccountId
@@ -116,7 +103,7 @@ let private recordRange
             inputs
             |> withOrdinals
             |> List.map (fun (ordinal, input) ->
-                buildActivity account holdingsBySecurity securityNames beginDate endDate instant ordinal input)
+                buildActivity context account holdingsBySecurity beginDate endDate instant ordinal input)
             |> convertListOfResultsToResultsList
         let! existing = InvestmentActivity.fetchByInvestmentAccountBetween context accountId beginDate endDate
         do! InvestmentActivity.deleteByInvestmentAccountBetween context accountId beginDate endDate
@@ -126,7 +113,7 @@ let private recordRange
             |> convertListOfResultsToResultsList
             |> Result.map ignore
         return
-            { investmentAccountName = accountNameOf account
+            { investmentAccountId = accountId
               beginDate = beginDate
               endDate = endDate
               removed = existing |> List.length
@@ -178,8 +165,7 @@ let recordActivity (context: Context.Context) (ranges: ActivityRange list) : Res
             |> List.map (fun (account, (accountId, beginDate, endDate, _)) ->
                 accountId, accountNameOf account, beginDate, endDate)
             |> InvestmentActivity.confirmRangesDontOverlap
-        let! securityNames = securityNamesById context
-        let! recorded = accountsAndRanges |> List.map (recordRange context securityNames) |> convertListOfResultsToResultsList
+        let! recorded = accountsAndRanges |> List.map (recordRange context) |> convertListOfResultsToResultsList
         do!
             ranges
             |> List.map (fun (accountId, beginDate, endDate, _) -> accountId, beginDate, endDate)
@@ -200,23 +186,20 @@ let listActivity
     : Result<ActivityView list, IAppError> =
     result {
         do! if endDate < beginDate then error (PositionsActivityListEndBeforeBegin(beginDate, endDate)) else Ok()
-        let! account = investmentAccountId |> InvestmentAccount.fetchById context
+        let! _ = investmentAccountId |> InvestmentAccount.fetchById context
         let! activities = InvestmentActivity.fetchByInvestmentAccountBetween context investmentAccountId beginDate endDate
         let! holdings = investmentAccountId |> Holding.fetchByInvestmentAccount context
-        let! securityNames = securityNamesById context
-        let securityNameOfHolding =
-            holdings
-            |> List.map (fun h -> Holding.holdingId h, securityNames |> Map.tryFind (Holding.securityId h))
-            |> Map.ofList
-        return
+        let securityOfHolding = holdings |> List.map (fun h -> Holding.holdingId h, Holding.securityId h) |> Map.ofList
+        return!
             activities
             |> List.map (fun activity ->
-                { activity = activity
-                  investmentAccountName = accountNameOf account
-                  securityName =
-                    activity
-                    |> InvestmentActivity.holdingId
-                    |> Option.bind (fun id -> securityNameOfHolding |> Map.tryFind id |> Option.flatten) })
+                match activity |> InvestmentActivity.holdingId with
+                | None -> Ok { activity = activity; securityId = None }
+                | Some holdingId ->
+                    match securityOfHolding |> Map.tryFind holdingId with
+                    | Some securityId -> Ok { activity = activity; securityId = Some securityId }
+                    | None -> error (PositionsHoldingIdDoesntExist(holdingId |> HoldingId.value)))
+            |> convertListOfResultsToResultsList
     }
 
 /// The stretches between the two dates, both included, that the account's activity coverage doesn't cover, in date

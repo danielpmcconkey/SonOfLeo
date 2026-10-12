@@ -20,13 +20,6 @@ let describeType (account: Account.Account) =
     (account |> Account.accountType |> AccountType.toString),
     (account |> Account.accountSubType |> Option.map AccountSubtype.toString)
 
-/// A linked ledger account's code and name, for showing the link.
-let ledgerAccountCodeAndName (context: Context.Context) (accountId: AccountId) : Result<string * string, IAppError> =
-    result {
-        let! account = accountId |> fetchLedgerAccount context
-        return codeOf account, account |> Account.accountName |> AccountName.value
-    }
-
 // Net worth counts what a linked account stands for from Positions and never reads its balances, so a pre-ledger balance
 // on an account that becomes linked would silently count for nothing. A Property's mortgage account is not linked in
 // that sense.
