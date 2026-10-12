@@ -30,8 +30,8 @@ let private transitionPaymentsToPosted _ _ =
     runCommandRouteAndAutoCompleteTransaction CashFlowTransitionPaymentsToPosted (fun context ->
         result {
             let! transitions = CashFlowOps.transitionPaymentsToPosted context
-            let converted =
-                transitions |> ``convert [PaymentPostingTransition list] to [PaymentPostingTransitionReturn list]``
+            let! converted =
+                transitions |> ``convert [PaymentPostingTransition list] to [PaymentPostingTransitionReturn list]`` context
             return! Json.toJson<PaymentPostingTransitionReturn list> converted
         })
 
@@ -41,7 +41,7 @@ let private projectCashFlow payload _ =
         let! input = Json.fromJson<ProjectCashFlowInput> payload
         let! horizon = input.projectionHorizonInDays |> ProjectionHorizonInDays.create
         let! projection = horizon |> CashFlowOps.projectCashFlowNDaysForward context
-        let converted = projection |> ``convert [CashFlowProjection] to [CashFlowProjectionReturn]``
+        let! converted = projection |> ``convert [CashFlowProjection] to [CashFlowProjectionReturn]`` context
         return! Json.toJson<CashFlowProjectionReturn> converted
     }
 

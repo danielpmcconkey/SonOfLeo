@@ -412,30 +412,30 @@ module InvoiceDecision =
 type PaymentPostingTransition =
     private {
         paymentId: PaymentId
-        agreementName: AgreementName
+        masterAgreementId: MasterAgreementId
         invoiceAmount: InvoiceAmount
         journalEntryLineId: JournalEntryLineId
     }
 
 module PaymentPostingTransition =
     let paymentId (transition: PaymentPostingTransition) = transition.paymentId
-    let agreementName (transition: PaymentPostingTransition) = transition.agreementName
+    let masterAgreementId (transition: PaymentPostingTransition) = transition.masterAgreementId
     let invoiceAmount (transition: PaymentPostingTransition) = transition.invoiceAmount
     let journalEntryLineId (transition: PaymentPostingTransition) = transition.journalEntryLineId
     let create
         (paymentId: PaymentId)
-        (agreementName: AgreementName)
+        (masterAgreementId: MasterAgreementId)
         (invoiceAmount: InvoiceAmount)
         (journalEntryLineId: JournalEntryLineId)
         : PaymentPostingTransition =
         { paymentId = paymentId
-          agreementName = agreementName
+          masterAgreementId = masterAgreementId
           invoiceAmount = invoiceAmount
           journalEntryLineId = journalEntryLineId }
 
 type ProjectedInvoice = {
     invoiceId: InvoiceId
-    agreementName: AgreementName
+    masterAgreementId: MasterAgreementId
     direction: FlowDirection
     dueDate: DueDate
     amount: InvoiceAmount
@@ -445,8 +445,6 @@ type ProjectedInvoice = {
 
 type ProjectedAccount = {
     accountId: AccountId
-    accountCode: AccountCode
-    accountName: AccountName
     currentBalance: Money.Money
     knownInflows: Money.Money
     knownOutflows: Money.Money
@@ -456,8 +454,8 @@ type ProjectedAccount = {
 
 type BillToChase = {
     instanceId: InstanceId
-    agreementName: AgreementName
-    paymentAgreementName: PaymentAgreementName
+    masterAgreementId: MasterAgreementId
+    paymentAgreementId: PaymentAgreementId
     instanceDate: LocalDate
     cadenceType: Cadence.CadenceType
 }

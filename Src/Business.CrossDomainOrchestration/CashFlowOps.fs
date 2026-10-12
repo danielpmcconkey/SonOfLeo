@@ -783,7 +783,7 @@ let projectCashFlowNDaysForward
                 if cashAccountIdSet |> Set.contains accountId |> not then None else
                 let projected: CashFlowComponent.ProjectedInvoice =
                     { invoiceId = invoice |> Invoice.invoiceId
-                      agreementName = master |> MasterAgreement.agreementName
+                      masterAgreementId = masterAgreementId
                       direction = direction
                       dueDate = invoice |> Invoice.dueDate
                       amount = invoice |> Invoice.amount
@@ -810,8 +810,6 @@ let projectCashFlowNDaysForward
                     let! projectedLow = Money.subtractVal1FromVal2 knownOutflows balanceWithInflows
                     let projectedAccount: CashFlowComponent.ProjectedAccount =
                         { accountId = accountId
-                          accountCode = account |> Account.code
-                          accountName = account |> Account.accountName
                           currentBalance = currentBalance
                           knownInflows = knownInflows
                           knownOutflows = knownOutflows
@@ -842,8 +840,8 @@ let projectCashFlowNDaysForward
                 |> List.map (fun agreement ->
                     let billToChase: CashFlowComponent.BillToChase =
                         { instanceId = instance |> Instance.instanceId
-                          agreementName = instance |> Instance.masterAgreementName
-                          paymentAgreementName = agreement |> PaymentAgreement.paymentAgreementName
+                          masterAgreementId = masterAgreementId
+                          paymentAgreementId = agreement |> PaymentAgreement.paymentAgreementId
                           instanceDate = instance |> Instance.instanceDate
                           cadenceType = master |> MasterAgreement.cadence |> Cadence.cadenceType }
                     billToChase))
@@ -878,12 +876,12 @@ let private transitionOneInstancesPaymentsToPosted
         let compositeUpdate =
             InstanceOrchestration.InstanceCompositeUpdate.create instanceUpdates invoiceCompositeUpdates []
         let! composite = compositeUpdate |> InstanceOrchestration.updateInstanceComposite context
-        let agreementName = composite |> InstanceOrchestration.instance |> Instance.masterAgreementName
+        let masterAgreementId = composite |> InstanceOrchestration.instance |> Instance.masterAgreementID
         return
             postings
             |> List.map (fun (payment, journalEntryLineId, invoice) ->
                 CashFlowComponent.PaymentPostingTransition.create
-                    (payment |> Payment.paymentId) agreementName (invoice |> Invoice.amount) journalEntryLineId)
+                    (payment |> Payment.paymentId) masterAgreementId (invoice |> Invoice.amount) journalEntryLineId)
     }
 
 /// confirmNoPaymentTargetsAVoidedEntry fails the whole transition when any staged line was posted as a journal entry

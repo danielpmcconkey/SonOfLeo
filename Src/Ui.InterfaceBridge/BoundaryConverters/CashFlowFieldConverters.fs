@@ -142,14 +142,23 @@ let ``convert [Invoice] to [InvoiceReturn]``
     |> ``convert [PaymentAgreementId] to [PaymentAgreementNameString]`` context
     |> Result.map (fun paymentAgreementName -> invoice |> invoiceReturnUnderPaymentAgreementName paymentAgreementName)
 
-let ``convert [Instance] to [InstanceReturn]`` (instance: Instance.Instance) : InstanceReturn = {
+let private instanceReturnUnderMasterAgreementName (masterAgreementName: string) (instance: Instance.Instance) : InstanceReturn = {
     instanceId = instance |> Instance.instanceId |> InstanceId.value
-    masterAgreementName = instance |> Instance.masterAgreementName |> AgreementName.value
+    masterAgreementName = masterAgreementName
     instanceDate = instance |> Instance.instanceDate
     isFulfilled = instance |> Instance.isFulfilled
     cancellationReasonNote = instance |> Instance.cancellationReasonNote |> Option.map CancellationReasonNote.value
     createdAt = instance |> Instance.createdAt
     modifiedAt = instance |> Instance.modifiedAt }
+
+let ``convert [Instance] to [InstanceReturn]``
+    (context: Context.Context)
+    (instance: Instance.Instance)
+    : Result<InstanceReturn, IAppError> =
+    instance
+    |> Instance.masterAgreementID
+    |> ``convert [MasterAgreementId] to [AgreementNameString]`` context
+    |> Result.map (fun masterAgreementName -> instance |> instanceReturnUnderMasterAgreementName masterAgreementName)
 
 let ``convert [InvoiceComposite] to [InvoiceCompositeReturn]``
     (context: Context.Context)
@@ -170,7 +179,7 @@ let ``convert [InstanceComposite] to [InstanceCompositeReturn]``
     (instanceComposite: InstanceOrchestration.InstanceComposite)
     : Result<InstanceCompositeReturn, IAppError> =
     result {
-        let instance = instanceComposite |> InstanceOrchestration.instance |> ``convert [Instance] to [InstanceReturn]``
+        let! instance = instanceComposite |> InstanceOrchestration.instance |> ``convert [Instance] to [InstanceReturn]`` context
         let! invoiceComposites =
             instanceComposite
             |> InstanceOrchestration.invoiceComposites
@@ -284,7 +293,9 @@ let ``convert [Agreement] to [AgreementReturn]``
                 paymentAgreement.paymentAgreementId, paymentAgreement.paymentAgreementName)
             |> Map.ofList
         let instances =
-            agreement |> AgreementOrchestration.instances |> List.map ``convert [Instance] to [InstanceReturn]``
+            agreement
+            |> AgreementOrchestration.instances
+            |> List.map (instanceReturnUnderMasterAgreementName masterAgreement.agreementName)
         let invoices =
             agreement
             |> AgreementOrchestration.invoices
@@ -302,63 +313,105 @@ let ``convert [Agreement] to [AgreementReturn]``
             payments = payments |> List.sortBy (fun p -> p.postedToFiDate, p.amount, p.paymentId) } }
 
 let ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
+    (context: Context.Context)
     (transition: PaymentPostingTransition)
-    : PaymentPostingTransitionReturn =
-    { paymentId = transition |> PaymentPostingTransition.paymentId |> PaymentId.value
-      agreementName = transition |> PaymentPostingTransition.agreementName |> AgreementName.value
-      invoiceAmount =
-        transition |> PaymentPostingTransition.invoiceAmount |> CashFlowComponent.InvoiceAmount.value |> Money.amount
-      journalEntryLineId = transition |> PaymentPostingTransition.journalEntryLineId |> JournalEntryLineId.value }
+    : Result<PaymentPostingTransitionReturn, IAppError> =
+    result {
+        let! agreementName =
+            transition |> PaymentPostingTransition.masterAgreementId |> ``convert [MasterAgreementId] to [AgreementNameString]`` context
+        return
+            { paymentId = transition |> PaymentPostingTransition.paymentId |> PaymentId.value
+              agreementName = agreementName
+              invoiceAmount =
+                transition |> PaymentPostingTransition.invoiceAmount |> CashFlowComponent.InvoiceAmount.value |> Money.amount
+              journalEntryLineId = transition |> PaymentPostingTransition.journalEntryLineId |> JournalEntryLineId.value }
+    }
 
 let ``convert [PaymentPostingTransition list] to [PaymentPostingTransitionReturn list]``
+    (context: Context.Context)
     (transitions: PaymentPostingTransition list)
-    : PaymentPostingTransitionReturn list =
+    : Result<PaymentPostingTransitionReturn list, IAppError> =
     transitions
-    |> List.map ``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]``
-    |> List.sortBy (fun (transition: PaymentPostingTransitionReturn) ->
-        transition.agreementName, transition.paymentId)
+    |> List.map (``convert [PaymentPostingTransition] to [PaymentPostingTransitionReturn]`` context)
+    |> convertListOfResultsToResultsList
+    |> Result.map (
+        List.sortBy (fun (transition: PaymentPostingTransitionReturn) ->
+            transition.agreementName, transition.paymentId))
 
-let ``convert [ProjectedInvoice] to [ProjectedInvoiceReturn]`` (invoice: ProjectedInvoice) : ProjectedInvoiceReturn =
-    { invoiceId = invoice.invoiceId |> InvoiceId.value
-      agreementName = invoice.agreementName |> AgreementName.value
-      direction = invoice.direction |> FlowDirection.toString
-      dueDate = invoice.dueDate |> CashFlowComponent.DueDate.value
-      amount = invoice.amount |> CashFlowComponent.InvoiceAmount.value |> Money.amount
-      outstandingAmount = invoice.outstanding |> Money.amount }
+let ``convert [ProjectedInvoice] to [ProjectedInvoiceReturn]``
+    (context: Context.Context)
+    (invoice: ProjectedInvoice)
+    : Result<ProjectedInvoiceReturn, IAppError> =
+    result {
+        let! agreementName = invoice.masterAgreementId |> ``convert [MasterAgreementId] to [AgreementNameString]`` context
+        return
+            { invoiceId = invoice.invoiceId |> InvoiceId.value
+              agreementName = agreementName
+              direction = invoice.direction |> FlowDirection.toString
+              dueDate = invoice.dueDate |> CashFlowComponent.DueDate.value
+              amount = invoice.amount |> CashFlowComponent.InvoiceAmount.value |> Money.amount
+              outstandingAmount = invoice.outstanding |> Money.amount }
+    }
 
-let ``convert [ProjectedAccount] to [ProjectedAccountReturn]`` (account: ProjectedAccount) : ProjectedAccountReturn =
-    { accountCode = account.accountCode |> Business.FinancialServices.Ledger.AccountComponent.AccountCode.value
-      accountName = account.accountName |> Business.FinancialServices.Ledger.AccountComponent.AccountName.value
-      currentBalance = account.currentBalance |> Money.amount
-      knownInflows = account.knownInflows |> Money.amount
-      knownOutflows = account.knownOutflows |> Money.amount
-      projectedLow = account.projectedLow |> Money.amount
-      invoices =
-        account.invoices
-        |> List.sortBy (fun (invoice: ProjectedInvoice) ->
-            (invoice.dueDate |> CashFlowComponent.DueDate.value), (invoice.invoiceId |> InvoiceId.value))
-        |> List.map ``convert [ProjectedInvoice] to [ProjectedInvoiceReturn]`` }
+let ``convert [ProjectedAccount] to [ProjectedAccountReturn]``
+    (context: Context.Context)
+    (account: ProjectedAccount)
+    : Result<ProjectedAccountReturn, IAppError> =
+    result {
+        let! accountCode = account.accountId |> ``convert AccountId to AccountCodeString`` context
+        let! accountName = account.accountId |> ``convert AccountId to AccountNameString`` context
+        let! invoices =
+            account.invoices
+            |> List.sortBy (fun (invoice: ProjectedInvoice) ->
+                (invoice.dueDate |> CashFlowComponent.DueDate.value), (invoice.invoiceId |> InvoiceId.value))
+            |> List.map (``convert [ProjectedInvoice] to [ProjectedInvoiceReturn]`` context)
+            |> convertListOfResultsToResultsList
+        return
+            { accountCode = accountCode
+              accountName = accountName
+              currentBalance = account.currentBalance |> Money.amount
+              knownInflows = account.knownInflows |> Money.amount
+              knownOutflows = account.knownOutflows |> Money.amount
+              projectedLow = account.projectedLow |> Money.amount
+              invoices = invoices }
+    }
 
-let ``convert [BillToChase] to [BillToChaseReturn]`` (bill: BillToChase) : BillToChaseReturn =
-    { instanceId = bill.instanceId |> InstanceId.value
-      agreementName = bill.agreementName |> AgreementName.value
-      paymentAgreementName = bill.paymentAgreementName |> PaymentAgreementName.value
-      instanceDate = bill.instanceDate
-      cadenceType = bill.cadenceType |> ``convert [CadenceType] to [CadenceTypeContract]`` }
+let ``convert [BillToChase] to [BillToChaseReturn]``
+    (context: Context.Context)
+    (bill: BillToChase)
+    : Result<BillToChaseReturn, IAppError> =
+    result {
+        let! agreementName = bill.masterAgreementId |> ``convert [MasterAgreementId] to [AgreementNameString]`` context
+        let! paymentAgreementName =
+            bill.paymentAgreementId |> ``convert [PaymentAgreementId] to [PaymentAgreementNameString]`` context
+        return
+            { instanceId = bill.instanceId |> InstanceId.value
+              agreementName = agreementName
+              paymentAgreementName = paymentAgreementName
+              instanceDate = bill.instanceDate
+              cadenceType = bill.cadenceType |> ``convert [CadenceType] to [CadenceTypeContract]`` }
+    }
 
+/// The accounts sort by code and the bills by Instance date then Payment Agreement name, both after the names resolve.
 let ``convert [CashFlowProjection] to [CashFlowProjectionReturn]``
+    (context: Context.Context)
     (projection: CashFlowProjection)
-    : CashFlowProjectionReturn =
-    { accounts =
-        projection.accounts
-        |> List.sortBy (fun (account: ProjectedAccount) ->
-            account.accountCode |> Business.FinancialServices.Ledger.AccountComponent.AccountCode.value)
-        |> List.map ``convert [ProjectedAccount] to [ProjectedAccountReturn]``
-      billsToChase =
-        projection.billsToChase
-        |> List.sortBy (fun (bill: BillToChase) ->
-            bill.instanceDate, (bill.paymentAgreementName |> PaymentAgreementName.value))
-        |> List.map ``convert [BillToChase] to [BillToChaseReturn]`` }
+    : Result<CashFlowProjectionReturn, IAppError> =
+    result {
+        let! accounts =
+            projection.accounts
+            |> List.map (``convert [ProjectedAccount] to [ProjectedAccountReturn]`` context)
+            |> convertListOfResultsToResultsList
+        let! billsToChase =
+            projection.billsToChase
+            |> List.map (``convert [BillToChase] to [BillToChaseReturn]`` context)
+            |> convertListOfResultsToResultsList
+        return
+            { accounts = accounts |> List.sortBy (fun (account: ProjectedAccountReturn) -> account.accountCode)
+              billsToChase =
+                billsToChase
+                |> List.sortBy (fun (bill: BillToChaseReturn) -> bill.instanceDate, bill.paymentAgreementName) }
+    }
 
 let ``convert [BlockerContract] to [Blocker]`` (blockerContract: BlockerContract) : Result<Blocker, IAppError> =
     match blockerContract with

@@ -665,6 +665,24 @@ Tests: `PrePostingReview.fs` compares account, rule, agreement and source
 IDs, and unwraps the payment values; route `ReportRoutes.fs` passes a
 context to the writer.
 
+**C3. R6 cash flow** (#061, #062). One commit. `Instance` drops
+`masterAgreementName` (field, accessor, `create` parameter, the
+`agreement_name` read and the master agreement join). `fetchOpenComposites`
+keeps the REQ-CF-14.12 date-then-name order by batch-fetching the Master
+Agreements of the open Instances and sorting on their names.
+`BillToChase` carries `masterAgreementId` and `paymentAgreementId`;
+`ProjectedInvoice` and `PaymentPostingTransition` carry `masterAgreementId`
+in place of the agreement name (each name became the ID it named);
+`ProjectedAccount` drops code and name. `CashFlowFieldConverters` resolve
+(taking a context, returning `Result`) and sort accounts, bills and
+transitions on the resolved returns. `convert [Instance] to
+[InstanceReturn]` resolves through the cache; the Agreement conversion
+instead hands its Instances the Master Agreement's name from the Agreement
+in hand. Tests: `Cancellation.fs`, `PaymentsToPosted.fs` and
+`ProjectionRules.fs` compare agreement and account IDs (REQ-CF-8.7 reads
+the code and name back through the lookups); `CashFlowProjection.fs` finds
+F-1280 by ID. No route test changed.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 

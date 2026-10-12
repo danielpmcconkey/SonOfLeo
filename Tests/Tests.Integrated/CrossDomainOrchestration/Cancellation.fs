@@ -676,15 +676,15 @@ type CancellationTests(fixture: TestDataFixture) =
                 let bills =
                     projection.billsToChase
                     |> List.filter (fun b -> b.instanceId = instanceId)
-                    |> List.map (fun b -> b.paymentAgreementName |> PaymentAgreementName.value)
-                Assert.Equal<string list>([ legNames[1] ], bills)
+                    |> List.map (fun b -> b.paymentAgreementId)
+                Assert.Equal<PaymentAgreementId list>([ legIds[1] ], bills)
             })
 
     [<Fact>]
     member _.``REQ-CF-8.4 REQ-CF-14.10 a Payment Agreement with no Invoice is reported as a bill to chase on an open Instance and not on a cancelled Instance of the same agreement`` () =
         rolledBack (fun s ->
             result {
-                let! agreementId, _, legNames = s.agreement $"CF-8.4 cancelled instance {Guid.NewGuid()}" Outgo 1
+                let! agreementId, legIds, _ = s.agreement $"CF-8.4 cancelled instance {Guid.NewGuid()}" Outgo 1
                 let! cancelledId, _ = s.instance agreementId (s.firstOfMonthsAgo 1) []
                 let! openId, _ = s.instance agreementId s.firstOfThisMonth []
                 let! _ = s.cancelInstance "Spawned by mistake" cancelledId
@@ -692,8 +692,8 @@ type CancellationTests(fixture: TestDataFixture) =
                 let bills =
                     projection.billsToChase
                     |> List.filter (fun b -> b.instanceId = cancelledId || b.instanceId = openId)
-                    |> List.map (fun b -> b.instanceId, (b.paymentAgreementName |> PaymentAgreementName.value))
-                Assert.Equal<(InstanceId * string) list>([ (openId, legNames[0]) ], bills)
+                    |> List.map (fun b -> b.instanceId, b.paymentAgreementId)
+                Assert.Equal<(InstanceId * PaymentAgreementId) list>([ (openId, legIds[0]) ], bills)
             })
 
     // =========================================================================

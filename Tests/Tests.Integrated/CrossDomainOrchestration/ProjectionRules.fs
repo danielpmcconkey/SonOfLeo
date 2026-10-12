@@ -402,8 +402,8 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
                 let! master = agreementId |> MasterAgreement.fetchById s.Context
                 let! projection = s.project 10
                 let bill = billsFor projection instanceId |> List.exactlyOne
-                Assert.Equal<string>(legNames[1], bill.paymentAgreementName |> PaymentAgreementName.value)
-                Assert.Equal(master |> MasterAgreement.agreementName, bill.agreementName)
+                Assert.Equal(legs[1], bill.paymentAgreementId)
+                Assert.Equal(master |> MasterAgreement.agreementID, bill.masterAgreementId)
                 Assert.Equal(date, bill.instanceDate)
                 Assert.Equal(Cadence.Daily, bill.cadenceType)
             })
@@ -413,13 +413,13 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! cashId, _, _ = s.cashAccount None
-                let! agreementId, _, legNames = s.agreement Outgo cashId 2
+                let! agreementId, legs, _ = s.agreement Outgo cashId 2
                 let! onEnd, _ = s.instance Outgo cashId agreementId (s.today.PlusDays(10)) []
                 let! dayAfter, _ = s.instance Outgo cashId agreementId (s.today.PlusDays(11)) []
                 let! projection = s.project 10
                 let bills = billsFor projection onEnd
-                Assert.Equal<Set<string>>(
-                    Set.ofList legNames, bills |> List.map (fun b -> b.paymentAgreementName |> PaymentAgreementName.value) |> Set.ofList)
+                Assert.Equal<Set<PaymentAgreementId>>(
+                    Set.ofList legs, bills |> List.map (fun b -> b.paymentAgreementId) |> Set.ofList)
                 Assert.Equal(2, bills |> List.length)
                 Assert.All(bills, fun b -> Assert.Equal(s.today.PlusDays(10), b.instanceDate))
                 Assert.Empty(billsFor projection dayAfter)
@@ -430,12 +430,12 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! cashId, _, _ = s.cashAccount None
-                let! agreementId, _, legNames = s.agreement Outgo cashId 2
+                let! agreementId, legs, _ = s.agreement Outgo cashId 2
                 let! instanceId, _ = s.instance Outgo cashId agreementId (s.today.PlusDays(-60)) []
                 let! projection = s.project 10
                 let bills = billsFor projection instanceId
-                Assert.Equal<Set<string>>(
-                    Set.ofList legNames, bills |> List.map (fun b -> b.paymentAgreementName |> PaymentAgreementName.value) |> Set.ofList)
+                Assert.Equal<Set<PaymentAgreementId>>(
+                    Set.ofList legs, bills |> List.map (fun b -> b.paymentAgreementId) |> Set.ofList)
                 Assert.Equal(2, bills |> List.length)
                 Assert.All(bills, fun b -> Assert.Equal(s.today.PlusDays(-60), b.instanceDate))
             })
@@ -457,42 +457,37 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
         rolledBack (fun s ->
             result {
                 let! cashId, _, _ = s.cashAccount None
-                let! agreementId, legs, legNames = s.agreement Outgo cashId 2
-                let agreementName = legNames[0].Replace(" leg 1", "")
+                let! agreementId, legs, _ = s.agreement Outgo cashId 2
                 let date = s.today.PlusDays(3)
                 let! instanceId, _ = s.instance Outgo cashId agreementId date [ (legs[0], date, [ 100.00M ]) ]
                 let! fulfilled = instanceId |> Instance.fetchById s.Context |> Result.map Instance.isFulfilled
                 let! projection = s.project 10
                 let bills =
                     billsFor projection instanceId
-                    |> List.map (fun b ->
-                        b.agreementName |> AgreementName.value,
-                        b.paymentAgreementName |> PaymentAgreementName.value,
-                        b.instanceDate,
-                        b.cadenceType)
+                    |> List.map (fun b -> b.masterAgreementId, b.paymentAgreementId, b.instanceDate, b.cadenceType)
                 Assert.False(fulfilled)
-                Assert.Equal<(string * string * LocalDate * Cadence.CadenceType) list>(
-                    [ agreementName, legNames[1], date, Cadence.Daily ], bills)
+                Assert.Equal<(MasterAgreementId * PaymentAgreementId * LocalDate * Cadence.CadenceType) list>(
+                    [ agreementId, legs[1], date, Cadence.Daily ], bills)
             })
 
     [<Fact>]
     member _.``REQ-CF-8.6 every active account with subtype Cash appears in the projection exactly once, including one with no Invoices, and no account of another subtype appears`` () =
         rolledBack (fun s ->
             result {
-                let! cashId, code, _ = s.cashAccount None
-                (* the expected codes come from what the fixture built: its Cash accounts, less the bank it closed two
-                   months ago, plus the one this test made *)
+                let! cashId, _, _ = s.cashAccount None
+                (* the expected accounts come from what the fixture built: its Cash accounts, less the bank it closed
+                   two months ago, plus the one this test made *)
                 let expected =
                     fixture.Data.accounts
                     |> List.filter (fun a ->
                         a |> Account.accountSubType = Some Cash && a |> Account.accountId <> fixture.Data.closedBank1290Id)
-                    |> List.map (Account.code >> AccountCode.value)
-                    |> List.append [ code ]
-                    |> List.sort
+                    |> List.map Account.accountId
+                    |> List.append [ cashId ]
+                    |> List.sortBy AccountId.value
                 let! projection = s.project 10
-                let codes = projection.accounts |> List.map (fun a -> a.accountCode |> AccountCode.value) |> List.sort
-                Assert.Contains(code, codes)
-                Assert.Equal<string list>(expected, codes)
+                let ids = projection.accounts |> List.map _.accountId |> List.sortBy AccountId.value
+                Assert.Contains(cashId, ids)
+                Assert.Equal<AccountId list>(expected, ids)
             })
 
     [<Fact>]
@@ -520,8 +515,10 @@ type ProjectionRulesTests(fixture: TestDataFixture) =
                 let! projection = s.project 10
                 let account = accountIn projection cashId
                 let expected = [ incomeInvoices[0]; outgoInvoices[0] ] |> List.sortBy InvoiceId.value
-                Assert.Equal<string>(code, account.accountCode |> AccountCode.value)
-                Assert.Equal<string>(name, account.accountName |> AccountName.value)
+                let! storedCode = account.accountId |> Account.idToCode s.Context
+                let! storedName = account.accountId |> Account.idToName s.Context
+                Assert.Equal<string>(code, storedCode |> AccountCode.value)
+                Assert.Equal<string>(name, storedName |> AccountName.value)
                 Assert.Equal<InvoiceId list>(expected, account.invoices |> List.map _.invoiceId |> List.sortBy InvoiceId.value)
             })
 

@@ -416,14 +416,14 @@ type PaymentsToPostedTests(fixture: TestDataFixture) =
                     moved
                     |> List.map (fun t ->
                         (t |> PaymentPostingTransition.paymentId),
-                        (t |> PaymentPostingTransition.agreementName |> AgreementName.value),
+                        (t |> PaymentPostingTransition.masterAgreementId),
                         (t |> PaymentPostingTransition.invoiceAmount |> CashFlowComponent.InvoiceAmount.value |> Money.amount),
                         (t |> PaymentPostingTransition.journalEntryLineId))
                     |> Set.ofList
                 let expected =
-                    set [ xPayments.[0], "CF-10.7 listed X", 100.00M, jeX
-                          yPayments.[0], "CF-10.7 listed Y", 100.00M, jeY ]
-                Assert.Equal<Set<PaymentId * string * decimal * JournalEntryLineId>>(expected, listed)
+                    set [ xPayments.[0], agreementXId, 100.00M, jeX
+                          yPayments.[0], agreementYId, 100.00M, jeY ]
+                Assert.Equal<Set<PaymentId * CashFlowComponent.MasterAgreementId * decimal * JournalEntryLineId>>(expected, listed)
                 Assert.Equal(2, moved |> List.length)
             })
         |> railroadWrapper

@@ -384,11 +384,21 @@ let fetchOpenComposites
         let invoiceIds = invoices |> List.map Invoice.invoiceId
         let! payments =
             if invoiceIds |> List.isEmpty then Ok [] else invoiceIds |> Payment.fetchByInvoiceIdList context
+        // the Master Agreements' names break ties on Instance date, so fetch them in one batch here
+        let! masterAgreements =
+            instances
+            |> List.map Instance.masterAgreementID
+            |> List.distinct
+            |> MasterAgreement.fetchByMasterAgreementIdList context
+        let agreementNames =
+            masterAgreements
+            |> List.map (fun m -> m |> MasterAgreement.agreementID, m |> MasterAgreement.agreementName)
+            |> Map.ofList
         return
             compileInstanceCompositesFromSubLists instances invoices payments
             |> List.sortBy (fun composite ->
                 composite.instance |> Instance.instanceDate,
-                composite.instance |> Instance.masterAgreementName |> CashFlowComponent.AgreementName.value)
+                agreementNames[composite.instance |> Instance.masterAgreementID] |> CashFlowComponent.AgreementName.value)
     }
 
 let private isThereAnInvoiceUpdate
@@ -804,7 +814,6 @@ let constructNewAndPersist
         do! instanceDate |> confirmInstanceDateIsAfterLatestInstance context masterAgreementID
         let instanceId = CashFlowComponent.InstanceId.create()
         let now = context |> Context.getInitiationInstant
-        let masterAgreementName = masterAgreement |> MasterAgreement.agreementName
         let! invoiceComposites =
             newInvoices
             |> List.map (preConstructNewInvoiceComposite context instanceId)
@@ -812,7 +821,7 @@ let constructNewAndPersist
         let! paymentAgreementIds = masterAgreementID |> fetchPaymentAgreementIdsOfInstance context now
         let isFulfilled = invoiceComposites |> deriveIsFulfilled paymentAgreementIds
         let newInstance =
-            Instance.create instanceId masterAgreementID masterAgreementName instanceDate isFulfilled now now
+            Instance.create instanceId masterAgreementID instanceDate isFulfilled now now
         let instanceComposite = { instance = newInstance; invoiceComposites = invoiceComposites }
         do! instanceComposite |> confirmInstanceComposite context
         do! newInstance |> Instance.persist context

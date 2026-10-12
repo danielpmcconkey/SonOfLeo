@@ -25,7 +25,9 @@ type CashFlowProjectionTests(fixture: TestDataFixture) =
         result {
             let! horizon = 40 |> ProjectionHorizonInDays.create
             let! projection = horizon |> CashFlowOps.projectCashFlowNDaysForward context
-            return projection.accounts |> List.find (fun a -> a.accountCode |> AccountCode.value = "F-1280")
+            let operatingCashId =
+                fixture.Data.accounts |> List.find (fun a -> a |> Account.code |> AccountCode.value = "F-1280") |> Account.accountId
+            return projection.accounts |> List.find (fun a -> a.accountId = operatingCashId)
         }
 
     // =========================================================================
