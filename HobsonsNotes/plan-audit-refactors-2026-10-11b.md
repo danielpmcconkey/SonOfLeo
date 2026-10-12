@@ -741,6 +741,22 @@ converter and the writer's new context-taking `write` share.
 and `NetWorthHistory.fs` resolve names by ID (the property lookup takes the
 test's transaction context); one route test changed setup only (§5.1).
 
+**E1. Model** (drift). One commit. `BaseStageEntry` is gone from the
+model: its realization of "Define the raw ingestion data shape" moved to
+`StageEntryComponent`, where the raw row now lives, and on the Application
+tiers view the function now sits inside the `StageEntryComponent` box
+(widened; Dan owns the layout). 15 serving edges the code no longer backs
+were removed (the `BaseStageEntry` ones, `PersonOrchestration` into the
+three positions orchestrations, `InvestmentWealthHistory` into its writer,
+and others), plus the composition and the other edges that touched
+`BaseStageEntry`. 48 serving edges were added for references the slice
+introduced, chiefly `LookupCache` into the seven entity modules it now
+caches, `Context` into the report writers, entity modules into the
+converters and writers that resolve names, and `PersonComponent` and
+`PositionsComponent` into the modules that carry owner IDs and the moved
+types. No function documentation named a deleted view or a moved sort.
+`model_drift.py`: NO DRIFT. `validate.py`: VALID.
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 
