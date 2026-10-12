@@ -683,6 +683,30 @@ in hand. Tests: `Cancellation.fs`, `PaymentsToPosted.fs` and
 the code and name back through the lookups); `CashFlowProjection.fs` finds
 F-1280 by ID. No route test changed.
 
+**D1. R1 holdings-as-of, wealth history, roll-forward** (#014, #017, #026,
+#027, #036, #038, #043, #044, #053, #063, #072, #073 R1 half). One commit.
+The holdings-as-of query selects the investment account, ledger account,
+security and owner IDs (owners as one aggregated text column parsed back to
+`PersonId`s); `reconstitute` builds the account and line in their domain
+types and the raw row goes no further. Rows group by `InvestmentAccountId`.
+The query's `ORDER BY` (account name, account ID, Security name, each name
+`collate "C"`) replaces both F# name sorts. `HoldingsAsOfAccount` carries
+the typed fields the plan lists; `HoldingsAsOfLine` (securityId, lots as
+tuples) and `WealthPoint` moved to `PositionsComponent`. `WealthGroup` keys
+on investment account ID, `AccountGroup`, `TaxTreatment`, `DimensionValueId`,
+`Set<PersonId>` and `Unassigned`; `computeInvestmentWealthHistory` reads
+each line's dimension value from the Security (all fetched once, by
+dimension only) and no longer sorts. `ReportConverters` resolves a group to
+its contract and orders by `wealthGroupOrder` (names, then owner name
+lists, unassigned last); the writer's context-taking `write` resolves the
+same way and orders its columns by it. `RollForwardRow`/`RollForward` carry
+`securityId`, `investmentAccountId` and `Quantity` start and end, sorted by
+the fetched Securities' names, and live in `PositionsComponent`.
+`NetWorth` resolves its investment rows' names until D3. Tests:
+`HoldingsAsOf.fs`, `InvestmentWealthHistory.fs` (through the bridge
+converter, which owns the order now) and `UnitRollForward.fs` resolve
+names by ID; three route tests changed setup only (§5.1).
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 

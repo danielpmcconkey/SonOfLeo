@@ -15,6 +15,8 @@ open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.AccountSnapshotOrchestration
 open Business.CrossDomainOrchestration.InvestmentWealthHistory
 open Ui.InterfaceBridge.CommandRoute
+open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
 open Tests.Helpers
 open Tests.Helpers.PositionsValues
 open Tests.Helpers.Railroad
@@ -40,7 +42,20 @@ let private history context beginDate endDate grouping =
 
 let private readOnly = Context.create NoTransaction FetchOnly
 
-let private totalsOf (point: WealthPoint) = point.totals |> List.map (fun (g, m) -> g, m |> Money.amount) |> Map.ofList
+let private orFail (r: Result<'T, IAppError>) : 'T =
+    match r with
+    | Ok v -> v
+    | Error e -> failwith (e.ToMessage())
+
+/// A point's totals as the boundary shows them: each group by its name, in the order shown.
+let private resolved context (point: WealthPoint) : (WealthGroupContract * decimal) list =
+    point
+    |> ``convert [WealthPoint] to [WealthPointReturnRow]`` context
+    |> orFail
+    |> _.totals
+    |> List.map (fun t -> t.group, t.marketValue)
+
+let private totalsOf context (point: WealthPoint) = point |> resolved context |> Map.ofList
 
 let private pointAt context date grouping =
     history context date date grouping |> Result.map List.exactlyOne
@@ -113,9 +128,9 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
                     PF.sam401k, 4227.79M; PF.samHsa, 0.00M ],
                   12857.79M ]
                 |> List.map (fun (date, totals, total) ->
-                    date, totals |> List.map (fun (n, v) -> GroupName n, v) |> Map.ofList, total)
-            Assert.Equal<(LocalDate * Map<WealthGroup, decimal> * decimal) list>(
-                expected, points |> List.map (fun x -> x.monthEnd, x |> totalsOf, x.total |> Money.amount)))
+                    date, totals |> List.map (fun (n, v) -> Named n, v) |> Map.ofList, total)
+            Assert.Equal<(LocalDate * Map<WealthGroupContract, decimal> * decimal) list>(
+                expected, points |> List.map (fun x -> x.monthEnd, x |> totalsOf readOnly, x.total |> Money.amount)))
         |> railroadWrapper
 
     [<Fact>]
@@ -142,11 +157,11 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
                         [ accountId, p.d2, Reported, None, [ totalMarketId, toQuantity 1M, toPrice 110.00M, toMoney 110.00M, None, [] ] ]
                 let! point = pointAt context p.monthEnd3 ByAccountGroup
                 // Brokerage: Alex Brokerage 1,620.00 + Joint Brokerage 5,500.00; Retirement: 1,500.00 + 4,000.00
-                Assert.Equal<Map<WealthGroup, decimal>>(
+                Assert.Equal<Map<WealthGroupContract, decimal>>(
                     Map.ofList
-                        [ GroupName "Brokerage", 7120.00M; GroupName "brokerage", 110.00M
-                          GroupName "Retirement", 5500.00M; GroupName "Health", 300.00M ],
-                    point |> totalsOf)
+                        [ Named "Brokerage", 7120.00M; Named "brokerage", 110.00M
+                          Named "Retirement", 5500.00M; Named "Health", 300.00M ],
+                    point |> totalsOf context)
             })
         |> railroadWrapper
 
@@ -154,13 +169,13 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-9.2 grouped by tax treatment, each point gives one total per tax treatment present, equal to the hand-summed market values of that treatment's accounts`` () =
         history readOnly p.monthEnd4 p.monthEnd3 ByTaxTreatment
         |> Result.map (fun points ->
-            let named totals = totals |> List.map (fun (n, v) -> GroupName n, v) |> Map.ofList
-            Assert.Equal<Map<WealthGroup, decimal> list>(
+            let named totals = totals |> List.map (fun (n, v) -> Named n, v) |> Map.ofList
+            Assert.Equal<Map<WealthGroupContract, decimal> list>(
                 [ // Taxable: Alex Brokerage 1,500.00 + Old Brokerage 1,000.00
                   named [ "Taxable", 2500.00M; "Roth", 1500.00M; "TaxDeferred", 4000.00M; "Hsa", 300.00M ]
                   // Taxable: Alex Brokerage 1,620.00 + Joint Brokerage 5,500.00
                   named [ "Taxable", 7120.00M; "Roth", 1500.00M; "TaxDeferred", 4000.00M; "Hsa", 300.00M ] ],
-                points |> List.map totalsOf))
+                points |> List.map (totalsOf readOnly)))
         |> railroadWrapper
 
     [<Fact>]
@@ -168,12 +183,12 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
         pointAt readOnly p.monthEnd3 ByOwners
         |> Result.map (fun point ->
             // Alex alone: Alex Brokerage 1,620.00 + Alex Roth IRA 1,500.00; Sam alone: Sam 401k 4,000.00 + Sam HSA 300.00
-            Assert.Equal<Map<WealthGroup, decimal>>(
+            Assert.Equal<Map<WealthGroupContract, decimal>>(
                 Map.ofList
-                    [ GroupOwners [ PF.alex ], 3120.00M
-                      GroupOwners [ PF.alex; PF.sam ], 5500.00M
-                      GroupOwners [ PF.sam ], 4300.00M ],
-                point |> totalsOf))
+                    [ Owners [ PF.alex ], 3120.00M
+                      Owners [ PF.alex; PF.sam ], 5500.00M
+                      Owners [ PF.sam ], 4300.00M ],
+                point |> totalsOf readOnly))
         |> railroadWrapper
 
     [<Fact>]
@@ -181,20 +196,20 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
         (* lines as of the end of month -3: EXTMX 1,100.00 + 500.00 + 5,500.00 + 2,000.00 = 9,100.00 (all seven dimensions);
            EXINX 520.00 (Equity Fund, International); Bond Fund 1,000.00 + 2,000.00 = 3,000.00 (Bond Fund only);
            Stable Value 300.00 (none) *)
-        let onlyTotalMarket valueName = [ GroupName valueName, 9100.00M; Unassigned, 3820.00M ]
+        let onlyTotalMarket valueName = [ Named valueName, 9100.00M; WealthGroupContract.Unassigned, 3820.00M ]
         let expected =
-            [ InvestmentType, [ GroupName "Equity Fund", 9620.00M; GroupName "Bond Fund", 3000.00M; Unassigned, 300.00M ]
+            [ InvestmentType, [ Named "Equity Fund", 9620.00M; Named "Bond Fund", 3000.00M; WealthGroupContract.Unassigned, 300.00M ]
               MarketCap, onlyTotalMarket "Large Cap"
               IndexType, onlyTotalMarket "Total Market"
               Sector, onlyTotalMarket "Diversified"
-              Region, [ GroupName "Domestic", 9100.00M; GroupName "International", 520.00M; Unassigned, 3300.00M ]
+              Region, [ Named "Domestic", 9100.00M; Named "International", 520.00M; WealthGroupContract.Unassigned, 3300.00M ]
               Objective, onlyTotalMarket "Growth"
               Benchmark, onlyTotalMarket "Example Total Market Index" ]
         expected
         |> List.map (fun (dimension, totals) ->
             pointAt readOnly p.monthEnd3 (ByDimension dimension)
             |> Result.map (fun point ->
-                Assert.Equal<Map<WealthGroup, decimal>>(Map.ofList totals, point |> totalsOf)
+                Assert.Equal<Map<WealthGroupContract, decimal>>(Map.ofList totals, point |> totalsOf readOnly)
                 Assert.Equal(12920.00M, point.total |> Money.amount)))
         |> convertListOfResultsToResultsList
         |> railroadWrapper
@@ -222,7 +237,7 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
         |> Result.map (fun points ->
             Assert.Equal<(LocalDate * decimal option) list>(
                 [ p.monthEnd3, Some 300.00M; p.monthEnd2, Some 0.00M ],
-                points |> List.map (fun x -> x.monthEnd, x |> totalsOf |> Map.tryFind (GroupName PF.samHsa))))
+                points |> List.map (fun x -> x.monthEnd, x |> totalsOf readOnly |> Map.tryFind (Named PF.samHsa))))
         |> railroadWrapper
 
     [<Fact>]
@@ -232,7 +247,7 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
         |> Result.map (fun points ->
             Assert.Equal<(LocalDate * decimal option) list>(
                 [ p.monthEnd4, Some 0.00M; p.monthEnd3, Some 5500.00M ],
-                points |> List.map (fun x -> x.monthEnd, x |> totalsOf |> Map.tryFind (GroupName PF.jointBrokerage))))
+                points |> List.map (fun x -> x.monthEnd, x |> totalsOf readOnly |> Map.tryFind (Named PF.jointBrokerage))))
         |> railroadWrapper
 
     [<Fact>]
@@ -261,7 +276,7 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
                 let! _ =
                     recordSnapshots context
                         [ accountId, p.d2, Reported, None, [ securityId, toQuantity 2M, toPrice 100.00M, toMoney 200.00M, None, [] ] ]
-                let named values = values |> List.map (fun (n, v) -> GroupName n, v)
+                let named values = values |> List.map (fun (n, v) -> Named n, v)
                 let expected =
                     [ ByAccount,
                       [ named
@@ -281,15 +296,15 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
                       // end of month -4: EXTMX 1,000.00 + 500.00 + 2,000.00; EXINX 500.00 + 1,000.00; Bond 3,000.00, Stable Value 300.00
                       // end of month -3: EXTMX 1,100.00 + 500.00 + 5,500.00 + 2,000.00; EXINX 520.00; Bond and Stable Value as before
                       ByDimension Region,
-                      [ named [ "Domestic", 3500.00M; "International", 1500.00M; "Western", 0.00M ] @ [ Unassigned, 3300.00M ]
-                        named [ "Domestic", 9100.00M; "International", 520.00M; "Western", 200.00M ] @ [ Unassigned, 3300.00M ] ] ]
+                      [ named [ "Domestic", 3500.00M; "International", 1500.00M; "Western", 0.00M ] @ [ WealthGroupContract.Unassigned, 3300.00M ]
+                        named [ "Domestic", 9100.00M; "International", 520.00M; "Western", 200.00M ] @ [ WealthGroupContract.Unassigned, 3300.00M ] ] ]
                 let! _ =
                     expected
                     |> List.map (fun (grouping, points) ->
                         history context p.monthEnd4 p.monthEnd3 grouping
                         |> Result.map (fun found ->
-                            Assert.Equal<(WealthGroup * decimal) list list>(
-                                points, found |> List.map (fun x -> x.totals |> List.map (fun (g, m) -> g, m |> Money.amount)))))
+                            Assert.Equal<(WealthGroupContract * decimal) list list>(
+                                points, found |> List.map (resolved context))))
                     |> convertListOfResultsToResultsList
                 return ()
             })
@@ -315,11 +330,11 @@ type InvestmentWealthHistoryTests(fixture: TestDataFixture) =
                         [ accountId, p.d2, Reported, None, [ totalMarketId, toQuantity 2M, toPrice 100.00M, toMoney 200.00M, None, [] ] ]
                 let! points = history context p.monthEnd3 p.monthEnd2 ByOwners
                 // end of month -2: Alex alone 1,810.00 + 1,500.00; Sam alone 4,227.79 + 0.00
-                Assert.Equal<(WealthGroup * decimal) list list>(
-                    [ [ GroupOwners [ PF.alex ], 3120.00M; GroupOwners [ PF.alex; PF.sam ], 5500.00M
-                        GroupOwners [ PF.jordan ], 200.00M; GroupOwners [ PF.sam ], 4300.00M ]
-                      [ GroupOwners [ PF.alex ], 3310.00M; GroupOwners [ PF.alex; PF.sam ], 5500.00M
-                        GroupOwners [ PF.jordan ], 200.00M; GroupOwners [ PF.sam ], 4227.79M ] ],
-                    points |> List.map (fun x -> x.totals |> List.map (fun (g, m) -> g, m |> Money.amount)))
+                Assert.Equal<(WealthGroupContract * decimal) list list>(
+                    [ [ Owners [ PF.alex ], 3120.00M; Owners [ PF.alex; PF.sam ], 5500.00M
+                        Owners [ PF.jordan ], 200.00M; Owners [ PF.sam ], 4300.00M ]
+                      [ Owners [ PF.alex ], 3310.00M; Owners [ PF.alex; PF.sam ], 5500.00M
+                        Owners [ PF.jordan ], 200.00M; Owners [ PF.sam ], 4227.79M ] ],
+                    points |> List.map (resolved context))
             })
         |> railroadWrapper

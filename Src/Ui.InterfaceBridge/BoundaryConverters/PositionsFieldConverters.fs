@@ -204,28 +204,73 @@ let ``convert [HoldingView] to [HoldingReturn]`` (view: HoldingView) : HoldingRe
       createdAt = view.holding |> Holding.createdAt
       modifiedAt = view.holding |> Holding.modifiedAt }
 
-let ``convert [HoldingsAsOfAccount] to [HoldingsAsOfAccountReturn]`` (account: HoldingsAsOfAccount) : HoldingsAsOfAccountReturn =
-    { accountName = account.investmentAccountName
-      institution = account.institution
-      accountGroup = account.accountGroup
-      taxTreatment = account.taxTreatment |> TaxTreatment.toString
-      owners = account.ownerNames
-      ledgerAccount = account.ledgerAccountCodeAndName |> Option.map ``convert [string * string] to [LedgerAccountReturn]``
-      snapshotDate = account.snapshotDate
-      provenance = account.provenance |> Provenance.toString
-      contributionBasis = account.contributionBasis |> Option.map Money.amount
-      lines =
-        account.lines
-        |> List.map (fun line ->
-            { securityName = line.securityName
-              ticker = line.ticker
-              dimensionValues = line.dimensionValueNames |> ``convert [Map<Dimension, string>] to [DimensionValueReturn list]``
+let private ``convert [Map<Dimension, DimensionValueId>] to [Map<Dimension, string>]``
+    (context: Context.Context)
+    (valueIds: Map<Dimension, DimensionValueId>)
+    : Result<Map<Dimension, string>, IAppError> =
+    valueIds
+    |> Map.toList
+    |> List.map (fun (d, id) -> id |> DimensionValue.idToName context |> Result.map (fun n -> d, n |> DimensionValueName.value))
+    |> convertListOfResultsToResultsList
+    |> Result.map Map.ofList
+
+let ``convert [HoldingsAsOfLine] to [HoldingsAsOfLineReturn]``
+    (context: Context.Context)
+    (line: HoldingsAsOfLine)
+    : Result<HoldingsAsOfLineReturn, IAppError> =
+    result {
+        let! security = line.securityId |> Security.fetchById context
+        let! dimensionValueNames =
+            security |> Security.dimensionValues |> ``convert [Map<Dimension, DimensionValueId>] to [Map<Dimension, string>]`` context
+        return
+            { securityName = security |> Security.securityName |> SecurityName.value
+              ticker = security |> Security.ticker |> Option.map Ticker.value
+              dimensionValues = dimensionValueNames |> ``convert [Map<Dimension, string>] to [DimensionValueReturn list]``
               basisMethod = line.basisMethod |> Option.map BasisMethod.toString
               quantity = line.quantity |> Quantity.amount
               price = line.price |> Price.amount
               marketValue = line.marketValue |> Money.amount
               reportedCostBasis = line.reportedCostBasis |> Option.map Money.amount
-              lots = line.lots |> List.map ``convert [AccountSnapshotLot] to [AccountSnapshotLotReturn]`` }) }
+              lots =
+                line.lots
+                |> List.map (fun (acquiredDate, quantity, reportedCostBasis) ->
+                    { acquiredDate = acquiredDate
+                      quantity = quantity |> Quantity.amount
+                      reportedCostBasis = reportedCostBasis |> Option.map Money.amount }) }
+    }
+
+let ``convert [HoldingsAsOfAccount] to [HoldingsAsOfAccountReturn]``
+    (context: Context.Context)
+    (account: HoldingsAsOfAccount)
+    : Result<HoldingsAsOfAccountReturn, IAppError> =
+    result {
+        let! accountName = account.investmentAccountId |> InvestmentAccount.idToName context
+        let! owners =
+            account.ownerIds
+            |> Set.toList
+            |> List.map (Person.idToName context >> Result.map PersonComponent.PersonName.value)
+            |> convertListOfResultsToResultsList
+        let! ledgerAccount =
+            account.ledgerAccountId
+            |> convertOptionToDesiredTypeWithFallibleConverter (fun id ->
+                result {
+                    let! code = id |> ``convert AccountId to AccountCodeString`` context
+                    let! name = id |> ``convert AccountId to AccountNameString`` context
+                    return ``convert [string * string] to [LedgerAccountReturn]`` (code, name)
+                })
+        let! lines = account.lines |> List.map (``convert [HoldingsAsOfLine] to [HoldingsAsOfLineReturn]`` context) |> convertListOfResultsToResultsList
+        return
+            { accountName = accountName |> InvestmentAccountName.value
+              institution = account.institution |> Institution.value
+              accountGroup = account.accountGroup |> AccountGroup.value
+              taxTreatment = account.taxTreatment |> TaxTreatment.toString
+              owners = owners |> List.sort
+              ledgerAccount = ledgerAccount
+              snapshotDate = account.snapshotDate
+              provenance = account.provenance |> Provenance.toString
+              contributionBasis = account.contributionBasis |> Option.map (ContributionBasis.value >> Money.amount)
+              lines = lines }
+    }
 
 // ---- Account Snapshots ----
 
@@ -333,20 +378,32 @@ let ``convert [ActivityCoverageGap] to [InvestmentActivityCoverageGapReturn]`` (
 
 // ---- Unit roll-forward ----
 
-let ``convert [RollForward] to [RollForwardReturn]`` (rollForward: RollForward) : RollForwardReturn =
-    { accountName = rollForward.investmentAccountName
-      firstDate = rollForward.firstDate
-      secondDate = rollForward.secondDate
-      rows =
-        rollForward.rows
-        |> List.map (fun row ->
-            { securityName = row.securityName
-              startQuantity = row.startQuantity
-              unitsIn = row.unitsIn
-              unitsOut = row.unitsOut
-              expected = row.expected
-              endQuantity = row.endQuantity
-              difference = row.difference }) }
+let ``convert [RollForward] to [RollForwardReturn]``
+    (context: Context.Context)
+    (rollForward: RollForward)
+    : Result<RollForwardReturn, IAppError> =
+    result {
+        let! accountName = rollForward.investmentAccountId |> InvestmentAccount.idToName context
+        let! rows =
+            rollForward.rows
+            |> List.map (fun row ->
+                row.securityId
+                |> Security.idToName context
+                |> Result.map (fun securityName ->
+                    { securityName = securityName |> SecurityName.value
+                      startQuantity = row.startQuantity |> Quantity.amount
+                      unitsIn = row.unitsIn
+                      unitsOut = row.unitsOut
+                      expected = row.expected
+                      endQuantity = row.endQuantity |> Quantity.amount
+                      difference = row.difference }))
+            |> convertListOfResultsToResultsList
+        return
+            { accountName = accountName |> InvestmentAccountName.value
+              firstDate = rollForward.firstDate
+              secondDate = rollForward.secondDate
+              rows = rows }
+    }
 
 // ---- Pre-ledger Balances ----
 

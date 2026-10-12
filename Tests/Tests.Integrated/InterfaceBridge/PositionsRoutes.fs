@@ -602,19 +602,52 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
             let! returned =
                 call<C.HoldingFetchAsOfInput, C.HoldingsAsOfAccountReturn list> "Holding" "FetchAsOf" { asOf = p.monthEnd3 }
             let! computed = fetchHoldingsAsOf (fresh ()) p.monthEnd3
-            let fromComputed =
+            let accountNameOf (a: HoldingsAsOfAccount) =
+                a.investmentAccountId |> InvestmentAccount.fetchById (fresh ())
+                |> Result.map (InvestmentAccount.investmentAccountName >> PositionsComponent.InvestmentAccountName.value)
+            let securityNameOf (l: PositionsComponent.HoldingsAsOfLine) =
+                l.securityId |> Security.fetchById (fresh ())
+                |> Result.map (Security.securityName >> PositionsComponent.SecurityName.value)
+            let ledgerOf (a: HoldingsAsOfAccount) =
+                a.ledgerAccountId
+                |> convertOptionToDesiredTypeWithFallibleConverter (fun id ->
+                    id |> Ledger.Account.fetchById (fresh ())
+                    |> Result.map (fun account ->
+                        ledger
+                            (account |> Ledger.Account.code |> Ledger.AccountComponent.AccountCode.value)
+                            (account |> Ledger.Account.accountName |> Ledger.AccountComponent.AccountName.value)))
+            let! fromComputed =
                 computed
                 |> List.map (fun a ->
-                    a.investmentAccountName,
-                    a.snapshotDate,
-                    a.contributionBasis |> Option.map Money.amount,
-                    a.lines
-                    |> List.map (fun l ->
-                        l.securityName,
-                        l.quantity |> Quantity.amount,
-                        l.price |> Price.amount,
-                        l.marketValue |> Money.amount,
-                        l.reportedCostBasis |> Option.map Money.amount))
+                    result {
+                        let! accountName = accountNameOf a
+                        let! lines =
+                            a.lines
+                            |> List.map (fun l ->
+                                securityNameOf l
+                                |> Result.map (fun securityName ->
+                                    securityName,
+                                    l.quantity |> Quantity.amount,
+                                    l.price |> Price.amount,
+                                    l.marketValue |> Money.amount,
+                                    l.reportedCostBasis |> Option.map Money.amount))
+                            |> convertListOfResultsToResultsList
+                        return
+                            accountName,
+                            a.snapshotDate,
+                            a.contributionBasis |> Option.map (PositionsComponent.ContributionBasis.value >> Money.amount),
+                            lines
+                    })
+                |> convertListOfResultsToResultsList
+            let! ledgersFromComputed =
+                computed
+                |> List.map (fun a ->
+                    result {
+                        let! accountName = accountNameOf a
+                        let! ledgerAccount = ledgerOf a
+                        return accountName, ledgerAccount
+                    })
+                |> convertListOfResultsToResultsList
             let fromRoute =
                 returned
                 |> List.map (fun a ->
@@ -627,9 +660,7 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
                 fromComputed,
                 fromRoute)
             Assert.Equal<(string * C.LedgerAccountReturn option) list>(
-                computed
-                |> List.map (fun a ->
-                    a.investmentAccountName, a.ledgerAccountCodeAndName |> Option.map (fun (code, name) -> ledger code name)),
+                ledgersFromComputed,
                 returned |> List.map (fun a -> a.accountName, a.ledgerAccount))
             Assert.Contains((PF.alexBrokerage, Some(ledger "F-1260" "Fixture Brokerage at Cost")),
                             returned |> List.map (fun a -> a.accountName, a.ledgerAccount))

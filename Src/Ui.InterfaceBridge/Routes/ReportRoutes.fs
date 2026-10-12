@@ -121,11 +121,14 @@ let private investmentWealthHistory payload _ =
         let! (historyReturn: InvestmentWealthHistoryReturn) =
             match input.reportOutput with
             | OutputSpecifier.DataOnly ->
-                Ok(InvestmentWealthHistoryReturn.DataOnly(points |> List.map ``convert [WealthPoint] to [WealthPointReturnRow]``))
+                points
+                |> List.map (``convert [WealthPoint] to [WealthPointReturnRow]`` context)
+                |> convertListOfResultsToResultsList
+                |> Result.map InvestmentWealthHistoryReturn.DataOnly
             | OutputSpecifier.Report outputPathInput ->
                 points
                 |> InvestmentWealthHistoryWriter.write
-                    outputPathInput (context |> Context.getInitiationInstant) input.beginDate input.endDate grouping
+                    context outputPathInput (context |> Context.getInitiationInstant) input.beginDate input.endDate grouping
         return! historyReturn |> Json.toJson<InvestmentWealthHistoryReturn>
     }
 

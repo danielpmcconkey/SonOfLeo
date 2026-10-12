@@ -257,19 +257,50 @@ let ``convert [NetWorth] to [NetWorthReturnRow]`` (netWorth: NetWorth) : NetWort
       investmentsByAccountGroup = netWorth.investmentsByAccountGroup |> List.map groupTotal
       absentComponents = netWorth.absentComponents |> List.map NetWorthComponent.toString }
 
-let ``convert [WealthGroup] to [WealthGroupContract]`` (group: WealthGroup) : WealthGroupContract =
+let ``convert [WealthGroup] to [WealthGroupContract]``
+    (context: Context.Context)
+    (group: WealthGroup)
+    : Result<WealthGroupContract, IAppError> =
     match group with
-    | GroupName name -> WealthGroupContract.Named name
-    | GroupOwners owners -> WealthGroupContract.Owners owners
-    | WealthGroup.Unassigned -> WealthGroupContract.Unassigned
+    | GroupInvestmentAccount id ->
+        id
+        |> Business.FinancialServices.Positions.InvestmentAccount.idToName context
+        |> Result.map (InvestmentAccountName.value >> WealthGroupContract.Named)
+    | GroupAccountGroup accountGroup -> Ok(WealthGroupContract.Named(accountGroup |> AccountGroup.value))
+    | GroupTaxTreatment taxTreatment -> Ok(WealthGroupContract.Named(taxTreatment |> TaxTreatment.toString))
+    | GroupDimensionValue id ->
+        id
+        |> Business.FinancialServices.Positions.DimensionValue.idToName context
+        |> Result.map (DimensionValueName.value >> WealthGroupContract.Named)
+    | GroupOwners ownerIds ->
+        ownerIds
+        |> Set.toList
+        |> List.map (Business.General.Person.idToName context >> Result.map Business.General.PersonComponent.PersonName.value)
+        |> convertListOfResultsToResultsList
+        |> Result.map (List.sort >> WealthGroupContract.Owners)
+    | WealthGroup.Unassigned -> Ok WealthGroupContract.Unassigned
 
-let ``convert [WealthPoint] to [WealthPointReturnRow]`` (point: WealthPoint) : WealthPointReturnRow =
-    { monthEnd = point.monthEnd
-      totals =
-        point.totals
-        |> List.map (fun (group, total) ->
-            { group = group |> ``convert [WealthGroup] to [WealthGroupContract]``; marketValue = total |> Money.amount })
-      total = point.total |> Money.amount }
+/// The order groups are shown in: named groups by name, owner groups by their owners' names, unassigned last.
+let wealthGroupOrder (group: WealthGroupContract) =
+    match group with
+    | WealthGroupContract.Named name -> 0, [ name ]
+    | WealthGroupContract.Owners owners -> 1, owners
+    | WealthGroupContract.Unassigned -> 2, []
+
+let ``convert [WealthPoint] to [WealthPointReturnRow]``
+    (context: Context.Context)
+    (point: WealthPoint)
+    : Result<WealthPointReturnRow, IAppError> =
+    point.totals
+    |> List.map (fun (group, total) ->
+        group
+        |> ``convert [WealthGroup] to [WealthGroupContract]`` context
+        |> Result.map (fun resolved -> { group = resolved; marketValue = total |> Money.amount }))
+    |> convertListOfResultsToResultsList
+    |> Result.map (fun totals ->
+        { monthEnd = point.monthEnd
+          totals = totals |> List.sortBy (fun t -> t.group |> wealthGroupOrder)
+          total = point.total |> Money.amount })
 
 let ``convert [NetWorthPoint] to [NetWorthPointReturnRow]`` (point: NetWorthPoint) : NetWorthPointReturnRow =
     { monthEnd = point.monthEnd

@@ -176,18 +176,27 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
         let! investmentRows =
             holdings
             |> List.map (fun account ->
-                account.lines
-                |> List.map (fun l -> l.marketValue)
-                |> sumOf
-                |> Result.map (fun marketValue ->
-                    { investmentAccountName = account.investmentAccountName
-                      ownerNames = account.ownerNames
-                      accountGroup = account.accountGroup
-                      taxTreatment = account.taxTreatment
-                      snapshotDate = account.snapshotDate
-                      provenance = account.provenance
-                      marketValue = marketValue
-                      contributionBasis = account.contributionBasis }))
+                result {
+                    let! marketValue = account.lines |> List.map (fun l -> l.marketValue) |> sumOf
+                    let! investmentAccount =
+                        match
+                            investmentAccounts
+                            |> List.tryFind (fun a -> InvestmentAccount.investmentAccountId a = account.investmentAccountId)
+                        with
+                        | Some a -> Ok a
+                        | None -> error (PositionsInvestmentAccountIdDoesntExist(account.investmentAccountId |> InvestmentAccountId.value))
+                    let! ownerNames = account.ownerIds |> PersonOrchestration.personNamesOf context
+                    return
+                        { investmentAccountName =
+                            investmentAccount |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
+                          ownerNames = ownerNames
+                          accountGroup = account.accountGroup |> AccountGroup.value
+                          taxTreatment = account.taxTreatment
+                          snapshotDate = account.snapshotDate
+                          provenance = account.provenance
+                          marketValue = marketValue
+                          contributionBasis = account.contributionBasis |> Option.map ContributionBasis.value }
+                })
             |> convertListOfResultsToResultsList
 
         let! propertyRows =

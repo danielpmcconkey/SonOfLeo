@@ -5,10 +5,11 @@ open App.Utility.IAppError
 open App.Utility.Result
 open App.Utility.File
 open App.Utility.Calendar
+open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Positions.PositionsComponent
-open Business.CrossDomainOrchestration.InvestmentWealthHistory
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 open Ui.InterfaceBridge.ReportVisualizationAssets.BaseCssDeclarations
 open Ui.InterfaceBridge.ReportVisualizationAssets.ReportHeader
@@ -49,19 +50,22 @@ let private dateString (d: LocalDate) = d |> localDateToString "yyyy-MM-dd"
 let private element ordinal elementType identifierType contents : DomElement =
     { ordinal = ordinal; elementType = elementType; identifierType = identifierType; contents = contents }
 
-let groupLabel (group: WealthGroup) =
+let groupLabel (group: WealthGroupContract) =
     match group with
-    | GroupName name -> name
-    | GroupOwners owners -> owners |> String.concat " & "
-    | WealthGroup.Unassigned -> "Unassigned"
+    | WealthGroupContract.Named name -> name
+    | WealthGroupContract.Owners owners -> owners |> String.concat " & "
+    | WealthGroupContract.Unassigned -> "Unassigned"
 
-let write
+/// A point whose groups carry the labels they are shown by.
+type private ResolvedPoint = { monthEnd: LocalDate; totals: (WealthGroupContract * Money.Money) list; total: Money.Money }
+
+let private writeResolved
     (pathInfo: OutputPathInput)
     (generatedAt: Instant)
     (beginDate: LocalDate)
     (endDate: LocalDate)
     (grouping: WealthGrouping)
-    (points: WealthPoint list)
+    (points: ResolvedPoint list)
     : Result<InvestmentWealthHistoryReturn, IAppError> =
     let beginString = beginDate |> dateString
     let endString = endDate |> dateString
@@ -81,14 +85,15 @@ let write
               element 50 (NoTag $", by {grouping |> WealthGrouping.toString}") NoIdentifier [] ]
     let header = createReportHeader "Investment Wealth History" subtitle
     // one column per group value present at any point
-    let groups = points |> List.collect (fun p -> p.totals |> List.map fst) |> List.distinct |> List.sort
+    let groups =
+        points |> List.collect (fun p -> p.totals |> List.map fst) |> List.distinct |> List.sortBy wealthGroupOrder
     let headRow =
         element 1 TableRow NoIdentifier
             ([ element 1 (TableHeadCell "Month end") (Class "date") [] ]
              @ (groups |> List.mapi (fun i g -> element (10 + i) (TableHeadCell(encode (groupLabel g))) NoIdentifier []))
              @ [ element 100000 (TableHeadCell "Total") (Class "total") [] ])
     let moneyText (m: Money.Money) = m |> Money.toAccountingString
-    let pointRow i (point: WealthPoint) =
+    let pointRow i (point: ResolvedPoint) =
         // every point carries every group, at zero where it has no holdings
         let amountIn group = point.totals |> List.find (fun (g, _) -> g = group) |> snd |> moneyText
         element (10 + i) TableRow NoIdentifier
@@ -113,3 +118,22 @@ let write
             |> writeTextFile path
         return InvestmentWealthHistoryReturn.Report { fullyQualifiedPath = path }
     }
+
+let write
+    (context: Context.Context)
+    (pathInfo: OutputPathInput)
+    (generatedAt: Instant)
+    (beginDate: LocalDate)
+    (endDate: LocalDate)
+    (grouping: WealthGrouping)
+    (points: WealthPoint list)
+    : Result<InvestmentWealthHistoryReturn, IAppError> =
+    points
+    |> List.map (fun point ->
+        point.totals
+        |> List.map (fun (group, total) ->
+            group |> ``convert [WealthGroup] to [WealthGroupContract]`` context |> Result.map (fun resolved -> resolved, total))
+        |> convertListOfResultsToResultsList
+        |> Result.map (fun totals -> { monthEnd = point.monthEnd; totals = totals; total = point.total }))
+    |> convertListOfResultsToResultsList
+    |> Result.bind (writeResolved pathInfo generatedAt beginDate endDate grouping)

@@ -231,16 +231,30 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
                 | InvestmentWealthHistoryReturn.DataOnly points -> Ok points
                 | InvestmentWealthHistoryReturn.Report _ -> Error(TestingError "Expected DataOnly but got Report")
             let! computed = computeInvestmentWealthHistory (fresh ()) p.monthEnd4 p.monthEnd1 ByOwners
+            // grouped by owners, each group is its owners' names, and groups are ordered by those names
             let groupOf =
                 function
-                | GroupName n -> Named n
-                | GroupOwners owners -> WealthGroupContract.Owners owners
-                | WealthGroup.Unassigned -> WealthGroupContract.Unassigned
-            Assert.Equal(4, computed |> List.length)
-            Assert.Equal<(LocalDate * (WealthGroupContract * decimal) list * decimal) list>(
+                | GroupOwners ownerIds ->
+                    ownerIds
+                    |> Set.toList
+                    |> List.map (Business.General.Person.fetchById (fresh ()) >> Result.map (Business.General.Person.personName >> Business.General.PersonComponent.PersonName.value))
+                    |> convertListOfResultsToResultsList
+                    |> Result.map (List.sort >> WealthGroupContract.Owners)
+                | other -> Error(TestingError $"Expected an owners group but got {other}")
+            let! expected =
                 computed
                 |> List.map (fun pt ->
-                    pt.monthEnd, pt.totals |> List.map (fun (g, m) -> groupOf g, m |> Money.amount), pt.total |> Money.amount),
+                    pt.totals
+                    |> List.map (fun (g, m) -> groupOf g |> Result.map (fun owners -> owners, m |> Money.amount))
+                    |> convertListOfResultsToResultsList
+                    |> Result.map (fun totals ->
+                        pt.monthEnd,
+                        totals |> List.sortBy (function WealthGroupContract.Owners names, _ -> names | _ -> []),
+                        pt.total |> Money.amount))
+                |> convertListOfResultsToResultsList
+            Assert.Equal(4, computed |> List.length)
+            Assert.Equal<(LocalDate * (WealthGroupContract * decimal) list * decimal) list>(
+                expected,
                 points |> List.map (fun pt -> pt.monthEnd, pt.totals |> List.map (fun t -> t.group, t.marketValue), pt.total))
             Assert.Contains(
                 (WealthGroupContract.Owners [ PF.alex; PF.sam ], 5500.00M),

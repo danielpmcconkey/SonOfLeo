@@ -206,10 +206,11 @@ let private fetchHoldingsAsOf payload _ =
         result {
             let! input = Json.fromJson<HoldingFetchAsOfInput> payload
             let! accounts = fetchHoldingsAsOf context input.asOf
-            return!
+            let! returned =
                 accounts
-                |> List.map ``convert [HoldingsAsOfAccount] to [HoldingsAsOfAccountReturn]``
-                |> Json.toJson<HoldingsAsOfAccountReturn list>
+                |> List.map (``convert [HoldingsAsOfAccount] to [HoldingsAsOfAccountReturn]`` context)
+                |> convertListOfResultsToResultsList
+            return! returned |> Json.toJson<HoldingsAsOfAccountReturn list>
         })
 
 // ---- Account Snapshots ----
@@ -314,7 +315,8 @@ let private rollInvestmentAccountForward payload _ =
             let! input = Json.fromJson<InvestmentAccountRollForwardInput> payload
             let! accountId = input.accountName |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
             let! rolled = UnitRollForward.rollForward context accountId input.firstDate input.secondDate
-            return! rolled |> ``convert [RollForward] to [RollForwardReturn]`` |> Json.toJson<RollForwardReturn>
+            let! returned = rolled |> ``convert [RollForward] to [RollForwardReturn]`` context
+            return! returned |> Json.toJson<RollForwardReturn>
         })
 
 // ---- Pre-ledger Balances ----

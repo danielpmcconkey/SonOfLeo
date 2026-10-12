@@ -451,7 +451,51 @@ module WealthGrouping =
         | None -> error (PositionsInvalidWealthGrouping raw)
 
 /// One value of a wealth grouping. Owners is the complete owner set of an account, so a joint account is its own group.
+/// Unassigned holds the lines whose Security has no value in the dimension grouped by.
 type WealthGroup =
-    | GroupName of string
-    | GroupOwners of string list
+    | GroupInvestmentAccount of InvestmentAccountId
+    | GroupAccountGroup of AccountGroup
+    | GroupTaxTreatment of TaxTreatment
+    | GroupDimensionValue of DimensionValueId
+    | GroupOwners of Set<Business.General.PersonComponent.PersonId>
     | Unassigned
+
+/// One month-end of an investment wealth history: each group's total and the grand total. Every point of a history
+/// carries every group, at zero where it holds nothing; the groups are in no particular order.
+type WealthPoint = {
+    monthEnd: LocalDate
+    totals: (WealthGroup * Money.Money) list
+    total: Money.Money
+}
+
+/// A line of an account's holdings as of a date, as its snapshot recorded it, with its Holding's basis method and its
+/// lots (acquired date, quantity, reported cost basis) in the order supplied.
+type HoldingsAsOfLine = {
+    securityId: SecurityId
+    basisMethod: BasisMethod option
+    quantity: Quantity.Quantity
+    price: Price.Price
+    marketValue: Money.Money
+    reportedCostBasis: Money.Money option
+    lots: (LocalDate * Quantity.Quantity * Money.Money option) list
+}
+
+/// One Security's units between two snapshots. A Security with no line in a snapshot has a zero quantity there.
+/// Expected and difference are exact decimals, not Quantities: a missing activity can make the expected quantity
+/// negative, and a difference has a sign.
+type RollForwardRow = {
+    securityId: SecurityId
+    startQuantity: Quantity.Quantity
+    unitsIn: decimal
+    unitsOut: decimal
+    expected: decimal
+    endQuantity: Quantity.Quantity
+    difference: decimal
+}
+
+type RollForward = {
+    investmentAccountId: InvestmentAccountId
+    firstDate: LocalDate
+    secondDate: LocalDate
+    rows: RollForwardRow list
+}

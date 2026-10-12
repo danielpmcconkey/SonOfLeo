@@ -3,6 +3,7 @@ module Tests.Integrated.CrossDomainOrchestration.HoldingsAsOf
 open NodaTime
 open App.DataAccessLayer.DbTransaction
 open App.Operation.CoreAuditableAction
+open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
 open Business.FinancialServices
@@ -15,11 +16,25 @@ open Xunit
 
 module PF = PositionsFixture
 
-let private holdingsAsOf date = fetchHoldingsAsOf (Context.create NoTransaction FetchOnly) date
+let private readOnly = Context.create NoTransaction FetchOnly
 
-let private names (accounts: HoldingsAsOfAccount list) = accounts |> List.map (fun a -> a.investmentAccountName)
+let private holdingsAsOf date = fetchHoldingsAsOf readOnly date
 
-let private find name (accounts: HoldingsAsOfAccount list) = accounts |> List.find (fun a -> a.investmentAccountName = name)
+let private orFail (r: Result<'T, IAppError>) : 'T =
+    match r with
+    | Ok v -> v
+    | Error e -> failwith (e.ToMessage())
+
+let private accountNameOf (a: HoldingsAsOfAccount) =
+    a.investmentAccountId |> InvestmentAccount.idToName readOnly |> orFail |> InvestmentAccountName.value
+
+let private securityOf (l: HoldingsAsOfLine) = l.securityId |> Security.fetchById readOnly |> orFail
+
+let private securityNameOf (l: HoldingsAsOfLine) = l |> securityOf |> Security.securityName |> SecurityName.value
+
+let private names (accounts: HoldingsAsOfAccount list) = accounts |> List.map accountNameOf
+
+let private find name (accounts: HoldingsAsOfAccount list) = accounts |> List.find (fun a -> accountNameOf a = name)
 
 /// A line as returned: Security name, ticker, the seven dimensions' value names in Dimension.all order, basis method,
 /// quantity, price, market value and cost basis.
@@ -27,9 +42,15 @@ type private LineSummary =
     string * string option * string option list * BasisMethod option * decimal * decimal * decimal * decimal option
 
 let private lineSummary (l: HoldingsAsOfLine) : LineSummary =
-    l.securityName,
-    l.ticker,
-    Dimension.all |> List.map (fun d -> l.dimensionValueNames |> Map.tryFind d),
+    let security = l |> securityOf
+    security |> Security.securityName |> SecurityName.value,
+    security |> Security.ticker |> Option.map Ticker.value,
+    Dimension.all
+    |> List.map (fun d ->
+        security
+        |> Security.dimensionValues
+        |> Map.tryFind d
+        |> Option.map (DimensionValue.idToName readOnly >> orFail >> DimensionValueName.value)),
     l.basisMethod,
     l.quantity |> Quantity.amount,
     l.price |> Price.amount,
@@ -42,8 +63,21 @@ type private AccountSummary =
     string * string * string * TaxTreatment * string list * (string * string) option * LocalDate * Provenance * decimal option
 
 let private accountSummary (a: HoldingsAsOfAccount) : AccountSummary =
-    a.investmentAccountName, a.institution, a.accountGroup, a.taxTreatment, a.ownerNames, a.ledgerAccountCodeAndName,
-    a.snapshotDate, a.provenance, a.contributionBasis |> Option.map Money.amount
+    accountNameOf a,
+    a.institution |> Institution.value,
+    a.accountGroup |> AccountGroup.value,
+    a.taxTreatment,
+    a.ownerIds
+    |> Set.toList
+    |> List.map (Business.General.Person.idToName readOnly >> orFail >> Business.General.PersonComponent.PersonName.value)
+    |> List.sort,
+    a.ledgerAccountId
+    |> Option.map (fun id ->
+        id |> Ledger.Account.idToCode readOnly |> orFail |> Ledger.AccountComponent.AccountCode.value,
+        id |> Ledger.Account.idToName readOnly |> orFail |> Ledger.AccountComponent.AccountName.value),
+    a.snapshotDate,
+    a.provenance,
+    a.contributionBasis |> Option.map (ContributionBasis.value >> Money.amount)
 
 /// A lot as returned: acquired date, quantity and reported cost basis.
 type private LotSummary = LocalDate * decimal * decimal option
@@ -51,12 +85,8 @@ type private LotSummary = LocalDate * decimal * decimal option
 let private lotsByLine (a: HoldingsAsOfAccount) : (string * LotSummary list) list =
     a.lines
     |> List.map (fun l ->
-        l.securityName,
-        l.lots
-        |> List.map (fun lot ->
-            lot |> AccountSnapshotLot.acquiredDate,
-            lot |> AccountSnapshotLot.quantity |> Quantity.amount,
-            lot |> AccountSnapshotLot.reportedCostBasis |> Option.map Money.amount))
+        securityNameOf l,
+        l.lots |> List.map (fun (acquiredDate, quantity, costBasis) -> acquiredDate, quantity |> Quantity.amount, costBasis |> Option.map Money.amount))
 
 let private allSeven = [ Some "Equity Fund"; Some "Large Cap"; Some "Total Market"; Some "Diversified"; Some "Domestic"; Some "Growth"; Some "Example Total Market Index" ]
 let private internationalValues = [ Some "Equity Fund"; None; None; None; Some "International"; None; None ]
@@ -96,7 +126,7 @@ type HoldingsAsOfTests(fixture: TestDataFixture) =
             Assert.Equal(p.d2, brokerage.snapshotDate)
             Assert.Equal<(string * decimal) list>(
                 [ PF.international, 520.00M; PF.totalMarket, 1100.00M ],
-                brokerage.lines |> List.map (fun l -> l.securityName, l.marketValue |> Money.amount)))
+                brokerage.lines |> List.map (fun l -> securityNameOf l, l.marketValue |> Money.amount)))
         |> railroadWrapper
 
     [<Fact>]
@@ -169,7 +199,7 @@ type HoldingsAsOfTests(fixture: TestDataFixture) =
                   [ PF.bondFund, None, bondValues, None, 210.123456M, 9.876543M, 2075.29M, None
                     PF.totalMarket, Some "EXTMX", allSeven, None, 20.5M, 105.00M, 2152.50M, None ]
                   PF.samHsa, [] ],
-                accounts |> List.map (fun a -> a.investmentAccountName, a.lines |> List.map lineSummary)))
+                accounts |> List.map (fun a -> accountNameOf a, a.lines |> List.map lineSummary)))
         |> railroadWrapper
 
     [<Fact>]
@@ -182,7 +212,7 @@ type HoldingsAsOfTests(fixture: TestDataFixture) =
                   PF.oldBrokerage, [ PF.international ]
                   PF.sam401k, [ PF.bondFund; PF.totalMarket ]
                   PF.samHsa, [ PF.stableValue ] ],
-                accounts |> List.map (fun a -> a.investmentAccountName, a.lines |> List.map (fun l -> l.securityName))))
+                accounts |> List.map (fun a -> accountNameOf a, a.lines |> List.map securityNameOf)))
         |> railroadWrapper
 
     [<Fact>]

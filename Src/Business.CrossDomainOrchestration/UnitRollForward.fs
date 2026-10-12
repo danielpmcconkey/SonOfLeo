@@ -9,25 +9,6 @@ open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 
-/// One Security's units between two snapshots. Expected and difference are exact decimals, not Quantities: a missing
-/// activity can make the expected quantity negative, and a difference has a sign.
-type RollForwardRow = {
-    securityName: string
-    startQuantity: decimal
-    unitsIn: decimal
-    unitsOut: decimal
-    expected: decimal
-    endQuantity: decimal
-    difference: decimal
-}
-
-type RollForward = {
-    investmentAccountName: string
-    firstDate: LocalDate
-    secondDate: LocalDate
-    rows: RollForwardRow list
-}
-
 let private snapshotOn
     (context: Context.Context)
     (accountName: string)
@@ -39,9 +20,9 @@ let private snapshotOn
         | Some header -> Ok header
         | None -> error (PositionsSnapshotDoesntExist(accountName, snapshotDate)))
 
-let private quantitiesByHolding (lines: AccountSnapshotLine.AccountSnapshotLine list) : Map<HoldingId, decimal> =
+let private quantitiesByHolding (lines: AccountSnapshotLine.AccountSnapshotLine list) : Map<HoldingId, Quantity.Quantity> =
     lines
-    |> List.map (fun l -> AccountSnapshotLine.holdingId l, l |> AccountSnapshotLine.quantity |> Quantity.amount)
+    |> List.map (fun l -> AccountSnapshotLine.holdingId l, l |> AccountSnapshotLine.quantity)
     |> Map.ofList
 
 /// Rolls the account's units forward from its snapshot on the first date to its snapshot on the second. Activity dated
@@ -82,40 +63,42 @@ let rollForward
             |> List.distinct
         let! holdings = investmentAccountId |> Holding.fetchByInvestmentAccount context
         let! securities = Security.fetchAll context
-        let securityNameOf holdingId =
+        let securityOf holdingId =
             match holdings |> List.tryFind (fun h -> Holding.holdingId h = holdingId) with
             | None -> error (PositionsHoldingIdDoesntExist(holdingId |> HoldingId.value))
             | Some holding ->
                 let securityId = holding |> Holding.securityId
                 match securities |> List.tryFind (fun s -> Security.securityId s = securityId) with
                 | None -> error (PositionsSecurityIdDoesntExist(securityId |> SecurityId.value))
-                | Some security -> Ok(security |> Security.securityName |> SecurityName.value)
+                | Some security -> Ok security
         let movedFor holdingId direction =
             unitMoves
             |> List.filter (fun (id, d, _) -> id = holdingId && d = direction)
             |> List.map (fun (_, _, quantity) -> quantity)
             |> Quantity.sum
+        let! none = Quantity.fromDecimal 0M
         let! rows =
             holdingIds
             |> List.map (fun holdingId ->
-                let startQuantity = startQuantities |> Map.tryFind holdingId |> Option.defaultValue 0M
+                let startQuantity = startQuantities |> Map.tryFind holdingId |> Option.defaultValue none
                 let unitsIn = movedFor holdingId UnitsIn
                 let unitsOut = movedFor holdingId UnitsOut
-                let expected = startQuantity + unitsIn - unitsOut
-                let endQuantity = endQuantities |> Map.tryFind holdingId |> Option.defaultValue 0M
-                securityNameOf holdingId
-                |> Result.map (fun securityName ->
-                    { securityName = securityName
+                let expected = (startQuantity |> Quantity.amount) + unitsIn - unitsOut
+                let endQuantity = endQuantities |> Map.tryFind holdingId |> Option.defaultValue none
+                securityOf holdingId
+                |> Result.map (fun security ->
+                    security |> Security.securityName |> SecurityName.value,
+                    { securityId = security |> Security.securityId
                       startQuantity = startQuantity
                       unitsIn = unitsIn
                       unitsOut = unitsOut
                       expected = expected
                       endQuantity = endQuantity
-                      difference = endQuantity - expected }))
+                      difference = (endQuantity |> Quantity.amount) - expected }))
             |> convertListOfResultsToResultsList
-            |> Result.map (List.sortBy (fun r -> r.securityName))
+            |> Result.map (List.sortBy fst >> List.map snd)
         return
-            { investmentAccountName = accountName
+            { investmentAccountId = investmentAccountId
               firstDate = firstDate
               secondDate = secondDate
               rows = rows }

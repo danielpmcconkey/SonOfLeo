@@ -299,9 +299,20 @@ type PositionsSliceTwoRoutesTests(fixture: TestDataFixture) =
                     { accountName = PF.alexBrokerage; firstDate = p.d3; secondDate = p.d4 }
             let! accountId = PositionsLookups.investmentAccountIdOf (fresh ()) PF.alexBrokerage
             let! computed = rollForward (fresh ()) accountId p.d3 p.d4
-            let fromComputed =
+            let! fromComputed =
                 computed.rows
-                |> List.map (fun r -> r.securityName, r.startQuantity, r.unitsIn, r.unitsOut, r.expected, r.endQuantity, r.difference)
+                |> List.map (fun r ->
+                    r.securityId
+                    |> Security.fetchById (fresh ())
+                    |> Result.map (fun security ->
+                        security |> Security.securityName |> PositionsComponent.SecurityName.value,
+                        r.startQuantity |> Business.FinancialServices.Quantity.amount,
+                        r.unitsIn,
+                        r.unitsOut,
+                        r.expected,
+                        r.endQuantity |> Business.FinancialServices.Quantity.amount,
+                        r.difference))
+                |> convertListOfResultsToResultsList
             let fromRoute =
                 returned.rows
                 |> List.map (fun r -> r.securityName, r.startQuantity, r.unitsIn, r.unitsOut, r.expected, r.endQuantity, r.difference)

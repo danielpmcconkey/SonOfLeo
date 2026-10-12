@@ -4,6 +4,9 @@ open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
 open Business.FinancialServices.Positions.PositionsAuditableAction
+open Business.FinancialServices
+open Business.FinancialServices.Positions
+open Business.FinancialServices.Positions.PositionsComponent
 open Business.FinancialServices.Positions.PositionsError
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.UnitRollForward
@@ -34,13 +37,22 @@ module PF = PositionsFixture
 /// A row: Security name, start quantity, units in, units out, expected, end quantity and difference.
 type private Row = string * decimal * decimal * decimal * decimal * decimal * decimal
 
-let private rowOf (r: RollForwardRow) : Row =
-    r.securityName, r.startQuantity, r.unitsIn, r.unitsOut, r.expected, r.endQuantity, r.difference
+let private rowOf context (r: RollForwardRow) : Result<Row, IAppError> =
+    r.securityId
+    |> Security.fetchById context
+    |> Result.map (fun security ->
+        security |> Security.securityName |> SecurityName.value,
+        r.startQuantity |> Quantity.amount,
+        r.unitsIn,
+        r.unitsOut,
+        r.expected,
+        r.endQuantity |> Quantity.amount,
+        r.difference)
 
 let private rollForwardRows context account first second =
     PositionsLookups.investmentAccountIdOf context account
     |> Result.bind (fun accountId -> rollForward context accountId first second)
-    |> Result.map (fun r -> r.rows |> List.map rowOf)
+    |> Result.bind (fun r -> r.rows |> List.map (rowOf context) |> convertListOfResultsToResultsList)
 
 let private activity date kind security quantity amount : InvestmentActivityInput =
     { activityDate = date
