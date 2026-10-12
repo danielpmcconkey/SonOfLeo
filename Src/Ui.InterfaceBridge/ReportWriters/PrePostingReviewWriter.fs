@@ -15,6 +15,7 @@ open Business.FinancialServices.CashFlow.CashFlowComponent
 open Business.FinancialServices.Classification.ClassificationComponent
 open Business.CrossDomainOrchestration.PrePostingReview
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 open Ui.InterfaceBridge.ReportVisualizationAssets.BaseCssDeclarations
 open Ui.InterfaceBridge.ReportVisualizationAssets.ReportHeader
@@ -107,55 +108,7 @@ let private div ordinal className contents : DomElement =
 
 let private dateString (d: LocalDate) = d |> localDateToString "yyyy-MM-dd"
 
-/// A line with the names the report shows for its account, rule and agreement.
-type private NamedLine =
-    { line: PrePostingLine
-      accountCode: AccountCode
-      accountName: AccountName
-      ruleName: ClassificationRuleName option
-      agreementNames: (AgreementName * PaymentAgreementName) option }
-
-/// An entry with its source's name and its named lines.
-type private NamedEntry =
-    { entry: PrePostingEntry
-      sourceName: JournalRefFinancialInstitution
-      lines: NamedLine list }
-
-let private nameLine (context: Context.Context) (line: PrePostingLine) : Result<NamedLine, IAppError> =
-    result {
-        let! accountCode = line.accountId |> Account.idToCode context
-        let! accountName = line.accountId |> Account.idToName context
-        let! ruleName =
-            line.classificationRuleId
-            |> convertOptionToDesiredTypeWithFallibleConverter (
-                Business.FinancialServices.Classification.ClassificationRule.idToName context)
-        let! agreementNames =
-            line.agreement
-            |> convertOptionToDesiredTypeWithFallibleConverter (fun a ->
-                result {
-                    let! masterAgreementName =
-                        a.masterAgreementId |> Business.FinancialServices.CashFlow.MasterAgreement.idToName context
-                    let! paymentAgreementName =
-                        a.paymentAgreementId |> Business.FinancialServices.CashFlow.PaymentAgreement.idToName context
-                    return masterAgreementName, paymentAgreementName
-                })
-        return
-            { line = line
-              accountCode = accountCode
-              accountName = accountName
-              ruleName = ruleName
-              agreementNames = agreementNames }
-    }
-
-let private nameEntry (context: Context.Context) (entry: PrePostingEntry) : Result<NamedEntry, IAppError> =
-    result {
-        let! sourceName =
-            entry.ingestionSourceId |> Business.FinancialServices.DataIngestion.IngestionSource.idToName context
-        let! lines = entry.lines |> List.map (nameLine context) |> convertListOfResultsToResultsList
-        return { entry = entry; sourceName = sourceName; lines = lines }
-    }
-
-let private obligationElements (named: NamedLine) : DomElement list =
+let private obligationElements (named: PrePostingNamedLine) : DomElement list =
     match named.agreementNames with
     | None -> []
     | Some (masterAgreementName, paymentAgreementName) ->
@@ -172,7 +125,7 @@ let private obligationElements (named: NamedLine) : DomElement list =
                 div (20 + i) "obligation" [ span 10 "" text ])
         div 10 "obligation" [ span 10 "" agreementText ] :: paymentLines
 
-let private lineElement ordinal (named: NamedLine) : DomElement =
+let private lineElement ordinal (named: PrePostingNamedLine) : DomElement =
     let line = named.line
     let accountText = $"{named.accountCode |> AccountCode.value} · {named.accountName |> AccountName.value}"
     let memoText = line.memo |> Option.map JournalEntryLineMemo.value |> Option.defaultValue ""
@@ -185,7 +138,7 @@ let private lineElement ordinal (named: NamedLine) : DomElement =
               tab 40 "Memo" memoText ]
          :: (obligationElements named |> List.map (fun e -> { e with ordinal = e.ordinal + 1 })))
 
-let private entryElement ordinal (named: NamedEntry) : DomElement =
+let private entryElement ordinal (named: PrePostingNamedEntry) : DomElement =
     let entry = named.entry
     let head =
         div 1 "entry-head"
@@ -199,7 +152,7 @@ let private writeNamed
     (pathInfo: OutputPathInput)
     (generatedAt: Instant)
     (runDate: LocalDate)
-    (entries: NamedEntry list)
+    (entries: PrePostingNamedEntry list)
     : Result<PrePostingReviewReturn, IAppError> =
     let head = {
         charSet = "utf-8"
@@ -242,6 +195,6 @@ let write
     (entries: PrePostingEntry list)
     : Result<PrePostingReviewReturn, IAppError> =
     result {
-        let! namedEntries = entries |> List.map (nameEntry context) |> convertListOfResultsToResultsList
+        let! namedEntries = entries |> List.map (``name [PrePostingEntry]`` context) |> convertListOfResultsToResultsList
         return! namedEntries |> writeNamed pathInfo generatedAt runDate
     }

@@ -49,6 +49,55 @@ let ``convert [TrialBalanceRowFlattened list] to [TrialBalanceReturnRow list]``
     |> List.map (``convert [TrialBalanceRowFlattened] to [TrialBalanceReturnRow]`` context)
     |> convertListOfResultsToResultsList
 
+/// A pre-posting line with the names its returns show for its account, rule and agreement.
+type PrePostingNamedLine =
+    { line: PrePostingLine
+      accountCode: AccountCode
+      accountName: AccountName
+      ruleName: ClassificationRuleName option
+      agreementNames: (AgreementName * PaymentAgreementName) option }
+
+/// An entry with its source's name and its named lines.
+type PrePostingNamedEntry =
+    { entry: PrePostingEntry
+      sourceName: JournalRefFinancialInstitution
+      lines: PrePostingNamedLine list }
+
+let private ``name [PrePostingLine]`` (context: Context.Context) (line: PrePostingLine) : Result<PrePostingNamedLine, IAppError> =
+    result {
+        let! accountCode = line.accountId |> Account.idToCode context
+        let! accountName = line.accountId |> Account.idToName context
+        let! ruleName =
+            line.classificationRuleId
+            |> convertOptionToDesiredTypeWithFallibleConverter (
+                Business.FinancialServices.Classification.ClassificationRule.idToName context)
+        let! agreementNames =
+            line.agreement
+            |> convertOptionToDesiredTypeWithFallibleConverter (fun a ->
+                result {
+                    let! masterAgreementName =
+                        a.masterAgreementId |> Business.FinancialServices.CashFlow.MasterAgreement.idToName context
+                    let! paymentAgreementName =
+                        a.paymentAgreementId |> Business.FinancialServices.CashFlow.PaymentAgreement.idToName context
+                    return masterAgreementName, paymentAgreementName
+                })
+        return
+            { line = line
+              accountCode = accountCode
+              accountName = accountName
+              ruleName = ruleName
+              agreementNames = agreementNames }
+    }
+
+/// Resolves an entry's source name and each line's account, rule and agreement names; the converter and the writer share it.
+let ``name [PrePostingEntry]`` (context: Context.Context) (entry: PrePostingEntry) : Result<PrePostingNamedEntry, IAppError> =
+    result {
+        let! sourceName =
+            entry.ingestionSourceId |> Business.FinancialServices.DataIngestion.IngestionSource.idToName context
+        let! lines = entry.lines |> List.map (``name [PrePostingLine]`` context) |> convertListOfResultsToResultsList
+        return { entry = entry; sourceName = sourceName; lines = lines }
+    }
+
 let ``convert [PrePostingEntry list] to [PrePostingEntryReturnRow list]``
     (context: Context.Context)
     (entries: PrePostingEntry list)
@@ -62,48 +111,30 @@ let ``convert [PrePostingEntry list] to [PrePostingEntryReturnRow list]``
           invoiceAmount = p.invoiceAmount |> InvoiceAmount.value |> Money.amount
           paymentState = p.paymentState |> PaymentState.toString
           instanceDate = p.instanceDate }
-    let convertLine (l: PrePostingLine) : Result<PrePostingLineReturnRow, IAppError> =
-        result {
-            let! accountCode = l.accountId |> ``convert AccountId to AccountCodeString`` context
-            let! accountName = l.accountId |> ``convert AccountId to AccountNameString`` context
-            let! ruleName =
-                l.classificationRuleId
-                |> convertOptionToDesiredTypeWithFallibleConverter (
-                    Business.FinancialServices.Classification.ClassificationRule.idToName context)
-            let! paymentAgreementName =
-                l.agreement
-                |> convertOptionToDesiredTypeWithFallibleConverter (fun a ->
-                    a.paymentAgreementId |> Business.FinancialServices.CashFlow.PaymentAgreement.idToName context)
-            let! masterAgreementName =
-                l.agreement
-                |> convertOptionToDesiredTypeWithFallibleConverter (fun a ->
-                    a.masterAgreementId |> Business.FinancialServices.CashFlow.MasterAgreement.idToName context)
-            return
-                { stageEntryLineId = l.stageEntryLineId |> StageEntryLineId.value
-                  lineType = l.lineType |> JournalEntryLineType.toString
-                  amount = l.amount |> Money.amount
-                  memo = l.memo |> Option.map JournalEntryLineMemo.value
-                  accountCode = accountCode
-                  accountName = accountName
-                  ruleName = ruleName |> Option.map ClassificationRuleName.value
-                  paymentAgreementName = paymentAgreementName |> Option.map PaymentAgreementName.value
-                  masterAgreementName = masterAgreementName |> Option.map AgreementName.value
-                  payments = l.payments |> List.map convertPayment }
-        }
+    let convertLine (named: PrePostingNamedLine) : PrePostingLineReturnRow =
+        let l = named.line
+        { stageEntryLineId = l.stageEntryLineId |> StageEntryLineId.value
+          lineType = l.lineType |> JournalEntryLineType.toString
+          amount = l.amount |> Money.amount
+          memo = l.memo |> Option.map JournalEntryLineMemo.value
+          accountCode = named.accountCode |> AccountCode.value
+          accountName = named.accountName |> AccountName.value
+          ruleName = named.ruleName |> Option.map ClassificationRuleName.value
+          paymentAgreementName = named.agreementNames |> Option.map (snd >> PaymentAgreementName.value)
+          masterAgreementName = named.agreementNames |> Option.map (fst >> AgreementName.value)
+          payments = l.payments |> List.map convertPayment }
     entries
     |> List.map (fun e ->
-        result {
-            let! sourceName = e.ingestionSourceId |> Business.FinancialServices.DataIngestion.IngestionSource.idToName context
-            let! lines = e.lines |> List.map convertLine |> convertListOfResultsToResultsList
-            return
-                { stageEntryHeaderId = e.stageEntryHeaderId |> StageEntryHeaderId.value
-                  entryDate = e.entryDate
-                  description = e.description |> JournalEntryDescription.value
-                  sourceName = sourceName |> JournalRefFinancialInstitution.value
-                  fiReference = e.fiReference |> JournalExternalReferenceText.value
-                  status = e.status |> StagedEntryStatus.toString
-                  lines = lines }
-        })
+        e
+        |> ``name [PrePostingEntry]`` context
+        |> Result.map (fun named ->
+            { stageEntryHeaderId = e.stageEntryHeaderId |> StageEntryHeaderId.value
+              entryDate = e.entryDate
+              description = e.description |> JournalEntryDescription.value
+              sourceName = named.sourceName |> JournalRefFinancialInstitution.value
+              fiReference = e.fiReference |> JournalExternalReferenceText.value
+              status = e.status |> StagedEntryStatus.toString
+              lines = named.lines |> List.map convertLine }))
     |> convertListOfResultsToResultsList
 
 /// Resolves each row's account code to its account, failing with the code of the first that resolves to none.
@@ -211,14 +242,6 @@ let private ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]
     : NetWorthLedgerAccountReturnRow =
     { code = row.code; name = row.name; balance = row.balance |> Money.amount; balanceDate = row.balanceDate }
 
-/// The owners' names, sorted.
-let private ownerNamesOf (context: Context.Context) (ownerIds: Set<Business.General.PersonComponent.PersonId>) =
-    ownerIds
-    |> Set.toList
-    |> List.map (Business.General.Person.idToName context >> Result.map Business.General.PersonComponent.PersonName.value)
-    |> convertListOfResultsToResultsList
-    |> Result.map List.sort
-
 /// A net worth investment account's name and its owners' names.
 let netWorthInvestmentAccountNames
     (context: Context.Context)
@@ -226,7 +249,7 @@ let netWorthInvestmentAccountNames
     : Result<string * string list, IAppError> =
     result {
         let! name = account.investmentAccountId |> Business.FinancialServices.Positions.InvestmentAccount.idToName context
-        let! owners = account.ownerIds |> ownerNamesOf context
+        let! owners = account.ownerIds |> PositionsFieldConverters.ownerNamesOf context
         return name |> InvestmentAccountName.value, owners
     }
 
@@ -234,7 +257,7 @@ let netWorthInvestmentAccountNames
 let netWorthPropertyNames (context: Context.Context) (property: NetWorthProperty) : Result<string * string list, IAppError> =
     result {
         let! name = property.propertyId |> Business.FinancialServices.Positions.Property.idToName context
-        let! owners = property.ownerIds |> ownerNamesOf context
+        let! owners = property.ownerIds |> PositionsFieldConverters.ownerNamesOf context
         return name |> PropertyName.value, owners
     }
 
@@ -311,7 +334,7 @@ let ``convert [WealthGroup] to [WealthGroupContract]``
         id
         |> Business.FinancialServices.Positions.DimensionValue.idToName context
         |> Result.map (DimensionValueName.value >> WealthGroupContract.Named)
-    | GroupOwners ownerIds -> ownerIds |> ownerNamesOf context |> Result.map WealthGroupContract.Owners
+    | GroupOwners ownerIds -> ownerIds |> PositionsFieldConverters.ownerNamesOf context |> Result.map WealthGroupContract.Owners
     | WealthGroup.Unassigned -> Ok WealthGroupContract.Unassigned
 
 /// The order groups are shown in: named groups by name, owner groups by their owners' names, unassigned last.

@@ -516,6 +516,47 @@ Written by the session that did this plan. Fill it in as you go (§0 step 4).
 - `traceability-audit.sh .`: Invariants 1 and 2 clean.
 - `validate.py`: VALID. `model_drift.py`: NO DRIFT.
 
+**Final** (branch head after E1, `sonofleo_test` dropped and rebuilt by
+`setup-throwaway-test-db.sh`, clean build):
+
+- Build: 0 warnings, 0 errors.
+- `Tests.Isolated`: 530 passed, 0 failed.
+- `Tests.Integrated`: 1778 passed, 0 failed.
+- `Checks/run-all.sh`: 12 passed, 0 failed, 1 skipped (check-traceability
+  skips off main).
+- `traceability-audit.sh .`: Invariants 1 and 2 clean.
+- `validate.py`: VALID. `model_drift.py`: NO DRIFT.
+- Every numbered item A1 to E1 is done; none skipped. No migration.
+
+**Route tests.** No payload or route-output assertion under
+`Tests/Tests.Integrated/InterfaceBridge/` changed. Nine files changed in
+setup, expected-side construction or destructuring only:
+
+- `PositionsSliceTwoRoutes.fs` REQ-POS-13.1 (A1 #002): the error case's
+  fourth field is compared to `ActivityShapeProblem.toString
+  QuantityMissing`, the same text the message always showed.
+- `IngestionRoutes.fs` (A1 #005): `rejectionOf` destructures the
+  `(lines, group, error)` tuple instead of the deleted record; same values.
+- `ClassificationRuleRoutes.fs` FetchClassificationRuleById (A2): the
+  expected side adds `|> RulePriority.value` because the accessor returns
+  `RulePriority`; the payload and comparison are unchanged.
+- `CashFlowRoutes.fs` (A3, three places): the `AgreementFilter` type
+  annotation follows its move to `CashFlowComponent`.
+- `AccountRoutes.fs`, `FiscalPeriodRoutes.fs` (B1): setup and cleanup
+  lookups go through the typed cache accessors.
+- `ReportRoutes.fs` (C1, C2): REQ-RPT-4.1 and REQ-RPT-6.4 build their
+  expected side from Account entities by ID instead of reading code and
+  name off the Business row; REQ-SYS-3.4 passes a context to the trial
+  balance and pre-posting writers.
+- `PositionsRoutes.fs` REQ-POS-8.1 (D1): the holdings-as-of expected side
+  builds names from the InvestmentAccount, Security and ledger Account
+  fetched by ID.
+- `PositionsSliceTwoRoutes.fs` REQ-POS-14.1 (D1): the roll-forward expected
+  side resolves each row's Security by ID and reads `Quantity.amount`.
+- `PositionsReportRoutes.fs` REQ-RPT-9.5 (D1) and REQ-RPT-8.6 (D3): the
+  data-only expected sides resolve owner, account and property names from
+  entities by ID and sort owners by name.
+
 ### 5.2 Per item
 (one entry per numbered item: what changed, commits, tests touched)
 
@@ -760,10 +801,167 @@ types. No function documentation named a deleted view or a moved sort.
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 
+Each perturbation was made in Src, the named tests were seen failing, and
+Src was restored from a copy before the item's commit.
+
+| Item | Perturbation in Src | What failed |
+|---|---|---|
+| A1 #002 | `ActivityShapeProblem.toString` output suffixed with "!" in `InvestmentActivity.confirmShape` | isolated REQ-POS-12.6 and route REQ-POS-13.1 |
+| A1 #003 | orphan reason choice inverted in `CashFlowOps` | 17 of 108 in InvoiceMatching, LinkageAndMatching, Cancellation |
+| A1 #004 | every protection reported as `RecordedInClassificationRun` in `StageEntryOrchestration` | 8 of 10 REQ-STG-6.5 tests |
+| A2 | `RulePriority.winner` picks the higher number | isolated REQ-CR-3.5, REQ-CR-3.6 |
+| A2 | `ClassificationRule.persist` binds priority + 1 | 5 of 49 ClassificationRuleCrud (REQ-CR-6.1 ×4, REQ-CR-1.22) |
+| C1 | row `accountId` replaced by a fresh ID in TrialBalance, PeriodActivity, BalanceSheetIntegrity | 49 of 83 across TrialBalance, PeriodActivity, Reconciliation, BalanceSheetIntegrity, StageEntryPosting, ReportRoutes (every changed lookup) |
+| C1 order | `childrenInTrialBalanceOrder` sorted descending | REQ-RPT-1.6, REQ-RPT-6.3 |
+| C2 | fresh account, agreement and source IDs; payment amount and dates swapped; `tryLast` for the rule | 8 of 25 PrePostingReview |
+| C2 | rule replaced by a fresh ID (and `Some` for an unrecorded line) | all 7 REQ-RPT-7.3 |
+| C2 order | source name dropped from the entry sort | REQ-RPT-7.6 |
+| C2 order | payments reversed after their sort | REQ-RPT-7.4 |
+| C3 | fresh master and payment agreement IDs on projected invoices, bills to chase, posting transitions | 11 of 60 in Cancellation, CashFlowProjection, PaymentsToPosted, ProjectionRules |
+| C3 | fresh AccountId on projected accounts | 5 (CashFlowProjection helpers, REQ-CF-8.6, REQ-CF-8.7) |
+| C3 order | `fetchOpenComposites` result reversed | REQ-CF-14.12 |
+| C3 order | converter account sort descending; bills reversed after their sort | REQ-CF-8.11, each time |
+| D1 order | holdings-as-of ORDER BY descending | 7 of 65 incl. REQ-POS-8.4 |
+| D1 order | wealth-group sort removed from the converter | REQ-RPT-9.2 (both order tests), REQ-RPT-9.5 route |
+| D1 order | `wealthGroupOrder` puts unassigned first | REQ-RPT-9.2 order test, both rendered-table route tests |
+| D1 order | roll-forward sort reversed | 9 of 28 incl. REQ-POS-14.2, REQ-POS-14.1 route |
+| D1 | ledger account `None`, owners empty, lots reversed, group keys swapped | 10 of 31, every changed Business-tier assertion (REQ-POS-8.2, 8.3, REQ-RPT-9.2, 9.3) |
+| D2 order | snapshot lines, Holdings, Investment Account, Security and Property lists reversed | 24 of 469 incl. REQ-POS-11.2, 11.3, 11.5, 11.6, 7.3, 7.5 at both tiers |
+| D2 order | Property account-code sort reversed in the converter | 4 of 147 (REQ-POS-11.6 routes) |
+| D2 order | owner-name sort reversed in the converter | 4 of 213 (REQ-POS-11.3, 11.6 routes) |
+| D2 | activity `securityId` dropped; range account ID replaced | 11 of 42 (REQ-POS-12.1, 12.9, 13.2–13.5, 13.7) |
+| D3 order | property order and group-total sorts reversed in NetWorth | 6 of 62 incl. REQ-RPT-8.5 order tests |
+| D3 | owner sets emptied on investment and property rows | 2 of 62 (the REQ-RPT-8.5 owner assertions) |
+| D3 order | report owner-name sort reversed | 4 of 34 (REQ-RPT-8.6 route, REQ-RPT-9.2, 9.3, 9.5) |
+
+A4 (#067) changed test assertions only into accessor calls on the same
+values, so it had nothing to see fail. B1 and B2 changed no assertion.
+
 ### 5.4 Name-resolution notes
 (where a name came from the entity in hand, where from a cache; any
 stale-cache test data changed under §2 rule 2)
 
+- **Ledger reports (C1).** Converters and writers resolve account code and
+  name through `Account.idToCode` and `Account.idToName`. The report routes
+  write nothing, so every account is referenced.
+- **Pre-posting review (C2).** The converter and writer resolve account
+  code and name, rule name, payment and master agreement names and source
+  name through the caches; all are referenced. The source-name order stays
+  in `PrePostingReview`, which has the IngestionSource entity in hand.
+- **Cash flow (C3).** `Instance` no longer carries its master agreement's
+  name. `convert [Instance] to [InstanceReturn]` resolves it through
+  `MasterAgreement.idToName` for the InstanceComposite routes, which write
+  Instances but never the agreement's name. `convert [Agreement] to
+  [AgreementReturn]` passes the master agreement's name from the Agreement
+  in hand to its Instances, which is the 11a #094 stale-name trap avoided.
+  Projection and posting-transition converters resolve through the caches
+  (ProjectCashFlow writes nothing; the posting transition writes Payments
+  only) and sort on the resolved returns.
+- **Holdings, wealth, roll-forward (D1).** Account name, owners, ledger code
+  and name, and dimension value names come from the InvestmentAccount,
+  Person, Account and DimensionValue caches. The Security entity is fetched
+  for its name, ticker and dimensions. Wealth groups resolve through the
+  InvestmentAccount, DimensionValue and Person caches.
+- **Positions views (D2).** Each route's own entity supplies its own name
+  (the Security's from the Security, the account's from the
+  InvestmentAccount, the property's from the Property). Caches serve only
+  referenced records: owners (Person, sorted), linked ledger accounts
+  (Account), a holding's account and Security, dimension values.
+- **Net worth (D3).** Investment account, property and owner names resolve
+  through the InvestmentAccount, Property and Person caches, shared by the
+  converter and `NetWorthWriter`. The route writes nothing. Order stays in
+  the Business function, which has the entities.
+- Test-side lookups (`PositionsLookups.*NameOf` and the like) read entities,
+  not caches.
+- **No stale-cache case was hit**, so no test data changed under §2 rule 2.
+
 ### 5.5 ArchReviewer
 
+Run over `git diff origin/main...HEAD -- Src Checks` (76 files; local
+`main` was stale, see §5.6). Verdict: CONDITIONAL, with no real defect
+found: no wrong output, no stale name, no lost order. It confirmed names
+come from the entity in hand where the route has one, caches serve only
+referenced records with no invalidation, every resolution failure is an
+`IAppError`, the orders hold (`wealthGroupOrder`, the `collate "C"` ORDER
+BY, owner and property-account sorts, the REQ-CF-14.12 batch fetch), and
+no REQ annotation was added. Findings and what I did:
+
+- **Check 12, reinvention: owner-name resolution written twice**
+  (`ReportConverters` and `PositionsFieldConverters`). Fixed: the
+  `PositionsFieldConverters.ownerNamesOf` is public and `ReportConverters`
+  uses it.
+- **Check 12, reinvention: pre-posting names resolved twice** (the
+  converter and the writer). Fixed: `PrePostingNamedLine`,
+  `PrePostingNamedEntry` and ``name [PrePostingEntry]`` moved from the
+  writer to `ReportConverters`, and the converter and the writer both use
+  them. The reviewer also pointed at the ledger writers' `idToCode` plus
+  `idToName` pair; I left those, since each is two calls on one ID and a
+  helper would not remove any logic.
+- **Check 7, a comment restating `RulePriority.winner`.** Deleted.
+- **Check 6, `matchesAtLowest`.** Renamed `matchesAtWinningPriority`.
+- **Check 5, `type private RejectedRecord` mid-file in
+  `StageEntryOrchestration`.** Left: the plan (#005) places it there, next
+  to the one function that uses it.
+- **Observation: holdings-as-of fetches each line's Security by ID.** Left:
+  the plan prescribes it; noted in case the report grows.
+
+After the fixes, the build had 0 warnings, Isolated 530 and Integrated 1778
+passed, Checks 12 passed with 1 skipped, and the model had its serving edges
+moved to match (3 added, 7 removed): NO DRIFT, VALID.
+
 ### 5.6 Disagreements, deviations, skipped items, things for Dan
+
+No item was skipped and no plan step contradicted Specs/Behavioral/.
+
+- **An F# resolution quirk (A4 #065, #067).** When a private record type and
+  its same-named accessor module sit side by side inside an orchestration
+  module (`InstanceOrchestration.InvoiceCompositeUpdate`), the fully
+  qualified `InstanceOrchestration.InvoiceCompositeUpdate.invoiceUpdates`
+  resolves to the type's private field and fails with "Field is not
+  static". `create` resolves, and with the module opened the short form
+  reaches the accessor. No Src caller outside the module needs it today;
+  tests go through `Tests.Helpers.CompositeUpdates`, and two test files
+  open `ClassificationComponent` for the same reason. Worth knowing before
+  the next private record nested in an orchestration module.
+- **Behaviour change (B1).** The period-key temporal filter in
+  `SharedContractConverters` validated the trimmed key, then looked up the
+  raw string. It now looks up the trimmed `FiscalPeriodKey`, so a key with
+  surrounding spaces resolves, as it already did through
+  `FiscalPeriodFieldConverters`. The error text on a miss is unchanged.
+- **Holdings-as-of query (D1).** The query still selects account and
+  security names, only to label `AccountSnapshotLine.confirmFigures` errors
+  and for its ORDER BY; nothing returned carries them. The ORDER BY uses
+  `collate "C"` so the order matches the ordinal F# sort it replaced
+  whatever the database collation. The dimension-value joins the plan
+  describes were dropped: the line carries `securityId` (#014) and the
+  converter reads dimensions from the Security, so nothing would consume
+  those IDs.
+- **Wealth history (D1)** fetches all Securities once per call, only when
+  grouping by dimension, because Security has no fetch-by-ID-list.
+- **Cash flow IDs (C3).** Projected invoices, bills to chase and posting
+  transitions carry master and payment agreement IDs and account IDs in
+  place of names; I read the plan's "agreement" fields that way for each
+  row type. The 11a #094 route test (CashFlowRoutes REQ-CF-14.2 and
+  REQ-CF-14.8) stays green unchanged but asserts no Instance's master
+  agreement name, so the stale-name trap it was written for is guarded by
+  the converter's design, not by a test. A follow-up test is worth adding.
+- **Property account order (D2).** The account-code order of a Property's
+  linked accounts now lives only in the converter; the Business-tier
+  PropertyMaintenance summary sorts its own resolved list, and the route
+  tests assert the order (seen failing).
+- **Small D2 consequences.** The out-of-scope pre-ledger balance converter
+  builds its `LedgerAccountReturn` inline now that the string-pair
+  converter is gone. A Security not held that `recordActivity` names in its
+  error is fetched by ID (loud if missing) instead of falling back to its
+  Guid text.
+- **Opens after a type move (D3).** `NetWorthHistoryWriter` needed
+  `PositionsComponent` opened when `NetWorthDate` moved. Without it, its
+  two matches compiled as variable patterns (warnings FS0049 and FS0026);
+  the zero-warning build caught it. Any later type move should watch for
+  the same thing.
+- **Model (E1).** The `StageEntryComponent` box on the Application tiers
+  view was widened to take the function `BaseStageEntry` realized; the
+  layout is yours to redo.
+- **Local `main` was stale** in this container. Every comparison here used
+  `origin/main` (2dcfebe).
+- No stale-cache cases (§5.4).

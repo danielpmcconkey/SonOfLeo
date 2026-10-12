@@ -42,7 +42,7 @@ let private ``convert [Map<Dimension, DimensionValueId>] to [Map<Dimension, stri
     |> Result.map Map.ofList
 
 /// The owners' names, sorted.
-let private ownerNamesOf (context: Context.Context) (ownerIds: Set<PersonComponent.PersonId>) : Result<string list, IAppError> =
+let ownerNamesOf (context: Context.Context) (ownerIds: Set<PersonComponent.PersonId>) : Result<string list, IAppError> =
     ownerIds
     |> Set.toList
     |> List.map (Person.idToName context >> Result.map PersonComponent.PersonName.value)

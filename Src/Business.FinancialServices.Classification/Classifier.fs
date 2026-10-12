@@ -38,9 +38,9 @@ let classifyCandidate
         | 1 -> ClassificationResult.create candidate (OneMatch (matches |> List.head))
         | _ ->
             let winningPriority = matches |> List.map PrioritizedMatch.priority |> List.reduce RulePriority.winner
-            let matchesAtLowest = matches |> List.filter(fun x -> (x |> PrioritizedMatch.priority) = winningPriority)
-            if matchesAtLowest |> List.length = 1
-            then  ClassificationResult.create candidate (ManyMatchesClearWinner (matchesAtLowest |> List.head, matches))
+            let matchesAtWinningPriority = matches |> List.filter(fun x -> (x |> PrioritizedMatch.priority) = winningPriority)
+            if matchesAtWinningPriority |> List.length = 1
+            then  ClassificationResult.create candidate (ManyMatchesClearWinner (matchesAtWinningPriority |> List.head, matches))
             else ClassificationResult.create candidate (ManyMatchesTied matches)
     }
     
