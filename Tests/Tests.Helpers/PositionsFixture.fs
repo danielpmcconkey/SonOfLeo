@@ -184,6 +184,12 @@ module PositionsLookups =
         |> orFail
         |> Business.FinancialServices.Positions.InvestmentAccount.investmentAccountName
         |> InvestmentAccountName.value
+    let propertyNameOf context propertyId =
+        propertyId
+        |> Business.FinancialServices.Positions.Property.fetchById context
+        |> orFail
+        |> Business.FinancialServices.Positions.Property.propertyName
+        |> PropertyName.value
     let dimensionValueNameOf context dimensionValueId =
         dimensionValueId
         |> Business.FinancialServices.Positions.DimensionValue.fetchById context

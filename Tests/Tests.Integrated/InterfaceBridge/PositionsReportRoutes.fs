@@ -155,7 +155,9 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
             Assert.Equal<(string * string list * string * string * LocalDate * string * decimal * decimal option) list>(
                 computed.investmentAccounts
                 |> List.map (fun a ->
-                    a.investmentAccountName, a.ownerNames, a.accountGroup, a.taxTreatment |> TaxTreatment.toString,
+                    a.investmentAccountId |> PositionsLookups.investmentAccountNameOf (fresh ()),
+                    a.ownerIds |> PositionsLookups.personNamesOf (fresh ()),
+                    a.accountGroup |> AccountGroup.value, a.taxTreatment |> TaxTreatment.toString,
                     a.snapshotDate, a.provenance |> Provenance.toString, a.marketValue |> Money.amount,
                     a.contributionBasis |> Option.map Money.amount),
                 row.investmentAccounts
@@ -165,7 +167,8 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
             Assert.Equal<(string * string * string list * decimal * LocalDate option * bool * (string * string * decimal) list * decimal) list>(
                 computed.properties
                 |> List.map (fun x ->
-                    x.propertyName, x.propertyUse |> PropertyUse.toString, x.ownerNames, x.value |> Money.amount,
+                    x.propertyId |> PositionsLookups.propertyNameOf (fresh ()), x.propertyUse |> PropertyUse.toString,
+                    x.ownerIds |> PositionsLookups.personNamesOf (fresh ()), x.value |> Money.amount,
                     (match x.valueSource with
                      | ValuationDated d -> Some d
                      | PurchaseBasisValue -> None),
@@ -185,7 +188,7 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
                 computed.investmentsByTaxTreatment |> List.map (fun (t, m) -> t |> TaxTreatment.toString, m |> Money.amount),
                 row.investmentsByTaxTreatment |> List.map (fun g -> g.group, g.marketValue))
             Assert.Equal<(string * decimal) list>(
-                computed.investmentsByAccountGroup |> List.map (fun (g, m) -> g, m |> Money.amount),
+                computed.investmentsByAccountGroup |> List.map (fun (g, m) -> g |> AccountGroup.value, m |> Money.amount),
                 row.investmentsByAccountGroup |> List.map (fun g -> g.group, g.marketValue))
             Assert.Contains(("F-1275", "Fixture Positions Cash", 5000.00M), row.assetAccounts |> returnedRows)
             let residence = row.properties |> List.find (fun x -> x.propertyName = PF.residence)

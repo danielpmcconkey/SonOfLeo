@@ -726,6 +726,21 @@ sorts names. `personNamesOf` stays for D3. Tests: the seven Business-tier
 maintenance and recording files resolve names by ID through new
 entity-reading `PositionsLookups` helpers; no route test changed.
 
+**D3. R3 net worth** (#028, #073 R3 half, 11a #054). One commit.
+`NetWorthInvestmentAccount` carries `investmentAccountId`, `ownerIds` and
+`AccountGroup` and moved to `PositionsComponent` with `NetWorthComponent`
+(and its `toString`) and `NetWorthDate`; `classifyDate` stays.
+`NetWorthProperty` carries `propertyId` and `ownerIds`.
+`investmentsByAccountGroup` is `(AccountGroup * Money) list`, still sorted
+by the group's text. `computeNetWorth` keeps both name orders from the
+entities it already holds (accounts from the holdings-as-of order,
+properties sorted by name). `ReportConverters` gains
+`netWorthInvestmentAccountNames` and `netWorthPropertyNames`, which the
+converter and the writer's new context-taking `write` share.
+`personNamesOf` is deleted. Tests: `NetWorth.fs`, `NetWorthPreLedger.fs`
+and `NetWorthHistory.fs` resolve names by ID (the property lookup takes the
+test's transaction context); one route test changed setup only (§5.1).
+
 ### 5.3 Fail-then-pass evidence
 (table: perturbation → what failed)
 

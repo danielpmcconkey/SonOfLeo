@@ -41,7 +41,14 @@ module PF = PositionsFixture
    Net worth = 5,000.00 + 12,920.00 + 670,000.00 - (-25.00) - (300,000.00 + 180,000.00) = 207,945.00
    12 Example Street's equity = 420,000.00 - 300,000.00 = 120,000.00; investable wealth = 207,945.00 - 120,000.00 = 87,945.00 *)
 
-let private netWorthAsOf date = computeNetWorth (Context.create NoTransaction FetchOnly) date
+let private readOnly = Context.create NoTransaction FetchOnly
+
+let private netWorthAsOf date = computeNetWorth readOnly date
+
+let private accountNameOf context (a: NetWorthInvestmentAccount) =
+    a.investmentAccountId |> PositionsLookups.investmentAccountNameOf context
+
+let private propertyNameOf context (p: NetWorthProperty) = p.propertyId |> PositionsLookups.propertyNameOf context
 
 let private amount (m: Money.Money) = m |> Money.amount
 
@@ -49,7 +56,7 @@ let private rows (accounts: LedgerAccountBalance list) = accounts |> List.map (f
 
 let private codes (accounts: LedgerAccountBalance list) = accounts |> List.map (fun r -> r.code)
 
-let private property name (result: NetWorth) = result.properties |> List.find (fun p -> p.propertyName = name)
+let private property context name (result: NetWorth) = result.properties |> List.find (fun p -> propertyNameOf context p = name)
 
 [<Collection("SharedTestData")>]
 type NetWorthTests(fixture: TestDataFixture) =
@@ -86,7 +93,7 @@ type NetWorthTests(fixture: TestDataFixture) =
         |> Result.map (fun result ->
             Assert.DoesNotContain("F-1260", result.assetAccounts |> codes)
             Assert.Equal(5000.00M, result.totalLedgerAssets |> amount)
-            let brokerage = result.investmentAccounts |> List.find (fun a -> a.investmentAccountName = PF.alexBrokerage)
+            let brokerage = result.investmentAccounts |> List.find (fun a -> accountNameOf readOnly a = PF.alexBrokerage)
             Assert.Equal(1620.00M, brokerage.marketValue |> amount)
             Assert.Equal(12920.00M, result.totalInvestments |> amount)
             Assert.Equal(207945.00M, result.netWorth |> amount))
@@ -98,7 +105,7 @@ type NetWorthTests(fixture: TestDataFixture) =
         |> Result.map (fun result ->
             Assert.DoesNotContain("F-1510", result.assetAccounts |> codes)
             Assert.Equal(5000.00M, result.totalLedgerAssets |> amount)
-            Assert.Equal(420000.00M, (result |> property PF.residence).value |> amount)
+            Assert.Equal(420000.00M, (result |> property readOnly PF.residence).value |> amount)
             Assert.Equal(670000.00M, result.totalPropertyValues |> amount))
         |> railroadWrapper
 
@@ -115,7 +122,7 @@ type NetWorthTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-8.2 a Property not owned on the date contributes nothing to net worth`` () =
         netWorthAsOf p.monthEnd3
         |> Result.map (fun result ->
-            Assert.Equal<string list>([ PF.residence; PF.rental ], result.properties |> List.map (fun p -> p.propertyName))
+            Assert.Equal<string list>([ PF.residence; PF.rental ], result.properties |> List.map (propertyNameOf readOnly))
             Assert.Equal(670000.00M, result.totalPropertyValues |> amount))
         |> railroadWrapper
 
@@ -123,10 +130,10 @@ type NetWorthTests(fixture: TestDataFixture) =
     member _.``REQ-RPT-8.3 a Property's equity is its value on the date less the as-of balance of each of its mortgage accounts`` () =
         netWorthAsOf p.monthEnd3
         |> Result.map (fun result ->
-            let residence = result |> property PF.residence
+            let residence = result |> property readOnly PF.residence
             Assert.Equal<(string * string * decimal) list>([ "F-2310", "Fixture Residence Mortgage", 300000.00M ], residence.mortgageAccounts |> rows)
             Assert.Equal(120000.00M, residence.equity |> amount)
-            Assert.Equal(70000.00M, (result |> property PF.rental).equity |> amount))
+            Assert.Equal(70000.00M, (result |> property readOnly PF.rental).equity |> amount))
         |> railroadWrapper
 
     [<Fact>]
@@ -153,7 +160,7 @@ type NetWorthTests(fixture: TestDataFixture) =
         // the day before 12 Example Street's acquisition, after 7 Former Example Road's disposal
         netWorthAsOf (p.residenceAcquired.PlusDays(-1))
         |> Result.map (fun result ->
-            Assert.Equal<string list>([ PF.rental ], result.properties |> List.map (fun p -> p.propertyName))
+            Assert.Equal<string list>([ PF.rental ], result.properties |> List.map (propertyNameOf readOnly))
             Assert.Equal(result.netWorth |> amount, result.investableWealth |> amount))
         |> railroadWrapper
 
@@ -210,7 +217,8 @@ type NetWorthTests(fixture: TestDataFixture) =
                   PF.samHsa, [ PF.sam ], "Health", TaxTreatment.Hsa, p.d1, Reported, 300.00M, None ],
                 result.investmentAccounts
                 |> List.map (fun a ->
-                    a.investmentAccountName, a.ownerNames, a.accountGroup, a.taxTreatment, a.snapshotDate, a.provenance,
+                    accountNameOf readOnly a, a.ownerIds |> PositionsLookups.personNamesOf readOnly,
+                    a.accountGroup |> AccountGroup.value, a.taxTreatment, a.snapshotDate, a.provenance,
                     a.marketValue |> amount, a.contributionBasis |> Option.map amount)))
         |> railroadWrapper
 
@@ -225,7 +233,8 @@ type NetWorthTests(fixture: TestDataFixture) =
                   [ "F-2320", "Fixture Rental Mortgage", 180000.00M ], 70000.00M ],
                 result.properties
                 |> List.map (fun p ->
-                    p.propertyName, p.propertyUse, p.ownerNames, p.value |> amount, p.valueSource, p.mortgageAccounts |> rows,
+                    propertyNameOf readOnly p, p.propertyUse, p.ownerIds |> PositionsLookups.personNamesOf readOnly,
+                    p.value |> amount, p.valueSource, p.mortgageAccounts |> rows,
                     p.equity |> amount)))
         |> railroadWrapper
 
@@ -249,7 +258,7 @@ type NetWorthTests(fixture: TestDataFixture) =
                 result.investmentsByTaxTreatment |> List.map (fun (t, m) -> t, m |> amount))
             Assert.Equal<(string * decimal) list>(
                 [ "Brokerage", 7120.00M; "Health", 300.00M; "Retirement", 5500.00M ],
-                result.investmentsByAccountGroup |> List.map (fun (g, m) -> g, m |> amount)))
+                result.investmentsByAccountGroup |> List.map (fun (g, m) -> g |> AccountGroup.value, m |> amount)))
         |> railroadWrapper
 
     [<Fact>]
@@ -280,7 +289,7 @@ type NetWorthTests(fixture: TestDataFixture) =
                 Assert.DoesNotContain("RPT-8.2A", result.assetAccounts |> codes)
                 Assert.DoesNotContain("RPT-8.2B", result.assetAccounts |> codes)
                 Assert.Equal(5000.00M, result.totalLedgerAssets |> amount)
-                Assert.Equal(150000.00M, (result |> property "56 Example Lane").value |> amount)
+                Assert.Equal(150000.00M, (result |> property context "56 Example Lane").value |> amount)
                 Assert.Equal(820000.00M, result.totalPropertyValues |> amount)
                 Assert.Equal(357945.00M, result.netWorth |> amount)
             })
@@ -328,7 +337,7 @@ type NetWorthTests(fixture: TestDataFixture) =
                 Assert.Equal(49975.00M, result.totalLiabilities |> amount)
                 // subtracted twice it would be 107,945.00; not at all, 207,945.00
                 Assert.Equal(157945.00M, result.netWorth |> amount)
-                Assert.Equal<string list>([ PF.residence; PF.rental ], result.properties |> List.map (fun x -> x.propertyName))
+                Assert.Equal<string list>([ PF.residence; PF.rental ], result.properties |> List.map (propertyNameOf context))
             })
 
     [<Fact>]
@@ -352,7 +361,7 @@ type NetWorthTests(fixture: TestDataFixture) =
         runCommandRouteAndAutoRollback PositionsRecordAccountSnapshots (fun context ->
             result {
                 let! withLots = computeNetWorth context p.monthEnd3
-                let joint = withLots.investmentAccounts |> List.find (fun a -> a.investmentAccountName = PF.jointBrokerage)
+                let joint = withLots.investmentAccounts |> List.find (fun a -> accountNameOf context a = PF.jointBrokerage)
                 Assert.Equal(5500.00M, joint.marketValue |> amount)
                 Assert.Equal(12920.00M, withLots.totalInvestments |> amount)
                 Assert.Equal(207945.00M, withLots.netWorth |> amount)
@@ -405,14 +414,14 @@ type NetWorthTests(fixture: TestDataFixture) =
                 Assert.Equal<string list>(result.liabilityAccounts |> codes |> List.sort, result.liabilityAccounts |> codes)
                 Assert.Equal<(string * string * decimal) list>(
                     [ "F-2391", "Order test first mortgage", 0.00M; "F-2392", "Order test second mortgage", 0.00M ],
-                    (result |> property "01 Example Lane").mortgageAccounts |> rows)
+                    (result |> property context "01 Example Lane").mortgageAccounts |> rows)
                 Assert.Equal<(string * decimal) list>(
                     [ PF.alexBrokerage, 1620.00M; PF.alexRoth, 1500.00M; "Example Order Brokerage", 0.00M
                       PF.jointBrokerage, 5500.00M; PF.sam401k, 4000.00M; PF.samHsa, 300.00M ],
-                    result.investmentAccounts |> List.map (fun a -> a.investmentAccountName, a.marketValue |> amount))
+                    result.investmentAccounts |> List.map (fun a -> accountNameOf context a, a.marketValue |> amount))
                 Assert.Equal<(string * decimal) list>(
                     [ "01 Example Lane", 100000.00M; PF.residence, 420000.00M; PF.rental, 250000.00M ],
-                    result.properties |> List.map (fun x -> x.propertyName, x.value |> amount))
+                    result.properties |> List.map (fun x -> propertyNameOf context x, x.value |> amount))
             })
         |> railroadWrapper
 
@@ -428,5 +437,5 @@ type NetWorthTests(fixture: TestDataFixture) =
                 result.investmentsByTaxTreatment |> List.map (fun (t, m) -> t, m |> amount))
             Assert.Equal<(string * decimal) list>(
                 [ "Brokerage", 7120.00M; "Health", 300.00M; "Retirement", 5500.00M ],
-                result.investmentsByAccountGroup |> List.map (fun (g, m) -> g, m |> amount)))
+                result.investmentsByAccountGroup |> List.map (fun (g, m) -> g |> AccountGroup.value, m |> amount)))
         |> railroadWrapper

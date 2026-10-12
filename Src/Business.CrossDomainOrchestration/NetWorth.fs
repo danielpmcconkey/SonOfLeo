@@ -4,6 +4,7 @@ open NodaTime
 open App.Utility.IAppError
 open App.Utility.Result
 open App.Session
+open Business.General.PersonComponent
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Ledger.AccountComponent
@@ -21,49 +22,15 @@ type LedgerAccountBalance = {
     balanceDate: LocalDate option
 }
 
-type NetWorthInvestmentAccount = {
-    investmentAccountName: string
-    ownerNames: string list
-    accountGroup: string
-    taxTreatment: TaxTreatment
-    snapshotDate: LocalDate
-    provenance: Provenance
-    marketValue: Money.Money
-    contributionBasis: Money.Money option
-}
-
 type NetWorthProperty = {
-    propertyName: string
+    propertyId: PropertyId
     propertyUse: PropertyUse
-    ownerNames: string list
+    ownerIds: Set<PersonId>
     value: Money.Money
     valueSource: PropertyValueSource
     mortgageAccounts: LedgerAccountBalance list
     equity: Money.Money
 }
-
-/// The five parts of net worth that may have nothing contributing to them on a date.
-type NetWorthComponent =
-    | CountedLedgerAssets
-    | Investments
-    | PropertyValues
-    | Liabilities
-    | OwnedPropertyMortgages
-
-module NetWorthComponent =
-    let toString netWorthComponent =
-        match netWorthComponent with
-        | CountedLedgerAssets -> "CountedLedgerAssets"
-        | Investments -> "Investments"
-        | PropertyValues -> "PropertyValues"
-        | Liabilities -> "Liabilities"
-        | OwnedPropertyMortgages -> "OwnedPropertyMortgages"
-
-/// Where a date's account balances come from: the ledger, for a date in a fiscal period, or Pre-ledger Balances, for a
-/// date before the first fiscal period. A date never draws on both.
-type NetWorthDate =
-    | FiscalPeriodDate
-    | PreLedgerDate
 
 type NetWorth = {
     asOf: LocalDate
@@ -80,7 +47,7 @@ type NetWorth = {
     netWorth: Money.Money
     investableWealth: Money.Money
     investmentsByTaxTreatment: (TaxTreatment * Money.Money) list
-    investmentsByAccountGroup: (string * Money.Money) list
+    investmentsByAccountGroup: (AccountGroup * Money.Money) list
     absentComponents: NetWorthComponent list
 }
 
@@ -178,19 +145,10 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
             |> List.map (fun account ->
                 result {
                     let! marketValue = account.lines |> List.map (fun l -> l.marketValue) |> sumOf
-                    let! investmentAccount =
-                        match
-                            investmentAccounts
-                            |> List.tryFind (fun a -> InvestmentAccount.investmentAccountId a = account.investmentAccountId)
-                        with
-                        | Some a -> Ok a
-                        | None -> error (PositionsInvestmentAccountIdDoesntExist(account.investmentAccountId |> InvestmentAccountId.value))
-                    let! ownerNames = account.ownerIds |> PersonOrchestration.personNamesOf context
                     return
-                        { investmentAccountName =
-                            investmentAccount |> InvestmentAccount.investmentAccountName |> InvestmentAccountName.value
-                          ownerNames = ownerNames
-                          accountGroup = account.accountGroup |> AccountGroup.value
+                        { investmentAccountId = account.investmentAccountId
+                          ownerIds = account.ownerIds
+                          accountGroup = account.accountGroup
                           taxTreatment = account.taxTreatment
                           snapshotDate = account.snapshotDate
                           provenance = account.provenance
@@ -204,7 +162,6 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
             |> List.map (fun property ->
                 result {
                     let value, source = Valuation.valueOn asOf property valuations
-                    let! ownerNames = property |> Property.owners |> PersonOrchestration.personNamesOf context
                     let mortgageRows =
                         property
                         |> Property.mortgageAccountIds
@@ -215,9 +172,9 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
                     let! mortgageTotal = mortgageRows |> List.map (fun r -> r.balance) |> sumOf
                     let! equity = Money.subtractVal1FromVal2 mortgageTotal value
                     return
-                        { propertyName = property |> Property.propertyName |> PropertyName.value
+                        { propertyId = property |> Property.propertyId
                           propertyUse = property |> Property.propertyUse
-                          ownerNames = ownerNames
+                          ownerIds = property |> Property.owners
                           value = value
                           valueSource = source
                           mortgageAccounts = mortgageRows

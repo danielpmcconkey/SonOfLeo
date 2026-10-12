@@ -450,6 +450,41 @@ module WealthGrouping =
         | Some grouping -> Ok grouping
         | None -> error (PositionsInvalidWealthGrouping raw)
 
+/// The five parts of net worth that may have nothing contributing to them on a date.
+type NetWorthComponent =
+    | CountedLedgerAssets
+    | Investments
+    | PropertyValues
+    | Liabilities
+    | OwnedPropertyMortgages
+
+module NetWorthComponent =
+    let toString netWorthComponent =
+        match netWorthComponent with
+        | CountedLedgerAssets -> "CountedLedgerAssets"
+        | Investments -> "Investments"
+        | PropertyValues -> "PropertyValues"
+        | Liabilities -> "Liabilities"
+        | OwnedPropertyMortgages -> "OwnedPropertyMortgages"
+
+/// Where a date's account balances come from: the ledger, for a date in a fiscal period, or Pre-ledger Balances, for a
+/// date before the first fiscal period. A date never draws on both.
+type NetWorthDate =
+    | FiscalPeriodDate
+    | PreLedgerDate
+
+/// An Investment Account's part in net worth: its latest snapshot on or before the date, at market value.
+type NetWorthInvestmentAccount = {
+    investmentAccountId: InvestmentAccountId
+    ownerIds: Set<Business.General.PersonComponent.PersonId>
+    accountGroup: AccountGroup
+    taxTreatment: TaxTreatment
+    snapshotDate: LocalDate
+    provenance: Provenance
+    marketValue: Money.Money
+    contributionBasis: Money.Money option
+}
+
 /// One value of a wealth grouping. Owners is the complete owner set of an account, so a joint account is its own group.
 /// Unassigned holds the lines whose Security has no value in the dimension grouped by.
 type WealthGroup =

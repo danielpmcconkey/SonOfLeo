@@ -211,51 +211,90 @@ let private ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]
     : NetWorthLedgerAccountReturnRow =
     { code = row.code; name = row.name; balance = row.balance |> Money.amount; balanceDate = row.balanceDate }
 
-let ``convert [NetWorth] to [NetWorthReturnRow]`` (netWorth: NetWorth) : NetWorthReturnRow =
+/// The owners' names, sorted.
+let private ownerNamesOf (context: Context.Context) (ownerIds: Set<Business.General.PersonComponent.PersonId>) =
+    ownerIds
+    |> Set.toList
+    |> List.map (Business.General.Person.idToName context >> Result.map Business.General.PersonComponent.PersonName.value)
+    |> convertListOfResultsToResultsList
+    |> Result.map List.sort
+
+/// A net worth investment account's name and its owners' names.
+let netWorthInvestmentAccountNames
+    (context: Context.Context)
+    (account: NetWorthInvestmentAccount)
+    : Result<string * string list, IAppError> =
+    result {
+        let! name = account.investmentAccountId |> Business.FinancialServices.Positions.InvestmentAccount.idToName context
+        let! owners = account.ownerIds |> ownerNamesOf context
+        return name |> InvestmentAccountName.value, owners
+    }
+
+/// A net worth property's name and its owners' names.
+let netWorthPropertyNames (context: Context.Context) (property: NetWorthProperty) : Result<string * string list, IAppError> =
+    result {
+        let! name = property.propertyId |> Business.FinancialServices.Positions.Property.idToName context
+        let! owners = property.ownerIds |> ownerNamesOf context
+        return name |> PropertyName.value, owners
+    }
+
+let ``convert [NetWorth] to [NetWorthReturnRow]`` (context: Context.Context) (netWorth: NetWorth) : Result<NetWorthReturnRow, IAppError> =
     let groupTotal (group, total) : NetWorthGroupTotalReturnRow = { group = group; marketValue = total |> Money.amount }
-    { asOf = netWorth.asOf
-      isPreLedger = (netWorth.netWorthDate = PreLedgerDate)
-      assetAccounts = netWorth.assetAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
-      liabilityAccounts =
-        netWorth.liabilityAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
-      investmentAccounts =
-        netWorth.investmentAccounts
-        |> List.map (fun a ->
-            { accountName = a.investmentAccountName
-              owners = a.ownerNames
-              accountGroup = a.accountGroup
-              taxTreatment = a.taxTreatment |> Business.FinancialServices.Positions.PositionsComponent.TaxTreatment.toString
-              snapshotDate = a.snapshotDate
-              provenance = a.provenance |> Business.FinancialServices.Positions.PositionsComponent.Provenance.toString
-              marketValue = a.marketValue |> Money.amount
-              contributionBasis = a.contributionBasis |> Option.map Money.amount })
-      properties =
-        netWorth.properties
-        |> List.map (fun p ->
-            { propertyName = p.propertyName
-              propertyUse = p.propertyUse |> Business.FinancialServices.Positions.PositionsComponent.PropertyUse.toString
-              owners = p.ownerNames
-              value = p.value |> Money.amount
-              valuationDate =
-                match p.valueSource with
-                | ValuationDated d -> Some d
-                | PurchaseBasisValue -> None
-              valueIsPurchaseBasis = (p.valueSource = PurchaseBasisValue)
-              mortgageAccounts = p.mortgageAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
-              equity = p.equity |> Money.amount })
-      totalLedgerAssets = netWorth.totalLedgerAssets |> Money.amount
-      totalInvestments = netWorth.totalInvestments |> Money.amount
-      totalPropertyValues = netWorth.totalPropertyValues |> Money.amount
-      totalLiabilities = netWorth.totalLiabilities |> Money.amount
-      totalOwnedPropertyMortgages = netWorth.totalOwnedPropertyMortgages |> Money.amount
-      netWorth = netWorth.netWorth |> Money.amount
-      investableWealth = netWorth.investableWealth |> Money.amount
-      investmentsByTaxTreatment =
-        netWorth.investmentsByTaxTreatment
-        |> List.map (fun (t, total) ->
-            groupTotal (t |> Business.FinancialServices.Positions.PositionsComponent.TaxTreatment.toString, total))
-      investmentsByAccountGroup = netWorth.investmentsByAccountGroup |> List.map groupTotal
-      absentComponents = netWorth.absentComponents |> List.map NetWorthComponent.toString }
+    result {
+        let! investmentAccounts =
+            netWorth.investmentAccounts
+            |> List.map (fun a ->
+                netWorthInvestmentAccountNames context a
+                |> Result.map (fun (accountName, owners) ->
+                    { accountName = accountName
+                      owners = owners
+                      accountGroup = a.accountGroup |> AccountGroup.value
+                      taxTreatment = a.taxTreatment |> TaxTreatment.toString
+                      snapshotDate = a.snapshotDate
+                      provenance = a.provenance |> Provenance.toString
+                      marketValue = a.marketValue |> Money.amount
+                      contributionBasis = a.contributionBasis |> Option.map Money.amount }))
+            |> convertListOfResultsToResultsList
+        let! properties =
+            netWorth.properties
+            |> List.map (fun p ->
+                netWorthPropertyNames context p
+                |> Result.map (fun (propertyName, owners) ->
+                    { propertyName = propertyName
+                      propertyUse = p.propertyUse |> PropertyUse.toString
+                      owners = owners
+                      value = p.value |> Money.amount
+                      valuationDate =
+                        match p.valueSource with
+                        | ValuationDated d -> Some d
+                        | PurchaseBasisValue -> None
+                      valueIsPurchaseBasis = (p.valueSource = PurchaseBasisValue)
+                      mortgageAccounts =
+                        p.mortgageAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
+                      equity = p.equity |> Money.amount }))
+            |> convertListOfResultsToResultsList
+        return
+            { asOf = netWorth.asOf
+              isPreLedger = (netWorth.netWorthDate = PreLedgerDate)
+              assetAccounts =
+                netWorth.assetAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
+              liabilityAccounts =
+                netWorth.liabilityAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
+              investmentAccounts = investmentAccounts
+              properties = properties
+              totalLedgerAssets = netWorth.totalLedgerAssets |> Money.amount
+              totalInvestments = netWorth.totalInvestments |> Money.amount
+              totalPropertyValues = netWorth.totalPropertyValues |> Money.amount
+              totalLiabilities = netWorth.totalLiabilities |> Money.amount
+              totalOwnedPropertyMortgages = netWorth.totalOwnedPropertyMortgages |> Money.amount
+              netWorth = netWorth.netWorth |> Money.amount
+              investableWealth = netWorth.investableWealth |> Money.amount
+              investmentsByTaxTreatment =
+                netWorth.investmentsByTaxTreatment |> List.map (fun (t, total) -> groupTotal (t |> TaxTreatment.toString, total))
+              investmentsByAccountGroup =
+                netWorth.investmentsByAccountGroup |> List.map (fun (g, total) -> groupTotal (g |> AccountGroup.value, total))
+              absentComponents = netWorth.absentComponents |> List.map NetWorthComponent.toString }
+    }
 
 let ``convert [WealthGroup] to [WealthGroupContract]``
     (context: Context.Context)
@@ -272,12 +311,7 @@ let ``convert [WealthGroup] to [WealthGroupContract]``
         id
         |> Business.FinancialServices.Positions.DimensionValue.idToName context
         |> Result.map (DimensionValueName.value >> WealthGroupContract.Named)
-    | GroupOwners ownerIds ->
-        ownerIds
-        |> Set.toList
-        |> List.map (Business.General.Person.idToName context >> Result.map Business.General.PersonComponent.PersonName.value)
-        |> convertListOfResultsToResultsList
-        |> Result.map (List.sort >> WealthGroupContract.Owners)
+    | GroupOwners ownerIds -> ownerIds |> ownerNamesOf context |> Result.map WealthGroupContract.Owners
     | WealthGroup.Unassigned -> Ok WealthGroupContract.Unassigned
 
 /// The order groups are shown in: named groups by name, owner groups by their owners' names, unassigned last.

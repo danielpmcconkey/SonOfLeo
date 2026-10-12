@@ -10,6 +10,7 @@ open Business.FinancialServices
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.LedgerAuditableAction
 open Business.FinancialServices.Positions.PositionsError
+open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.NetWorth
 open Ui.InterfaceBridge.CommandRoute
@@ -148,7 +149,7 @@ type NetWorthPreLedgerTests(fixture: TestDataFixture) =
         // 34 Example Avenue: 250,000.00 less F-2320's 185,000.00 of monthEnd8
         netWorthAsOf p.monthEnd8
         |> Result.map (fun r ->
-            let rental = r.properties |> List.find (fun prop -> prop.propertyName = PF.rental)
+            let rental = r.properties |> List.find (fun prop -> prop.propertyId |> PositionsLookups.propertyNameOf (Context.create NoTransaction FetchOnly) = PF.rental)
             Assert.Equal<(string * decimal * LocalDate option) list>(
                 [ "F-2320", 185000.00M, Some p.monthEnd8 ], rental.mortgageAccounts |> dated)
             Assert.Equal(65000.00M, rental.equity |> amount))

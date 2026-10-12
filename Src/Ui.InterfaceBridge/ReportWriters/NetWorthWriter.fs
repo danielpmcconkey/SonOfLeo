@@ -5,10 +5,12 @@ open App.Utility.IAppError
 open App.Utility.Result
 open App.Utility.File
 open App.Utility.Calendar
+open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.NetWorth
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
+open Ui.InterfaceBridge.BoundaryConverters.ReportConverters
 open Ui.InterfaceBridge.ReportVisualizationAssets.HtmlComponents
 open Ui.InterfaceBridge.ReportVisualizationAssets.BaseCssDeclarations
 open Ui.InterfaceBridge.ReportVisualizationAssets.ReportHeader
@@ -113,14 +115,15 @@ let private ledgerTable ordinal (netWorthDate: NetWorthDate) (rows: LedgerAccoun
 
 let private joined (names: string list) = names |> String.concat ", "
 
-let private investmentsBlock ordinal (accounts: NetWorthInvestmentAccount list) =
+/// Each account with its name and its owners' names.
+let private investmentsBlock ordinal (accounts: (NetWorthInvestmentAccount * (string * string list)) list) =
     let rows =
         accounts
-        |> List.mapi (fun i a ->
+        |> List.mapi (fun i (a, (accountName, ownerNames)) ->
             row (10 + i) None
-                [ (fun o -> textCell o a.investmentAccountName)
-                  (fun o -> textCell o (joined a.ownerNames))
-                  (fun o -> textCell o a.accountGroup)
+                [ (fun o -> textCell o accountName)
+                  (fun o -> textCell o (joined ownerNames))
+                  (fun o -> textCell o (a.accountGroup |> AccountGroup.value))
                   (fun o -> textCell o (a.taxTreatment |> TaxTreatment.toString))
                   (fun o -> textCell o $"{dateString a.snapshotDate} ({a.provenance |> Provenance.toString})")
                   (fun o -> moneyCell o a.marketValue)
@@ -134,8 +137,13 @@ let private investmentsBlock ordinal (accounts: NetWorthInvestmentAccount list) 
               "Market value", true; "Contribution basis", true ]
             rows ]
 
-let private propertiesBlock ordinal (netWorthDate: NetWorthDate) (properties: NetWorthProperty list) =
-    let propertyTable i (p: NetWorthProperty) =
+/// Each property with its name and its owners' names.
+let private propertiesBlock
+    ordinal
+    (netWorthDate: NetWorthDate)
+    (properties: (NetWorthProperty * (string * string list)) list)
+    =
+    let propertyTable i (p: NetWorthProperty, (propertyName: string, ownerNames: string list)) =
         let source =
             match p.valueSource with
             | ValuationDated d -> $"valuation of {dateString d}"
@@ -151,7 +159,7 @@ let private propertiesBlock ordinal (netWorthDate: NetWorthDate) (properties: Ne
                           | _ -> textCell o "")
                       (fun o -> moneyCell o m.balance) ])
         table (10 + i)
-            [ $"{p.propertyName} ({p.propertyUse |> PropertyUse.toString}), owned by {joined p.ownerNames}", false
+            [ $"{propertyName} ({p.propertyUse |> PropertyUse.toString}), owned by {joined ownerNames}", false
               "Source", false; "Amount", true ]
             ([ row 10 None [ (fun o -> textCell o "Value"); (fun o -> textCell o source); (fun o -> moneyCell o p.value) ] ]
              @ mortgageRows
@@ -175,10 +183,12 @@ let private subtotalsBlock ordinal title (totals: (string * Money.Money) list) =
         [ table 10 [ "", false; "Market value", true ]
             (totals |> List.mapi (fun i (group, total) -> row (10 + i) None [ (fun o -> textCell o group); (fun o -> moneyCell o total) ])) ]
 
-let write
+let private writeNamed
     (pathInfo: OutputPathInput)
     (generatedAt: Instant)
     (netWorth: NetWorth)
+    (investmentAccounts: (NetWorthInvestmentAccount * (string * string list)) list)
+    (properties: (NetWorthProperty * (string * string list)) list)
     : Result<NetWorthReturn, IAppError> =
     let asOfString = netWorth.asOf |> dateString
     let head = {
@@ -205,13 +215,14 @@ let write
                   [ element 10 Paragraph (Class "pre-ledger-note") [ element 1 (NoTag(encode dateNote)) NoIdentifier [] ]
                     element 20 Paragraph (Class "absent-note") [ element 1 (NoTag(encode absentNote)) NoIdentifier [] ] ]
               block 1 "Counted ledger assets" [ ledgerTable 10 netWorth.netWorthDate netWorth.assetAccounts ]
-              investmentsBlock 2 netWorth.investmentAccounts
-              propertiesBlock 3 netWorth.netWorthDate netWorth.properties
+              investmentsBlock 2 investmentAccounts
+              propertiesBlock 3 netWorth.netWorthDate properties
               block 4 "Liabilities" [ ledgerTable 10 netWorth.netWorthDate netWorth.liabilityAccounts ]
               totalsBlock 5 netWorth
               subtotalsBlock 6 "Investments by tax treatment"
                   (netWorth.investmentsByTaxTreatment |> List.map (fun (t, m) -> t |> TaxTreatment.toString, m))
-              subtotalsBlock 7 "Investments by account group" netWorth.investmentsByAccountGroup ]
+              subtotalsBlock 7 "Investments by account group"
+                  (netWorth.investmentsByAccountGroup |> List.map (fun (g, m) -> g |> AccountGroup.value, m)) ]
     let footer = createReportFooter generatedAt
     let section = { ordinal = 10; elementType = Section; identifierType = (Class "report"); contents = [ header; reportBody; footer ] }
     let htmlWrapper: HtmlWrapper = {
@@ -227,4 +238,23 @@ let write
             |> HtmlWrapper.toString
             |> writeTextFile path
         return NetWorthReturn.Report { fullyQualifiedPath = path }
+    }
+
+/// Names each investment account and property, keeping the order net worth gives them, then writes the report.
+let write
+    (context: Context.Context)
+    (pathInfo: OutputPathInput)
+    (generatedAt: Instant)
+    (netWorth: NetWorth)
+    : Result<NetWorthReturn, IAppError> =
+    result {
+        let! investmentAccounts =
+            netWorth.investmentAccounts
+            |> List.map (fun a -> netWorthInvestmentAccountNames context a |> Result.map (fun names -> a, names))
+            |> convertListOfResultsToResultsList
+        let! properties =
+            netWorth.properties
+            |> List.map (fun p -> netWorthPropertyNames context p |> Result.map (fun names -> p, names))
+            |> convertListOfResultsToResultsList
+        return! writeNamed pathInfo generatedAt netWorth investmentAccounts properties
     }

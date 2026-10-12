@@ -10,6 +10,7 @@ open Business.FinancialServices
 open Business.FinancialServices.Ledger.FiscalPeriodComponent
 open Business.FinancialServices.Ledger.LedgerAuditableAction
 open Business.FinancialServices.Positions.PositionsError
+open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration
 open Business.CrossDomainOrchestration.NetWorth
 open Business.CrossDomainOrchestration.NetWorthHistory

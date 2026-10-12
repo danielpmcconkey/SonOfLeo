@@ -106,9 +106,10 @@ let private netWorth payload _ =
         let! computed = computeNetWorth context input.asOf.asOf
         let! (netWorthReturn: NetWorthReturn) =
             match input.reportOutput with
-            | OutputSpecifier.DataOnly -> Ok(NetWorthReturn.DataOnly(computed |> ``convert [NetWorth] to [NetWorthReturnRow]``))
+            | OutputSpecifier.DataOnly ->
+                computed |> ``convert [NetWorth] to [NetWorthReturnRow]`` context |> Result.map NetWorthReturn.DataOnly
             | OutputSpecifier.Report outputPathInput ->
-                computed |> NetWorthWriter.write outputPathInput (context |> Context.getInitiationInstant)
+                computed |> NetWorthWriter.write context outputPathInput (context |> Context.getInitiationInstant)
         return! netWorthReturn |> Json.toJson<NetWorthReturn>
     }
 

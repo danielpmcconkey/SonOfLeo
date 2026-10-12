@@ -8,6 +8,7 @@ open App.Session
 open Business.FinancialServices
 open Business.FinancialServices.Ledger
 open Business.FinancialServices.Positions.PositionsError
+open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.NetWorth
 
 /// Net worth on one month-end, reduced to its totals, whether the date is pre-ledger, and what is absent.

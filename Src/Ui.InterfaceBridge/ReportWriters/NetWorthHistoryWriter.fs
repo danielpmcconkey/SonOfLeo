@@ -6,6 +6,7 @@ open App.Utility.Result
 open App.Utility.File
 open App.Utility.Calendar
 open Business.FinancialServices
+open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.NetWorth
 open Business.CrossDomainOrchestration.NetWorthHistory
 open Ui.InterfaceBridge.InterfaceContracts.ReportsContracts
