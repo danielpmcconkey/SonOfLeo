@@ -317,6 +317,107 @@ let private rollInvestmentAccountForward payload _ =
             return! returned |> Json.toJson<RollForwardReturn>
         })
 
+// ---- Balance Accounts ----
+
+let private balanceAccountReturn context balanceAccount =
+    balanceAccount
+    |> ``convert [BalanceAccount] to [BalanceAccountReturn]`` context
+    |> Result.bind Json.toJson<BalanceAccountReturn>
+
+let private createBalanceAccount payload _ =
+    runCommandRouteAndAutoCompleteTransaction PositionsCreateBalanceAccount (fun context ->
+        result {
+            let! input = Json.fromJson<BalanceAccountCreateInput> payload
+            let! name = input.balanceAccountName |> BalanceAccountName.create
+            let! kind = input.kind |> BalanceAccountKind.fromString
+            let! institution = input.institution |> Institution.create
+            let! owners = input.owners |> ``convert [PersonNameString list] to [PersonId list]`` context
+            let! balanceAccount = BalanceAccountOrchestration.constructNewAndPersist context name kind institution owners
+            return! balanceAccountReturn context balanceAccount
+        })
+
+let private updateBalanceAccount payload _ =
+    runCommandRouteAndAutoCompleteTransaction PositionsUpdateBalanceAccount (fun context ->
+        result {
+            let! input = Json.fromJson<BalanceAccountUpdateInput> payload
+            let! fieldUpdates = input |> ``convert [BalanceAccountUpdateInput] to [BalanceAccountFieldUpdates]`` context
+            let! balanceAccount = BalanceAccountOrchestration.updateBalanceAccount context fieldUpdates
+            return! balanceAccountReturn context balanceAccount
+        })
+
+let private deleteBalanceAccount payload _ =
+    runCommandRouteAndAutoCompleteTransaction PositionsDeleteBalanceAccount (fun context ->
+        result {
+            let! input = Json.fromJson<BalanceAccountDeleteInput> payload
+            let! balanceAccountId =
+                input.balanceAccountName |> ``convert [BalanceAccountNameString] to [BalanceAccountId]`` context
+            let! deleted = BalanceAccountOrchestration.deleteBalanceAccount context balanceAccountId
+            return! balanceAccountReturn context deleted
+        })
+
+let private listBalanceAccounts _ _ =
+    readOnly (fun context ->
+        result {
+            let! balanceAccounts = BalanceAccountOrchestration.listBalanceAccounts context
+            let! returned =
+                balanceAccounts
+                |> List.map (``convert [BalanceAccount] to [BalanceAccountReturn]`` context)
+                |> convertListOfResultsToResultsList
+            return! returned |> Json.toJson<BalanceAccountReturn list>
+        })
+
+// ---- Balance Account Balances ----
+
+let private recordBalanceAccountBalances payload _ =
+    runCommandRouteAndAutoCompleteTransaction PositionsRecordBalanceAccountBalances (fun context ->
+        result {
+            let! input = Json.fromJson<BalanceAccountBalanceRecordInput> payload
+            let! names =
+                input.balances
+                |> List.map (fun (entry: BalanceAccountBalanceEntryInput) -> entry.balanceAccountName |> BalanceAccountName.create)
+                |> convertListOfResultsToResultsList
+            let! balances =
+                input.balances
+                |> List.map (``convert [BalanceAccountBalanceEntryInput] to [BalanceInput]`` context)
+                |> convertListOfResultsToResultsList
+            let! recorded = BalanceAccountOrchestration.recordBalances context balances
+            return!
+                List.zip names recorded
+                |> List.map (fun (name, r) ->
+                    ({ balance = r.balance |> ``convert [BalanceAccountBalance] to [BalanceAccountBalanceReturn]`` name
+                       replacedExisting = r.replacedExisting }
+                     : RecordedBalanceAccountBalanceReturn))
+                |> Json.toJson<RecordedBalanceAccountBalanceReturn list>
+        })
+
+let private deleteBalanceAccountBalance payload _ =
+    runCommandRouteAndAutoCompleteTransaction PositionsDeleteBalanceAccountBalance (fun context ->
+        result {
+            let! input = Json.fromJson<BalanceAccountBalanceDeleteInput> payload
+            let! name = input.balanceAccountName |> BalanceAccountName.create
+            let! balanceAccountId =
+                input.balanceAccountName |> ``convert [BalanceAccountNameString] to [BalanceAccountId]`` context
+            let! deleted = BalanceAccountOrchestration.deleteBalance context balanceAccountId input.balanceDate
+            return!
+                deleted
+                |> ``convert [BalanceAccountBalance] to [BalanceAccountBalanceReturn]`` name
+                |> Json.toJson<BalanceAccountBalanceReturn>
+        })
+
+let private listBalanceAccountBalances payload _ =
+    readOnly (fun context ->
+        result {
+            let! input = Json.fromJson<BalanceAccountBalanceListInput> payload
+            let! name = input.balanceAccountName |> BalanceAccountName.create
+            let! balanceAccountId =
+                input.balanceAccountName |> ``convert [BalanceAccountNameString] to [BalanceAccountId]`` context
+            let! balances = BalanceAccountOrchestration.listBalances context balanceAccountId input.beginDate input.endDate
+            return!
+                balances
+                |> List.map (``convert [BalanceAccountBalance] to [BalanceAccountBalanceReturn]`` name)
+                |> Json.toJson<BalanceAccountBalanceReturn list>
+        })
+
 // ---- Properties ----
 
 let private propertyReturn context property =
@@ -559,6 +660,53 @@ let positionsDomainCommandRoutes =
         inputContract = typeof<InvestmentActivityCoverageGapsInput>.Name
         outputContract = typeof<InvestmentActivityCoverageGapReturn list>.Name
         handler = listInvestmentActivityCoverageGaps }
+      { domain = "BalanceAccount"
+        verb = "Create"
+        description =
+          "Create a Balance Account: cash held or a debt owed outside any Investment Account. Name, kind (Cash or Debt; it never changes), institution and owners by Person name."
+        inputContract = typeof<BalanceAccountCreateInput>.Name
+        outputContract = typeof<BalanceAccountReturn>.Name
+        handler = createBalanceAccount }
+      { domain = "BalanceAccount"
+        verb = "Update"
+        description =
+          "Update a Balance Account's name, institution or owners, the Balance Account addressed by its current name. Owners are given as the complete new set. The kind cannot change."
+        inputContract = typeof<BalanceAccountUpdateInput>.Name
+        outputContract = typeof<BalanceAccountReturn>.Name
+        handler = updateBalanceAccount }
+      { domain = "BalanceAccount"
+        verb = "Delete"
+        description =
+          "Delete a Balance Account, addressed by name, with its owners. Refused while it has any Balance or is a Property's mortgage. Returns the Balance Account as it stood."
+        inputContract = typeof<BalanceAccountDeleteInput>.Name
+        outputContract = typeof<BalanceAccountReturn>.Name
+        handler = deleteBalanceAccount }
+      { domain = "BalanceAccount"
+        verb = "List"
+        description = "List every Balance Account ordered by name, with its kind, institution and owners' names. Read-only."
+        inputContract = typeof<NoInput>.Name
+        outputContract = typeof<BalanceAccountReturn list>.Name
+        handler = listBalanceAccounts }
+      { domain = "BalanceAccountBalance"
+        verb = "Record"
+        description =
+          "Record one or more Balances in one operation: all are recorded or none is. Each is a Balance Account by name, a date no later than today and an amount in the kind's own direction (held for Cash, owed for Debt), which may be zero or negative. A Balance for an account and date that already has one replaces it. Returns each as stored, marked new or replacement."
+        inputContract = typeof<BalanceAccountBalanceRecordInput>.Name
+        outputContract = typeof<RecordedBalanceAccountBalanceReturn list>.Name
+        handler = recordBalanceAccountBalances }
+      { domain = "BalanceAccountBalance"
+        verb = "Delete"
+        description =
+          "Delete the Balance of a Balance Account, by name, for a date. Returns it as it stood before deletion. This is a hard delete."
+        inputContract = typeof<BalanceAccountBalanceDeleteInput>.Name
+        outputContract = typeof<BalanceAccountBalanceReturn>.Name
+        handler = deleteBalanceAccountBalance }
+      { domain = "BalanceAccountBalance"
+        verb = "List"
+        description = "List a Balance Account's Balances between two dates, both included, in date order. Read-only."
+        inputContract = typeof<BalanceAccountBalanceListInput>.Name
+        outputContract = typeof<BalanceAccountBalanceReturn list>.Name
+        handler = listBalanceAccountBalances }
       { domain = "Property"
         verb = "Create"
         description =

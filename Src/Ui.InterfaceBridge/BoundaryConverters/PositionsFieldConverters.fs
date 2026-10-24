@@ -17,6 +17,7 @@ open Business.CrossDomainOrchestration.HoldingOrchestration
 open Business.CrossDomainOrchestration.AccountSnapshotOrchestration
 open Business.CrossDomainOrchestration.InvestmentActivityOrchestration
 open Business.CrossDomainOrchestration.UnitRollForward
+open Business.CrossDomainOrchestration.BalanceAccountOrchestration
 open Business.CrossDomainOrchestration.RealEstateOrchestration
 open Business.CrossDomainOrchestration.HoldingsAsOf
 open Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
@@ -105,6 +106,18 @@ let ``convert [PropertyNameString] to [PropertyId]`` (context: Context.Context) 
         match found with
         | Some property -> return property |> Property.propertyId
         | None -> return! error (PositionsPropertyNameDoesntMatch(name |> PropertyName.value))
+    }
+
+let ``convert [BalanceAccountNameString] to [BalanceAccountId]``
+    (context: Context.Context)
+    (nameString: string)
+    : Result<BalanceAccountId, IAppError> =
+    result {
+        let! name = nameString |> BalanceAccountName.create
+        let! found = BalanceAccount.fetchByName context name
+        match found with
+        | Some balanceAccount -> return balanceAccount |> BalanceAccount.balanceAccountId
+        | None -> return! error (PositionsBalanceAccountNameDoesntMatch(name |> BalanceAccountName.value))
     }
 
 // ---- Dimension Values ----
@@ -471,6 +484,68 @@ let ``convert [RollForward] to [RollForwardReturn]``
               secondDate = rollForward.secondDate
               rows = rows }
     }
+
+// ---- Balance Accounts ----
+
+let ``convert [BalanceAccount] to [BalanceAccountReturn]``
+    (context: Context.Context)
+    (balanceAccount: BalanceAccount.BalanceAccount)
+    : Result<BalanceAccountReturn, IAppError> =
+    result {
+        let! owners = balanceAccount |> BalanceAccount.owners |> ownerNamesOf context
+        return
+            { balanceAccountName = balanceAccount |> BalanceAccount.balanceAccountName |> BalanceAccountName.value
+              kind = balanceAccount |> BalanceAccount.kind |> BalanceAccountKind.toString
+              institution = balanceAccount |> BalanceAccount.institution |> Institution.value
+              owners = owners
+              createdAt = balanceAccount |> BalanceAccount.createdAt
+              modifiedAt = balanceAccount |> BalanceAccount.modifiedAt }
+    }
+
+let ``convert [BalanceAccountUpdateInput] to [BalanceAccountFieldUpdates]``
+    (context: Context.Context)
+    (input: BalanceAccountUpdateInput)
+    : Result<BalanceAccount.BalanceAccountFieldUpdates, IAppError> =
+    result {
+        let! balanceAccountId = input.balanceAccountName |> ``convert [BalanceAccountNameString] to [BalanceAccountId]`` context
+        let! balanceAccount = balanceAccountId |> BalanceAccount.fetchById context
+        let! nameUpdate = input.balanceAccountNameUpdate |> convertFieldUpdateToNewTypeFallible BalanceAccountName.create
+        let resultingName = nameUpdate |> valueOrCurrent (balanceAccount |> BalanceAccount.balanceAccountName)
+        let! institutionUpdate = input.institutionUpdate |> convertFieldUpdateToNewTypeFallible Institution.create
+        let! ownersUpdate =
+            input.ownersUpdate
+            |> convertFieldUpdateToNewTypeFallible (
+                ``convert [PersonNameString list] to [PersonId list]`` context
+                >> Result.bind (BalanceAccountOrchestration.ownerSetOf context resultingName)
+            )
+        return
+            { balanceAccountIdToUpdate = balanceAccountId
+              balanceAccountNameUpdate = nameUpdate
+              institutionUpdate = institutionUpdate
+              ownersUpdate = ownersUpdate }
+    }
+
+// ---- Balance Account Balances ----
+
+let ``convert [BalanceAccountBalanceEntryInput] to [BalanceInput]``
+    (context: Context.Context)
+    (input: BalanceAccountBalanceEntryInput)
+    : Result<BalanceAccountOrchestration.BalanceInput, IAppError> =
+    result {
+        let! balanceAccountId = input.balanceAccountName |> ``convert [BalanceAccountNameString] to [BalanceAccountId]`` context
+        let! amount = input.amount |> Money.fromDecimal
+        return balanceAccountId, input.balanceDate, amount
+    }
+
+let ``convert [BalanceAccountBalance] to [BalanceAccountBalanceReturn]``
+    (balanceAccountName: BalanceAccountName)
+    (balance: BalanceAccountBalance.BalanceAccountBalance)
+    : BalanceAccountBalanceReturn =
+    { balanceAccountName = balanceAccountName |> BalanceAccountName.value
+      balanceDate = balance |> BalanceAccountBalance.balanceDate
+      amount = balance |> BalanceAccountBalance.amount |> Money.amount
+      createdAt = balance |> BalanceAccountBalance.createdAt
+      modifiedAt = balance |> BalanceAccountBalance.modifiedAt }
 
 // ---- Properties ----
 

@@ -16,7 +16,7 @@ investment='DimensionValue Security InvestmentAccount Holding AccountSnapshotHea
 DimensionValueOrchestration SecurityOrchestration InvestmentAccountOrchestration
 HoldingOrchestration AccountSnapshotOrchestration HoldingsAsOf InvestmentWealthHistory
 AccountSnapshotLot InvestmentActivity InvestmentActivityCoverage InvestmentActivityOrchestration UnitRollForward'
-balance='BalanceAccount BalanceAccountBalance BalanceAccountOrchestration'
+balance='BalanceAccount BalanceAccountBalance'
 
 # Shared by both peers.
 shared='PositionsComponent PositionsError PositionsAuditableAction'

@@ -51,6 +51,7 @@
     <Compile Include="AccountSnapshotOrchestration.fs" />
     <Compile Include="InvestmentActivityOrchestration.fs" />
     <Compile Include="UnitRollForward.fs" />
+    <Compile Include="BalanceAccountOrchestration.fs" />
     <Compile Include="RealEstateOrchestration.fs" />
     <Compile Include="HoldingsAsOf.fs" />
     <Compile Include="NetWorth.fs" />

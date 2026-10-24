@@ -436,7 +436,45 @@ commit, lists them.
 three scans: real estate may not name investments; investments may name
 neither real estate nor balance modules; balance modules may name neither
 investments nor real estate. Real estate naming a balance module passes.
-Evidence in §5.3.
+Evidence in §5.3. (At B3 the list also named `BalanceAccountOrchestration`;
+B4 took it out, see B4 and §5.6.)
+
+**B4. Orchestration and routes.** `BalanceAccountOrchestration.fs`
+(compiled before `RealEstateOrchestration.fs`): `constructNewAndPersist`
+(name free, owners via its own `ownerSetOf`, shaped like the Property one),
+`updateBalanceAccount` (name free, owners re-checked against the resulting
+name), `listBalanceAccounts` (by name), `deleteBalanceAccount` (refused with
+`PositionsBalanceAccountHasBalances` while any Balance exists, then with
+`PositionsBalanceAccountIsPropertyMortgage` naming the Property),
+`recordBalances` (repeat check first, then per Balance the future-date check
+and replace-or-create, returning `RecordedBalance` with `replacedExisting`),
+`deleteBalance` (`PositionsBalanceDoesntExist` naming account and date) and
+`listBalances` (`PositionsBalanceListEndBeforeBegin`, as the snapshot and
+activity listings do). The delete guard needs
+`Property.fetchByMortgageBalanceAccountId`, added here rather than in B5.
+New error cases: `PositionsBalanceAccountHasBalances`,
+`PositionsBalanceAccountIsPropertyMortgage`,
+`PositionsBalanceAccountNameAlreadyExists`,
+`PositionsBalanceAccountNameDoesntMatch` (REQ-POS-11.9, raised by the bridge
+converter as Property's is), `PositionsBalanceAccountOwnerRepeated`,
+`PositionsBalanceDateLaterThanCurrentDate`, `PositionsBalanceDoesntExist`,
+`PositionsBalanceListEndBeforeBegin`, `PositionsBalanceRepeatedInRequest`.
+Bridge: contracts `BalanceAccountReturn`, `…CreateInput`, `…UpdateInput`
+(FieldUpdates for name, institution, owners; no kind), `…DeleteInput`,
+`BalanceAccountBalanceEntryInput`, `…RecordInput`, `…Return`,
+`RecordedBalanceAccountBalanceReturn`, `…DeleteInput`, `…ListInput`;
+converters ``convert [BalanceAccountNameString] to [BalanceAccountId]``,
+``convert [BalanceAccount] to [BalanceAccountReturn]`` (owners through the
+Person cache, the account's own name from the entity),
+``convert [BalanceAccountUpdateInput] to [BalanceAccountFieldUpdates]``,
+``convert [BalanceAccountBalanceEntryInput] to [BalanceInput]`` and
+``convert [BalanceAccountBalance] to [BalanceAccountBalanceReturn]``, which
+takes the Balance Account's name from the request, not the cache (§2 name
+rule 1). Routes `BalanceAccount Create|Update|Delete|List` and
+`BalanceAccountBalance Record|Delete|List`. No empty-request guard on Record:
+an empty list records nothing and returns nothing, and the spec names no
+error for it. Build 0 warnings; suites as before (only placeholders fail);
+quick checks green.
 
 ### 5.3 Fail-then-pass evidence
 
@@ -460,3 +498,15 @@ Evidence in §5.3.
 ### 5.5 ArchReviewer
 
 ### 5.6 Disagreements, deviations, things for Dan
+
+- **`BalanceAccountOrchestration` is in no peer-guard list.** The plan's B3
+  list is `BalanceAccount BalanceAccountBalance`, and the orchestration file
+  has to name `Property` for REQ-POS-16.10 (refuse deleting a Property's
+  mortgage, naming the Property). Listing it as a balance module would make
+  the guard fail on that. It stays unlisted, like `NetWorth`, as a file that
+  combines groups; the two entity modules are guarded.
+- **`BalanceAccountBalance.fetchLatestOnOrBefore` takes no account list.**
+  The plan says "for a set of accounts"; net worth always wants every
+  account, and an ID-list fetch would need the empty-list error case the
+  convention requires for nothing. It returns every account's latest Balance
+  on or before the date in one query.

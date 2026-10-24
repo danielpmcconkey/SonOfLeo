@@ -256,6 +256,18 @@ let fetchByMortgageAccountId (context: Context.Context) (accountId: AccountId) :
     fetchAny context (Some predicate) parameters AnyQuantityIsAcceptable
     |> Result.map List.tryHead
 
+let fetchByMortgageBalanceAccountId
+    (context: Context.Context)
+    (balanceAccountId: BalanceAccountId)
+    : Result<Property option, IAppError> =
+    let parameters = [ { name = "@balance_account_id"; value = UniqueId(balanceAccountId |> BalanceAccountId.value) } ]
+    let predicate =
+        """
+        exists (select 1 from positions.property_mortgage_balance_account pmba
+                where pmba.property_id = prop.unique_id and pmba.balance_account_id = @balance_account_id)"""
+    fetchAny context (Some predicate) parameters AnyQuantityIsAcceptable
+    |> Result.map List.tryHead
+
 let update (context: Context.Context) (fieldUpdates: PropertyFieldUpdates) : Result<Property, IAppError> =
     let propertyId = fieldUpdates.propertyIdToUpdate
     let uuid = propertyId |> PropertyId.value

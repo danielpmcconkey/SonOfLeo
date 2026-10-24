@@ -269,6 +269,51 @@ type RollForwardReturn = {
     rows: RollForwardRowReturn list
 }
 
+// ---- Balance Accounts ----
+
+type BalanceAccountReturn = {
+    balanceAccountName: string
+    kind: string
+    institution: string
+    owners: string list
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+type BalanceAccountCreateInput = { balanceAccountName: string; kind: string; institution: string; owners: string list }
+
+// the Balance Account is addressed by its current name; ownersUpdate carries the complete new set, and the kind never
+// changes
+type BalanceAccountUpdateInput = {
+    balanceAccountName: string
+    balanceAccountNameUpdate: FieldUpdate<string>
+    institutionUpdate: FieldUpdate<string>
+    ownersUpdate: FieldUpdate<string list>
+}
+
+type BalanceAccountDeleteInput = { balanceAccountName: string }
+
+// ---- Balance Account Balances ----
+
+type BalanceAccountBalanceEntryInput = { balanceAccountName: string; balanceDate: LocalDate; amount: decimal }
+
+// every Balance is recorded, or none is
+type BalanceAccountBalanceRecordInput = { balances: BalanceAccountBalanceEntryInput list }
+
+type BalanceAccountBalanceReturn = {
+    balanceAccountName: string
+    balanceDate: LocalDate
+    amount: decimal
+    createdAt: Instant
+    modifiedAt: Instant
+}
+
+type RecordedBalanceAccountBalanceReturn = { balance: BalanceAccountBalanceReturn; replacedExisting: bool }
+
+type BalanceAccountBalanceDeleteInput = { balanceAccountName: string; balanceDate: LocalDate }
+
+type BalanceAccountBalanceListInput = { balanceAccountName: string; beginDate: LocalDate; endDate: LocalDate }
+
 // ---- Properties ----
 
 type PropertyReturn = {

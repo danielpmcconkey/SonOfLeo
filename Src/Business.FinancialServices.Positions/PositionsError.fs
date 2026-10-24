@@ -31,11 +31,20 @@ type PositionsError =
     | PositionsAssetAccountAlreadyLinked of string * string
     | PositionsBalanceAccountBalanceIdDoesntExist of Guid
     | PositionsBalanceAccountBalanceUpdateNoOp
+    | PositionsBalanceAccountHasBalances of string
     | PositionsBalanceAccountHasNoOwners of string
     | PositionsBalanceAccountIdDoesntExist of Guid
+    | PositionsBalanceAccountIsPropertyMortgage of string * string
+    | PositionsBalanceAccountNameAlreadyExists of string
+    | PositionsBalanceAccountNameDoesntMatch of string
     | PositionsBalanceAccountNameIsEmpty of string
     | PositionsBalanceAccountNameTooLong of string * int
+    | PositionsBalanceAccountOwnerRepeated of string * string
     | PositionsBalanceAccountUpdateNoOp
+    | PositionsBalanceDateLaterThanCurrentDate of string * LocalDate
+    | PositionsBalanceDoesntExist of string * LocalDate
+    | PositionsBalanceListEndBeforeBegin of LocalDate * LocalDate
+    | PositionsBalanceRepeatedInRequest of string * LocalDate
     | PositionsBasisMethodNotAllowed of string * string * string
     | PositionsContributionBasisNegative of decimal
     | PositionsContributionBasisNotAllowed of string * string
@@ -168,11 +177,20 @@ type PositionsError =
             | PositionsAssetAccountAlreadyLinked(code, property) -> $"Ledger account {code} is already an asset account of Property \"{property}\"."
             | PositionsBalanceAccountBalanceIdDoesntExist uuid -> $"No Balance exists with ID {uuid}."
             | PositionsBalanceAccountBalanceUpdateNoOp -> "Updating the Balance record failed because at least one updatable parameter must be set."
+            | PositionsBalanceAccountHasBalances balanceAccount -> $"Balance Account \"{balanceAccount}\" cannot be deleted: it has Balances recorded."
             | PositionsBalanceAccountHasNoOwners balanceAccount -> $"Balance Account \"{balanceAccount}\" must have at least one owner."
             | PositionsBalanceAccountIdDoesntExist uuid -> $"No Balance Account exists with ID {uuid}."
+            | PositionsBalanceAccountIsPropertyMortgage(balanceAccount, property) -> $"Balance Account \"{balanceAccount}\" cannot be deleted: it is a mortgage of Property \"{property}\"."
+            | PositionsBalanceAccountNameAlreadyExists name -> $"A Balance Account named \"{name}\" already exists."
+            | PositionsBalanceAccountNameDoesntMatch name -> $"No Balance Account is named \"{name}\"."
             | PositionsBalanceAccountNameIsEmpty raw -> $"Balance Account name cannot be empty. Provided name is \"{raw}\"."
             | PositionsBalanceAccountNameTooLong(raw, max) -> $"Balance Account name cannot exceed {max} characters. Provided name is \"{raw}\"."
+            | PositionsBalanceAccountOwnerRepeated(balanceAccount, person) -> $"Balance Account \"{balanceAccount}\" names Person \"{person}\" more than once among its owners."
             | PositionsBalanceAccountUpdateNoOp -> "Updating the Balance Account record failed because at least one updatable parameter must be set."
+            | PositionsBalanceDateLaterThanCurrentDate(balanceAccount, date) -> $"A Balance of Balance Account \"{balanceAccount}\" cannot be dated {date}, later than the current date."
+            | PositionsBalanceDoesntExist(balanceAccount, date) -> $"Balance Account \"{balanceAccount}\" has no Balance dated {date}."
+            | PositionsBalanceListEndBeforeBegin(beginDate, endDate) -> $"The end date ({endDate}) cannot be earlier than the begin date ({beginDate})."
+            | PositionsBalanceRepeatedInRequest(balanceAccount, date) -> $"Balance Account \"{balanceAccount}\" and date {date} appear more than once in one request."
             | PositionsBasisMethodNotAllowed(account, security, taxTreatment) -> $"The Holding of \"{security}\" in Investment Account \"{account}\" breaks the basis method rule for a {taxTreatment} account: a Taxable account's Holding has a basis method, and any other account's Holding has none."
             | PositionsContributionBasisNegative raw -> $"A contribution basis cannot be negative. Provided contribution basis is {raw}."
             | PositionsContributionBasisNotAllowed(account, taxTreatment) -> $"Investment Account \"{account}\" is {taxTreatment}; only a Roth account's snapshot carries a contribution basis."
