@@ -1,5 +1,6 @@
 module Tests.Integrated.InterfaceBridge.PositionsReportRoutes
 
+open System
 open System.IO
 open System.Text.RegularExpressions
 open NodaTime
@@ -387,12 +388,69 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-8.6 REQ-RPT-8.5 the NetWorth route in data-only mode on a pre-ledger date with absent components returns the pre-ledger flag, each listed account's balance date and the absent components the computation gives`` () =
-        Assert.Fail "Not yet implemented: reworked in item C2"
+    member _.``REQ-RPT-8.6 REQ-RPT-8.5 the NetWorth route in data-only mode on a date before the earliest fiscal period returns the Balance Accounts with their kinds, owners' names and Balance dates, the cash and debts totals, each Property's mortgage Balance Accounts and the absent components the computation gives`` () =
+        // on monthEnd8 no ledger account has a balance and there are no investments; every Balance is dated monthEnd8
+        result {
+            let! returned = runNetWorth p.monthEnd8 OutputSpecifier.DataOnly
+            let! row =
+                match returned with
+                | NetWorthReturn.DataOnly row -> Ok row
+                | NetWorthReturn.Report _ -> Error(TestingError "Expected DataOnly but got Report")
+            let! computed = computeNetWorth (fresh ()) p.monthEnd8
+            Assert.Equal<(string * string * string list * decimal * LocalDate) list>(
+                [ PF.card, "Debt", [ PF.alex ], 15.00M, p.monthEnd8
+                  PF.checking, "Cash", [ PF.alex; PF.sam ], 2000.00M, p.monthEnd8
+                  PF.loan, "Debt", [ PF.sam ], 1500.00M, p.monthEnd8
+                  PF.savings, "Cash", [ PF.alex; PF.sam ], 100.00M, p.monthEnd8 ],
+                row.balanceAccounts |> List.map (fun b -> b.balanceAccountName, b.kind, b.owners, b.balance, b.balanceDate))
+            Assert.Equal<decimal list>(
+                [ 2100.00M; 1515.00M; 185000.00M ], [ row.totalCash; row.totalDebts; row.totalOwnedPropertyMortgages ])
+            Assert.Equal<(string * decimal) list>(
+                [ PF.rentalMortgageBalanceAccount, 185000.00M ],
+                row.properties
+                |> List.filter (fun x -> x.propertyName = PF.rental)
+                |> List.collect (fun x -> x.mortgageBalanceAccounts |> List.map (fun m -> m.balanceAccountName, m.balance)))
+            Assert.Equal<string list>(computed.absentComponents |> List.map NetWorthComponent.toString, row.absentComponents)
+            Assert.Equal<string list>([ "CountedLedgerAssets"; "Investments"; "Liabilities" ], row.absentComponents)
+        }
+        |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-8.6 REQ-RPT-8.5 the rendered net worth on a pre-ledger date marks the date as pre-ledger, shows each listed account's balance date, and names the absent components`` () =
-        Assert.Fail "Not yet implemented: reworked in item C2"
+    member _.``REQ-RPT-8.6 REQ-RPT-8.5 the rendered net worth on a date before the earliest fiscal period shows the Balance Accounts with their Balance dates, a Property's mortgage Balance Account, the cash and debts totals adding up with the others to the net worth shown, and names the absent components`` () =
+        // on monthEnd7 Fixture Checking's Balance is dated monthEnd7 and Fixture Card's monthEnd8; Fixture Loan is at 0.00
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-8-6-net-worth-balance-accounts.html"))
+            (fun () -> netWorthReportPath p.monthEnd7 false "rpt-8-6-net-worth-balance-accounts")
+        |> Result.map (fun html ->
+            Assert.Equal(
+                "Absent on this date, each totalling 0.00: Counted ledger assets, Liabilities.",
+                html |> paragraphWithClass "absent-note")
+            let rows = html |> dataRowsOf
+            Assert.Contains([ PF.card; "Debt"; PF.alex; dateText p.monthEnd8; "15.00" ], rows)
+            Assert.Contains([ PF.checking; "Cash"; $"{PF.alex}, {PF.sam}"; dateText p.monthEnd7; "2,500.00" ], rows)
+            Assert.DoesNotContain(rows, fun cells -> cells |> List.tryHead = Some PF.loan)
+            Assert.Contains(
+                [ $"Mortgage {PF.rentalMortgageBalanceAccount}"; $"balance of {dateText p.monthEnd7}"; "184,000.00" ], rows)
+            let totalOf label =
+                rows
+                |> List.find (fun cells -> cells = [ label; cells |> List.last ] && cells.Length = 2)
+                |> List.last
+                |> fun text -> Decimal.Parse(text.Replace(",", ""))
+            let added =
+                [ "Counted ledger assets"; "Investments"; "Property values"; "Cash" ] |> List.sumBy totalOf
+            let subtracted = [ "Liabilities"; "Debts"; "Mortgages of owned properties" ] |> List.sumBy totalOf
+            Assert.Equal<decimal list>([ 2600.00M; 15.00M ], [ totalOf "Cash"; totalOf "Debts" ])
+            Assert.Equal(totalOf "Net worth", added - subtracted)
+            Assert.Equal(268835.00M, totalOf "Net worth"))
+        |> railroadWrapper
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-8-6-net-worth-absent.html"))
+            (fun () -> netWorthReportPath p.monthEnd9 false "rpt-8-6-net-worth-absent")
+        |> Result.map (fun html ->
+            Assert.Equal(
+                "Absent on this date, each totalling 0.00: Counted ledger assets, Investments, Cash, Liabilities, Debts.",
+                html |> paragraphWithClass "absent-note"))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-10.4 the NetWorthHistory route in data-only mode for a range spanning the first fiscal period's start returns the same points, nine totals and absent components as the net worth history computation, the ledger components absent only before that start`` () =
@@ -460,5 +518,23 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-10.4 the rendered net worth history has one row per month-end and one column per total, a pre-ledger point is marked as such, and the absent column names a point's absent components and is empty for a point with none absent`` () =
-        Assert.Fail "Not yet implemented: reworked in item C2"
+    member _.``REQ-RPT-10.4 the rendered net worth history has one row per month-end and one column per total, cash and debts among them, and the absent column names a point's absent components and is empty for a point with none absent`` () =
+        // monthEnd9 has five components absent, monthEnd8 three, monthEnd7 and monthEnd6 two (the ledger's), monthEnd5 none
+        writtenFresh
+            (Path.Combine(outputDir, "rpt-10-4-net-worth-history-table.html"))
+            (fun () -> netWorthHistoryReportPath p.monthEnd9 p.monthEnd5 false "rpt-10-4-net-worth-history-table")
+        |> Result.map (fun html ->
+            Assert.Equal<string list>(
+                [ "Month end"; "Counted ledger assets"; "Investments"; "Property values"; "Cash"; "Liabilities"; "Debts"
+                  "Mortgages of owned properties"; "Net worth"; "Investable wealth"; "Absent" ],
+                html |> cellsIn "th")
+            let rows = html |> dataRowsOf
+            Assert.All(rows, fun cells -> Assert.Equal(11, cells.Length))
+            Assert.Equal<(string * string * string * string * string) list>(
+                [ dateText p.monthEnd9, "0.00", "0.00", "264,000.00", "Counted ledger assets, Investments, Cash, Liabilities, Debts"
+                  dateText p.monthEnd8, "2,100.00", "1,515.00", "265,585.00", "Counted ledger assets, Investments, Liabilities"
+                  dateText p.monthEnd7, "2,600.00", "15.00", "268,835.00", "Counted ledger assets, Liabilities"
+                  dateText p.monthEnd6, "2,600.00", "15.00", "268,835.00", "Counted ledger assets, Liabilities"
+                  dateText p.monthEnd5, "0.00", "0.00", "250,275.00", "" ],
+                rows |> List.map (fun cells -> cells.[0], cells.[4], cells.[6], cells.[8], cells.[10])))
+        |> railroadWrapper

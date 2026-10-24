@@ -410,9 +410,21 @@ let cleanUpPropertyByName (name: string) : Result<unit, IAppError> =
     let ofProperty = "(select unique_id from positions.property where property_name = @name)"
     [ $"""delete from positions.valuation WHERE property_id IN {ofProperty};"""
       $"""delete from positions.property_mortgage_account WHERE property_id IN {ofProperty};"""
+      $"""delete from positions.property_mortgage_balance_account WHERE property_id IN {ofProperty};"""
       $"""delete from positions.property_asset_account WHERE property_id IN {ofProperty};"""
       $"""delete from positions.property_owner WHERE property_id IN {ofProperty};"""
       """delete from positions.property WHERE property_name = @name;""" ]
+    |> List.map (fun query -> query, parameters)
+    |> executeCleanUpStatements
+
+/// Deletes a Balance Account by name, with its Balances, its owners and any Property's link to it as a mortgage.
+let cleanUpBalanceAccountByName (name: string) : Result<unit, IAppError> =
+    let parameters = [ { name = "@name"; value = CharString name } ]
+    let ofBalanceAccount = "(select unique_id from positions.balance_account where balance_account_name = @name)"
+    [ $"""delete from positions.property_mortgage_balance_account WHERE balance_account_id IN {ofBalanceAccount};"""
+      $"""delete from positions.balance_account_balance WHERE balance_account_id IN {ofBalanceAccount};"""
+      $"""delete from positions.balance_account_owner WHERE balance_account_id IN {ofBalanceAccount};"""
+      """delete from positions.balance_account WHERE balance_account_name = @name;""" ]
     |> List.map (fun query -> query, parameters)
     |> executeCleanUpStatements
 

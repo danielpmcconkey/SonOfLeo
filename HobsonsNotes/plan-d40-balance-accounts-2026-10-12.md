@@ -574,6 +574,32 @@ ledgerStart. That reworked test covers the BalanceAccountRoutes placeholder
 of the same name, so the placeholder is deleted rather than duplicated.
 Integrated 1735 plus 72 placeholders.
 
+**C4. Tests.** Every placeholder the earlier items left is now a test or
+gone. Written: the isolated `BalanceAccounts.fs` (8), `BalanceAccountMaintenance.fs`
+(25), `PropertyMortgageBalanceAccounts.fs` (8), `NetWorthBalanceAccounts.fs`
+(16), `BalanceAccountRoutes.fs` (8) and three `PositionsReportRoutes` tests
+(the data-only and rendered net worth on dates before the ledger, and the
+rendered history from monthEnd9 to monthEnd5). SYS-3.2 and SYS-3.3 for
+Balance Accounts and Balances are two more `InlineData` rows on the
+existing `OperationInstantAndAtomicity` theories, so their placeholders in
+`BalanceAccountMaintenance.fs` were removed rather than duplicated.
+`NetWorthPreLedger.fs` is deleted. Three of its tests had nothing to do
+with pre-ledger balances and moved to `NetWorthBalanceAccounts.fs` with
+their names freed of "pre-ledger": the gap between fiscal periods, property
+values as the only contributor, and zero-balance ledger accounts within a
+period (which now also asserts Balance Accounts at 0.00 keep cash and debts
+present). The rest asserted pre-ledger behaviour the spec withdrew
+(the pre-ledger flag, an account's latest pre-ledger balance, parent and
+child pre-ledger balances, ledger balances beside pre-ledger ones, balance
+dates on ledger rows); each is replaced by its Balance Account counterpart
+in `NetWorthBalanceAccounts.fs` (REQ-RPT-8.1, 8.2, 8.3/8.4, 8.5, 8.7, 8.8) or,
+for the parent/child one, dropped because Balance Accounts have no
+hierarchy. The three net worth placeholders in `BalanceAccountRoutes.fs`
+duplicated the `PositionsReportRoutes` ones and were deleted there.
+`Tests.Helpers/Cleanup.fs` gains `cleanUpBalanceAccountByName`, and
+`cleanUpPropertyByName` also removes the Property's mortgage Balance Account
+links. The fixture's Balance Accounts went in at C2.
+
 **D2. Model.** Removed "Record pre-ledger balances", PreLedgerBalance and
 PreLedgerBalanceOrchestration with every relationship naming them, and the
 now-unused PositionsError serves FiscalPeriodCreation edge. Added
@@ -684,6 +710,20 @@ VALID (677 elements, 2917 relationships), `model_drift.py` NO DRIFT.
   with no ledger lines (`AccountBalance.fetchByAccountIdList` already
   returns a 0.00 row for every account). Every one of the 16 tests was seen
   failing at least once.
+- **C4, `BalanceAccountRoutes.fs` (8) and the three `PositionsReportRoutes`
+  tests.** Each mutation alone, then restored, each failing exactly the one
+  test named: Create converting only the first owner (Create test);
+  the update converter dropping the institution update (Update test, "at
+  least one updatable parameter must be set"); the List route reversed
+  (List test); Delete fetching instead of deleting (Delete test); the
+  replaced flag always false (Record test); the after-today check removed
+  and, separately, Record skipping a failed Balance instead of failing the
+  request (each fails the after-today test); Balance Delete aimed a day
+  late (Balance Delete test); Property Create passing only the first
+  mortgage Balance Account name (REQ-POS-11.6 route test); the data-only
+  Balance date shifted a day (data-only net worth route test); the rendered
+  Balance date blanked (rendered net worth test); the history writer's Cash
+  column showing debts (rendered history test).
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)
