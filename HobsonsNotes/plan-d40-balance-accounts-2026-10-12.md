@@ -388,6 +388,17 @@ fixture's TRUNCATE list no longer names it. `sonofleo_test` rebuilt from
 scratch: the table is gone and the suite is as after A1 (1735 pass, only the
 73 placeholders fail).
 
+**B1. The tables exist.** `202610241010-CreateBalanceAccountTables.sql`
+creates `positions.balance_account` (name unique), `balance_account_owner`
+(PK on both, FKs, copied from `property_owner`), `balance_account_balance`
+(UNIQUE account and date, FK on delete restrict, `amount numeric(12,2)` as
+`valuation_value`) and `property_mortgage_balance_account` (PK on both,
+UNIQUE balance account, FKs, copied from `property_mortgage_account`). No
+check constraints. Grants as the convention file, test-only TRUNCATE on all
+four, and all four in the fixture's TRUNCATE list, each parent before its
+child as the list already orders them. `sonofleo_test` rebuilt from scratch
+with both new scripts: the four tables exist and the suite is unchanged.
+
 ### 5.3 Fail-then-pass evidence
 
 ### 5.4 The migrations Dan must apply
@@ -395,6 +406,10 @@ scratch: the table is gone and the suite is as after A1 (1735 pass, only the
 
 1. `202610241000-DropPreLedgerBalanceTable.sql`: drops
    `positions.pre_ledger_balance` (empty in every environment).
+2. `202610241010-CreateBalanceAccountTables.sql`: creates
+   `positions.balance_account`, `balance_account_owner`,
+   `balance_account_balance` and `property_mortgage_balance_account`, with
+   grants.
 
 ### 5.5 ArchReviewer
 

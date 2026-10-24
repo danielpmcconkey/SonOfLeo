@@ -192,10 +192,14 @@ type TestDataFixture() =
                             positions.account_snapshot_lot,
                             positions.investment_activity,
                             positions.investment_activity_coverage,
+                            positions.balance_account,
+                            positions.balance_account_owner,
+                            positions.balance_account_balance,
                             positions.property,
                             positions.property_owner,
                             positions.property_asset_account,
                             positions.property_mortgage_account,
+                            positions.property_mortgage_balance_account,
                             positions.valuation
                         CASCADE;
                 """
