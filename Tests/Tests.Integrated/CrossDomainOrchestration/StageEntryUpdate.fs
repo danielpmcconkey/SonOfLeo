@@ -84,7 +84,8 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 createStageEntryForTest context "/tmp/stage-update-outgo.dat" description (System.Guid.NewGuid().ToString())
                     (fixture.Data.ingestionSources |> List.head) (Calendar.today())
                     [ (100.00M, "Debit", Some "F-2230", None, None); (100.00M, "Credit", Some "F-1280", None, None) ]
-                    [ (Some "Ingested", "Classified", later, "Classifier") ]
+                    [ (None, "Ingested", context |> Context.getInitiationInstant, "StageIngestion")
+                      (Some "Ingested", "Classified", later, "Classifier") ]
             let debitLineId =
                 entry |> seLines |> List.find (fun l -> l |> StageEntryLine.lineType = Debit) |> StageEntryLine.stageEntryLineId
             return entry, debitLineId
@@ -800,11 +801,12 @@ type StageEntryUpdateTests(fixture: TestDataFixture) =
                 let cardSource =
                     fixture.Data.ingestionSources
                     |> List.find (fun s -> s |> IngestionSource.name |> JournalRefFinancialInstitution.value = "TestCreditCardCo")
-                // an Ingested entry: the header is written with its Ingested transition, then its lines
+                // an Ingested entry: the header, its Ingested transition, then its lines
                 let! header =
                     createStageEntryHeaderForTest context "/tmp/stage-update-no-match.dat" "REQ-STG-6.5 nothing matches this"
                         (System.Guid.NewGuid().ToString()) cardSource (Calendar.today())
                 let headerId = header |> StageEntryHeader.stageEntryHeaderId
+                do! headerId |> StageEntryHeader.updateHeaderStatus context Ingested StageIngestion
                 let! _ =
                     [ (50.00M, "Debit", None, None, None)
                       (50.00M, "Credit", Some "F-1280", None, None)

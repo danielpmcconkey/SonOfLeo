@@ -209,7 +209,9 @@ let createIngestionSourceForTest
         return source
         }
     
-let createStageEntryHeaderForTest 
+/// Writes the header row alone, with no status transition: the caller writes the entry's whole status history, so no
+/// entry gets two Ingested transitions that can land on the same instant.
+let createStageEntryHeaderForTest
     (context: Context.Context)
     (sourceFileStr: string)
     (descriptionStr: string)
@@ -227,7 +229,6 @@ let createStageEntryHeaderForTest
             StageEntryHeader.create sourceFile stageEntryHeaderId
                 entryDate description ingestionSource fiReference None (Some Ingested)
         do! header |> StageEntryHeader.persist context
-        do! header |> StageEntryHeader.stageEntryHeaderId |> StageEntryHeader.updateHeaderStatus context Ingested StageIngestion
         return header
         }
 

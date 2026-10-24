@@ -99,7 +99,8 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
                 createStageEntryForTest context "/tmp/void-staging.dat" description (Guid.NewGuid().ToString())
                     (fixture.Data.ingestionSources |> List.head) (Calendar.today())
                     [ (100.00M, "Debit", Some "F-2230", None, None); (100.00M, "Credit", Some "F-1280", None, None) ]
-                    [ (Some "Ingested", "Classified", classifyContext |> Context.getInitiationInstant, "Classifier") ]
+                    [ (None, "Ingested", context |> Context.getInitiationInstant, "StageIngestion")
+                      (Some "Ingested", "Classified", classifyContext |> Context.getInitiationInstant, "Classifier") ]
             let! paymentId =
                 if withPayment then
                     addPayment classifyContext (CashFlowComponent.Staged(entry |> debitLineIdOf)) |> Result.map Some
