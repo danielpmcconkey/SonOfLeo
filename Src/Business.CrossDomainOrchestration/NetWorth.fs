@@ -96,8 +96,13 @@ let private balancesOn
 let private balanceAccountsOn (context: Context.Context) (asOf: LocalDate) : Result<NetWorthBalanceAccount list, IAppError> =
     result {
         let! balanceAccounts = BalanceAccount.fetchAll context
-        let! latest = BalanceAccountBalance.fetchLatestOnOrBefore context asOf
-        let latestById = latest |> List.map (fun b -> BalanceAccountBalance.balanceAccountId b, b) |> Map.ofList
+        let! balances = BalanceAccountBalance.fetchOnOrBefore context asOf
+        let latestById =
+            balances
+            |> List.groupBy BalanceAccountBalance.balanceAccountId
+            |> List.choose (fun (balanceAccountId, own) ->
+                own |> BalanceAccountBalance.balanceOn asOf |> Option.map (fun b -> balanceAccountId, b))
+            |> Map.ofList
         return
             balanceAccounts
             |> List.sortBy (BalanceAccount.balanceAccountName >> BalanceAccountName.value)

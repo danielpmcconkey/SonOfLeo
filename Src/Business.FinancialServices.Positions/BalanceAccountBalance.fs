@@ -172,16 +172,9 @@ let existsForAccount (context: Context.Context) (balanceAccountId: BalanceAccoun
     fetchAny context (Some "babal.balance_account_id = @balance_account_id") [ balanceAccountParameter balanceAccountId ] AnyQuantityIsAcceptable
     |> Result.map (List.isEmpty >> not)
 
-/// Every Balance Account's latest Balance dated on or before the date, in one read. An account with none on or before
-/// it has no row.
-let fetchLatestOnOrBefore (context: Context.Context) (date: LocalDate) : Result<BalanceAccountBalance list, IAppError> =
-    let predicate =
-        """
-        babal.balance_date = (select max(latest.balance_date)
-                              from positions.balance_account_balance latest
-                              where latest.balance_account_id = babal.balance_account_id
-                                and latest.balance_date <= @date)"""
-    fetchAny context (Some predicate) [ { name = "@date"; value = DbLocalDate date } ] AnyQuantityIsAcceptable
+/// Every Balance of every Balance Account dated on or before the date, in one read.
+let fetchOnOrBefore (context: Context.Context) (date: LocalDate) : Result<BalanceAccountBalance list, IAppError> =
+    fetchAny context (Some "babal.balance_date <= @date") [ { name = "@date"; value = DbLocalDate date } ] AnyQuantityIsAcceptable
 
 let update (context: Context.Context) (fieldUpdates: BalanceAccountBalanceFieldUpdates) : Result<BalanceAccountBalance, IAppError> =
     let uuid = fieldUpdates.balanceAccountBalanceIdToUpdate |> BalanceAccountBalanceId.value

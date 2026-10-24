@@ -327,6 +327,21 @@ Written by the session that did this plan. Fill it in as you go (§0 step 4).
 ### 5.1 Outcome
 (baseline first; final counts and check outputs at the end)
 
+**Final** (`sonofleo_test` rebuilt from scratch with both new migrations):
+every item A1 to D2 done and pushed to `d40-balance-accounts`; not merged.
+
+- Build (`dotnet build --artifacts-path /tmp/sonofleo-build`, clean): 0
+  warnings, 0 errors.
+- `Tests.Isolated` 536 passed; `Tests.Integrated` 1794 passed; 0 failed,
+  0 skipped.
+- `Checks/run-all.sh`: 12 passed, 0 failed, 1 skipped (traceability, not
+  on `main`).
+- Traceability audit: Invariants 1 and 2 clean.
+- `validate.py` VALID (677 elements, 2917 relationships); `model_drift.py`
+  NO DRIFT.
+- No `Not yet implemented` placeholder left in `Tests/`.
+- ArchReviewer: APPROVED after one fix (§5.5).
+
 **Baseline** (d693680, `sonofleo_test` rebuilt from scratch with
 `setup-throwaway-test-db.sh`; .NET SDK 10.0.113 from the Ubuntu archive,
 since the container had none):
@@ -600,6 +615,11 @@ duplicated the `PositionsReportRoutes` ones and were deleted there.
 `cleanUpPropertyByName` also removes the Property's mortgage Balance Account
 links. The fixture's Balance Accounts went in at C2.
 
+**D1. Checks.** `Checks/run-all.sh` green at every commit from B3 on,
+including the peer guard's third list; final run 12 passed, 0 failed, 1
+skipped (traceability, enforced on `main` only). The standalone
+traceability audit's Invariants 1 and 2 are clean.
+
 **D2. Model.** Removed "Record pre-ledger balances", PreLedgerBalance and
 PreLedgerBalanceOrchestration with every relationship naming them, and the
 now-unused PositionsError serves FiscalPeriodCreation edge. Added
@@ -737,6 +757,34 @@ VALID (677 elements, 2917 relationships), `model_drift.py` NO DRIFT.
 
 ### 5.5 ArchReviewer
 
+Run over `git diff main...HEAD -- Src Checks DbMigration` (28 files,
++1567/-667) after Gate 0 was green. Verdict before the fix: CONDITIONAL,
+one finding; after it: APPROVED.
+
+- **[CHECK 12 — Reinvention]** `BalanceAccountBalance.fs`: the rule
+  "a Balance Account's balance on a date is its latest Balance on or before
+  it" existed twice, as `balanceOn` (used only by the isolated REQ-POS-16.6
+  tests) and as the SQL of `fetchLatestOnOrBefore` (used by net worth), so
+  the tested copy was not the one production ran. **Fixed:**
+  `fetchLatestOnOrBefore` became `fetchOnOrBefore` (every Balance dated on
+  or before the date, one read) and `NetWorth.balanceAccountsOn` applies
+  `balanceOn` per account. Seen failing first: `balanceOn` taking Balances
+  strictly before the date fails 7 integrated net worth tests; restored,
+  `NetWorth*` and `PositionsReportRoutes` pass (64).
+
+Checked with no finding: domain ownership (Balance Accounts own their
+tables; the mortgage link table belongs to the Property, which names the
+Balance Account, so real estate sits above balance accounts as the model now
+says); layer discipline (ID, name and kind types in `PositionsComponent`,
+entities in Positions, the cross-module rules, such as refusing to delete a
+Property's mortgage, in `BalanceAccountOrchestration` and
+`RealEstateOrchestration`); authority (the bridge converts and calls
+orchestration's `ownerSetOf` exactly as the Investment Account and Property
+converters do); compile order (`check-compile-order`, `check-open-order`,
+`check-peer-guard` pass); create/validate separation (`create` functions
+infallible, validation in orchestration); comments (doc comments on public
+functions only, no REQ tags); scope (nothing beyond the plan).
+
 ### 5.6 Disagreements, deviations, things for Dan
 
 - `BalanceAccountKind` is `[<RequireQualifiedAccess>]` (written
@@ -749,8 +797,10 @@ VALID (677 elements, 2917 relationships), `model_drift.py` NO DRIFT.
   mortgage, naming the Property). Listing it as a balance module would make
   the guard fail on that. It stays unlisted, like `NetWorth`, as a file that
   combines groups; the two entity modules are guarded.
-- **`BalanceAccountBalance.fetchLatestOnOrBefore` takes no account list.**
+- **`BalanceAccountBalance.fetchOnOrBefore` takes no account list.**
   The plan says "for a set of accounts"; net worth always wants every
   account, and an ID-list fetch would need the empty-list error case the
-  convention requires for nothing. It returns every account's latest Balance
-  on or before the date in one query.
+  convention requires for nothing. It returns every Balance dated on or
+  before the date in one read, and net worth picks each account's latest
+  with `balanceOn` (see §5.5: this replaced a SQL "latest" query that
+  duplicated `balanceOn`).
