@@ -614,6 +614,25 @@ Integrated 1735 plus 72 placeholders.
   `BalanceAccount.update` stamping one millisecond late; and
   `BalanceAccountBalance.update` likewise. A one-tick shift did not fail:
   the database keeps microseconds. Each restored; 40 of 40 pass.
+- **C4, `BalanceAccountMaintenance.fs` (25 tests).** Each mutation applied
+  alone and restored; every test failed under at least one:
+  name-free check always passing (duplicate name: "Wrong error … 23505
+  duplicate key"); empty-owner check removed and repeated-owner check
+  removed (each "Expected failure; got success"); list unsorted (fixture
+  list order); future-date check `>=` (today's Balance rejected);
+  repeat-in-request check removed; `replacedExisting` always false (replace
+  test) and always true (Cash-and-Debt record test); has-Balances check
+  removed and mortgage check removed (each "Wrong error … 23503 foreign
+  key"); missing-Balance delete raising the range error; Balance delete
+  skipped; account delete skipped; range check removed; range excluding
+  its end (4 fail, including the range and 0.00/-15.00 tests); name lookup
+  raising `NameAlreadyExists` (the three REQ-POS-11.9 tests); institution
+  persisted as the name (create, duplicate and fixture-list tests); name
+  lookup ignoring case (the letter-case test); institution update ignored
+  (update test); owners added instead of replaced (both owner tests);
+  update setting kind Cash (the REQ-POS-16.2 test); amounts stored
+  absolute (0.00/-15.00 test); the Person converter naming another name
+  (the REQ-PER-2.4 test).
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)
