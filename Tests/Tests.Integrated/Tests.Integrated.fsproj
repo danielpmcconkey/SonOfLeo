@@ -124,10 +124,14 @@
     <Compile Include="CrossDomainOrchestration\PreLedgerBalanceGuards.fs" />
     <Compile Include="CrossDomainOrchestration\NetWorthPreLedger.fs" />
     <Compile Include="CrossDomainOrchestration\NetWorthHistory.fs" />
+    <Compile Include="CrossDomainOrchestration\BalanceAccountMaintenance.fs" />
+    <Compile Include="CrossDomainOrchestration\PropertyMortgageBalanceAccounts.fs" />
+    <Compile Include="CrossDomainOrchestration\NetWorthBalanceAccounts.fs" />
     <Compile Include="InterfaceBridge\PersonRoutes.fs" />
     <Compile Include="InterfaceBridge\PositionsRoutes.fs" />
     <Compile Include="InterfaceBridge\PositionsReportRoutes.fs" />
     <Compile Include="InterfaceBridge\PositionsSliceTwoRoutes.fs" />
+    <Compile Include="InterfaceBridge\BalanceAccountRoutes.fs" />
     <Compile Include="DataAccessLayer\DalTests.fs" />
   </ItemGroup>
 

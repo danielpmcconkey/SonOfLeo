@@ -41,6 +41,7 @@
     <Compile Include="Model\Positions\Investments.fs" />
     <Compile Include="Model\Positions\RealEstate.fs" />
     <Compile Include="Model\Positions\LotsAndActivity.fs" />
+    <Compile Include="Model\Positions\BalanceAccounts.fs" />
   </ItemGroup>
 
   <ItemGroup>

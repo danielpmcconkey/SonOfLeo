@@ -327,7 +327,32 @@ Written by the session that did this plan. Fill it in as you go (§0 step 4).
 ### 5.1 Outcome
 (baseline first; final counts and check outputs at the end)
 
+**Baseline** (d693680, `sonofleo_test` rebuilt from scratch with
+`setup-throwaway-test-db.sh`; .NET SDK 10.0.113 from the Ubuntu archive,
+since the container had none):
+
+- Build: 0 warnings, 0 errors.
+- `Tests.Isolated` 530 passed; `Tests.Integrated` 1778 passed.
+- `Checks/run-all.sh`: 12 passed, 0 failed, 1 skipped (traceability, not
+  on `main`).
+- Traceability audit: Invariant 1 lists every REQ-POS-15.1–15.8 citation as
+  withdrawn (PreLedgerBalances.fs, PreLedgerBalanceGuards.fs, the five route
+  tests in PositionsSliceTwoRoutes.fs, LotsAndActivity.fs ~288); Invariant 2
+  lists REQ-POS-9.9 and REQ-POS-16.1–16.10 as untested (11 of 815).
+
 ### 5.2 Per item
+
+**Names.** Drafted from the spec diff alone, before any Src was opened, and
+checked against the hollow-names table: each says what would have to break
+for it to go red. Committed as `Assert.Fail "Not yet implemented"`
+placeholders in five new files: `Tests.Isolated/Model/Positions/BalanceAccounts.fs`
+(8), `CrossDomainOrchestration/BalanceAccountMaintenance.fs` (27),
+`PropertyMortgageBalanceAccounts.fs` (8), `NetWorthBalanceAccounts.fs` (14)
+and `InterfaceBridge/BalanceAccountRoutes.fs` (12). The REQ-SYS-3.2 and 3.3
+placeholders are separate facts for now; C4 folds them into the existing
+theories as the plan says. Placeholders whose natural home is an existing
+file (net worth route and history tests) sit in the new files and move in C4
+if that reads better.
 
 ### 5.3 Fail-then-pass evidence
 
