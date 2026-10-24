@@ -633,6 +633,17 @@ Integrated 1735 plus 72 placeholders.
   update setting kind Cash (the REQ-POS-16.2 test); amounts stored
   absolute (0.00/-15.00 test); the Person converter naming another name
   (the REQ-PER-2.4 test).
+- **C4, `PropertyMortgageBalanceAccounts.fs` (8 tests).** Each mutation
+  alone, then restored: not-Debt check removed and repeat check removed
+  (each "Expected failure; got success"); already-linked check removed
+  ("Wrong error … 23505"); the update adding links without removing old
+  ones (replace test); create storing no links (three fail); delete keeping
+  links ("23503 foreign key" on the delete test); names returned in reverse
+  order (create, add-to-set and delete tests); update ignoring the mortgage
+  Balance Account set (both update tests: "at least one updatable parameter
+  must be set"); the name lookup raising `NameAlreadyExists` (REQ-POS-11.9
+  test). A first ordering mutation placed before the existing sort had no
+  effect and was redone after it.
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)
