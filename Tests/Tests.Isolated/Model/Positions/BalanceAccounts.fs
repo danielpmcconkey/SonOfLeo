@@ -1,5 +1,7 @@
 module Tests.Isolated.Model.Positions.BalanceAccounts
 
+open NodaTime
+open Business.CrossDomainOrchestration
 open Xunit
 
 [<Fact>]
@@ -32,5 +34,8 @@ let ``REQ-POS-16.6 a Balance Account whose only Balance is dated after the date 
 
 [<Fact>]
 let ``REQ-RPT-8.1 when no fiscal period exists, net worth accepts any date`` () =
-    Assert.Fail "Not yet implemented"
+    for date in [ LocalDate(1990, 1, 1); LocalDate(2025, 12, 31); LocalDate(2099, 12, 31) ] do
+        match NetWorth.isWithinFiscalPeriod [] date with
+        | Ok withinOne -> Assert.False(withinOne, $"{date} is within no fiscal period")
+        | Error e -> Assert.Fail $"{date} was rejected: {e.ToMessage()}"
 

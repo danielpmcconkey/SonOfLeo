@@ -41,10 +41,9 @@ let private historyOf beginDate endDate =
 
 let private monthEnds (points: NetWorthPoint list) = points |> List.map (fun pt -> pt.monthEnd)
 
-/// A point: month-end, pre-ledger flag, the seven totals and the absent components.
+/// A point: month-end, the seven totals and the absent components.
 let private pointSummary (pt: NetWorthPoint) =
     pt.monthEnd,
-    pt.netWorthDate = PreLedgerDate,
     [ pt.totalLedgerAssets; pt.totalInvestments; pt.totalPropertyValues; pt.totalLiabilities
       pt.totalOwnedPropertyMortgages; pt.netWorth; pt.investableWealth ]
     |> List.map Money.amount,

@@ -146,7 +146,13 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
                 | NetWorthReturn.DataOnly row -> Ok row
                 | NetWorthReturn.Report _ -> Error(TestingError "Expected DataOnly but got Report")
             let! computed = computeNetWorth (fresh ()) p.monthEnd3
-            let ledgerRows (rows: LedgerAccountBalance list) = rows |> List.map (fun r -> r.code, r.name, r.balance |> Money.amount)
+            let ledgerRows (rows: LedgerAccountBalance list) =
+                rows
+                |> List.map (fun r ->
+                    let account = r.accountId |> Ledger.Account.fetchById (fresh ()) |> PositionsValues.mustBe
+                    account |> Ledger.Account.code |> Ledger.AccountComponent.AccountCode.value,
+                    account |> Ledger.Account.accountName |> Ledger.AccountComponent.AccountName.value,
+                    r.balance |> Money.amount)
             let returnedRows (rows: NetWorthLedgerAccountReturnRow list) = rows |> List.map (fun r -> r.code, r.name, r.balance)
             Assert.Equal(computed.asOf, row.asOf)
             Assert.NotEmpty(row.assetAccounts)
@@ -390,33 +396,7 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-10.4 the NetWorthHistory route in data-only mode for a range spanning pre-ledger and fiscal-period month-ends returns the same points, totals, pre-ledger flags and absent components as the net worth history computation`` () =
-        result {
-            let! returned = runNetWorthHistory p.monthEnd9 p.monthEnd4 OutputSpecifier.DataOnly
-            let! points =
-                match returned with
-                | NetWorthHistoryReturn.DataOnly points -> Ok points
-                | NetWorthHistoryReturn.Report _ -> Error(TestingError "Expected DataOnly but got Report")
-            let! computed = computeNetWorthHistory (fresh ()) p.monthEnd9 p.monthEnd4
-            Assert.Equal(6, computed.Length)
-            Assert.Equal<(LocalDate * bool * decimal list * string list) list>(
-                computed
-                |> List.map (fun pt ->
-                    pt.monthEnd,
-                    pt.netWorthDate = PreLedgerDate,
-                    [ pt.totalLedgerAssets; pt.totalInvestments; pt.totalPropertyValues; pt.totalLiabilities
-                      pt.totalOwnedPropertyMortgages; pt.netWorth; pt.investableWealth ]
-                    |> List.map Money.amount,
-                    pt.absentComponents |> List.map NetWorthComponent.toString),
-                points
-                |> List.map (fun pt ->
-                    pt.monthEnd,
-                    pt.isPreLedger,
-                    [ pt.totalLedgerAssets; pt.totalInvestments; pt.totalPropertyValues; pt.totalLiabilities
-                      pt.totalOwnedPropertyMortgages; pt.netWorth; pt.investableWealth ],
-                    pt.absentComponents))
-            Assert.Equal<bool list>([ true; true; true; true; false; false ], points |> List.map (fun pt -> pt.isPreLedger))
-        }
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C3"
 
     [<Fact>]
     member _.``REQ-RPT-10.4 REQ-RPT-2.3 the NetWorthHistory route in report mode writes a new HTML file and returns its fully qualified path`` () =

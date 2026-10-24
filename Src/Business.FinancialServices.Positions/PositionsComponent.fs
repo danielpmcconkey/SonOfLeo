@@ -497,12 +497,6 @@ module NetWorthComponent =
         | Liabilities -> "Liabilities"
         | OwnedPropertyMortgages -> "OwnedPropertyMortgages"
 
-/// Where a date's account balances come from: the ledger, for a date in a fiscal period, or Pre-ledger Balances, for a
-/// date before the first fiscal period. A date never draws on both.
-type NetWorthDate =
-    | FiscalPeriodDate
-    | PreLedgerDate
-
 /// An Investment Account's part in net worth: its latest snapshot on or before the date, at market value.
 type NetWorthInvestmentAccount = {
     investmentAccountId: InvestmentAccountId

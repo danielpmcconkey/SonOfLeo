@@ -500,6 +500,32 @@ four Property route descriptions now name the mortgage Balance Accounts.
 Existing callers pass an empty set. Build 0 warnings; Integrated 1735 pass
 plus 73 placeholders, Isolated 529 plus 8.
 
+**C1. Dates and ledger balances.** `NetWorth.classifyDate` and
+`NetWorthDate` are gone; `NetWorth.isWithinFiscalPeriod` returns whether the
+date is within a fiscal period, accepts any earlier date and every date when
+no fiscal period exists, and otherwise fails with
+`PositionsNetWorthDateOutsideFiscalPeriods`. Outside every fiscal period no
+ledger account has a balance. Removed: `netWorthDate` from `NetWorth` and
+`NetWorthPoint`, `isPreLedger` from both return rows, `balanceDate` from
+`NetWorthLedgerAccountReturnRow`, the writer's pre-ledger table, note and
+mortgage source text, the history writer's "Source" column and pre-ledger
+row class and CSS, and the pre-ledger wording in both route descriptions.
+**11b #045:** `AccountBalance` does not fit (its constructor is private and
+it has no row for an account without entries, which net worth lists at
+0.00), so `LedgerAccountBalance` is now `{ accountId; balance }`, ordered by
+code in the orchestration; ``convert [LedgerAccountBalance] to
+[NetWorthLedgerAccountReturnRow]`` resolves code and name through the
+account caches, and the writer resolves them the same way. The isolated
+`classifyDate []` test in `LotsAndActivity.fs` is deleted; its replacement
+is the REQ-RPT-8.1 test in the isolated `BalanceAccounts.fs` (no fiscal
+period, any date accepted). Tests that read `code`/`name` from the
+orchestration rows now resolve them from the account. Two more tests became
+placeholders here, to be reworked in C3/C4: the NetWorthPreLedger "marked
+pre-ledger" test and the NetWorthHistory data-only route test. The
+NetWorthPreLedger gap test now asserts the later period's net worth is
+computed as of its date instead of its date kind. Build 0 warnings;
+Integrated 1733 plus 75 placeholders, Isolated 529 plus 7.
+
 ### 5.3 Fail-then-pass evidence
 
 - **B3 peer guard.** Planted `let private planted = Property.fetchAll` at the
@@ -508,6 +534,11 @@ plus 73 placeholders, Isolated 529 plus 8.
   `BalanceAccount.fetchAll` in `HoldingsAsOf.fs` (an investment module):
   `HoldingsAsOf.fs:202: …`, exit 1. The same line in `Property.fs` (real
   estate naming a balance module): exit 0. Each restored; the guard passes.
+- **C1, REQ-RPT-8.1 no fiscal period (isolated).** With the no-period branch
+  of `isWithinFiscalPeriod` set back to rejecting: "Monday, 01 January 1990
+  was rejected: Net worth cannot be computed as of Monday, 01 January 1990:
+  the date falls in no fiscal period and is not before the first one."
+  Restored: passes.
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)

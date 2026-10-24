@@ -13,14 +13,8 @@ open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.HoldingsAsOf
 
-/// A ledger account's balance on the date. On a pre-ledger date, balanceDate is the date of the Pre-ledger Balance it
-/// came from; on a date in a fiscal period it is None.
-type LedgerAccountBalance = {
-    code: string
-    name: string
-    balance: Money.Money
-    balanceDate: LocalDate option
-}
+/// A ledger account's balance on the date.
+type LedgerAccountBalance = { accountId: AccountId; balance: Money.Money }
 
 type NetWorthProperty = {
     propertyId: PropertyId
@@ -34,7 +28,6 @@ type NetWorthProperty = {
 
 type NetWorth = {
     asOf: LocalDate
-    netWorthDate: NetWorthDate
     assetAccounts: LedgerAccountBalance list
     liabilityAccounts: LedgerAccountBalance list
     investmentAccounts: NetWorthInvestmentAccount list
@@ -51,34 +44,35 @@ type NetWorth = {
     absentComponents: NetWorthComponent list
 }
 
-/// Whether the date is in a fiscal period or a pre-ledger date: earlier than the start of the earliest fiscal period.
-/// When there is no fiscal period, no date is either.
-let classifyDate (fiscalPeriods: FiscalPeriod.FiscalPeriod list) (date: LocalDate) : Result<NetWorthDate, IAppError> =
+/// Whether the date is within a fiscal period. A date earlier than the start of the earliest fiscal period is accepted
+/// but within none, as is every date when there is no fiscal period; any other date fails.
+let isWithinFiscalPeriod (fiscalPeriods: FiscalPeriod.FiscalPeriod list) (date: LocalDate) : Result<bool, IAppError> =
     let inPeriod =
         fiscalPeriods |> List.exists (fun fp -> FiscalPeriod.startDate fp <= date && date <= FiscalPeriod.endDate fp)
     let beforeLedger =
         match fiscalPeriods |> FiscalPeriod.earliestStart with
         | Some ledgerStart -> date < ledgerStart
-        | None -> false
-    if inPeriod then Ok FiscalPeriodDate
-    elif beforeLedger then Ok PreLedgerDate
+        | None -> true
+    if inPeriod then Ok true
+    elif beforeLedger then Ok false
     else error (PositionsNetWorthDateOutsideFiscalPeriods date)
 
-// Each account's balance on the date and the date it came from, or None for an account with no balance that day.
+// Each account's balance on the date, or None for an account with no balance that day: outside every fiscal period no
+// account has one.
 let private balancesOn
     (context: Context.Context)
     (asOf: LocalDate)
-    (netWorthDate: NetWorthDate)
-    : Result<AccountId -> (Money.Money * LocalDate option) option, IAppError> =
+    (withinFiscalPeriod: bool)
+    : Result<AccountId -> Money.Money option, IAppError> =
     result {
-        match netWorthDate with
-        | FiscalPeriodDate ->
+        if withinFiscalPeriod then
             let! balances = AccountBalance.fetchByAccountIdList context None (Some asOf)
             let balanceById =
                 balances |> List.map (fun b -> AccountBalance.accountId b, AccountBalance.netBalance b) |> Map.ofList
             let! zero = Money.fromDecimal 0M
-            return fun accountId -> Some(balanceById |> Map.tryFind accountId |> Option.defaultValue zero, None)
-        | PreLedgerDate -> return fun _ -> None
+            return fun accountId -> Some(balanceById |> Map.tryFind accountId |> Option.defaultValue zero)
+        else
+            return fun _ -> None
     }
 
 let private sumOf (amounts: Money.Money list) = Money.sumList amounts
@@ -93,18 +87,16 @@ let private totalsBy (key: 'k -> 'g) (amount: 'k -> Money.Money) (items: 'k list
 let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWorth, IAppError> =
     result {
         let! fiscalPeriods = FiscalPeriod.fetchAll context false
-        let! netWorthDate = classifyDate fiscalPeriods asOf
+        let! withinFiscalPeriod = isWithinFiscalPeriod fiscalPeriods asOf
         let! ledgerAccounts = Account.fetchAll context false
-        let! balanceOf = balancesOn context asOf netWorthDate
-        let rowOf (account: Account.Account) =
-            account
-            |> Account.accountId
-            |> balanceOf
-            |> Option.map (fun (balance, balanceDate) ->
-                { code = account |> Account.code |> AccountCode.value
-                  name = account |> Account.accountName |> AccountName.value
-                  balance = balance
-                  balanceDate = balanceDate })
+        let! balanceOf = balancesOn context asOf withinFiscalPeriod
+        // the accounts in code order, each with its balance when it has one
+        let rowsOf (accounts: Account.Account list) =
+            accounts
+            |> List.sortBy (Account.code >> AccountCode.value)
+            |> List.choose (fun account ->
+                let accountId = account |> Account.accountId
+                accountId |> balanceOf |> Option.map (fun balance -> { accountId = accountId; balance = balance }))
         let accountById = ledgerAccounts |> List.map (fun a -> Account.accountId a, a) |> Map.ofList
 
         let! investmentAccounts = InvestmentAccount.fetchAll context
@@ -124,14 +116,12 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
             ledgerAccounts
             |> List.filter (fun a -> Account.accountType a = AccountType.Asset)
             |> List.filter (fun a -> not (linkedAssetIds |> Set.contains (Account.accountId a)))
-            |> List.choose rowOf
-            |> List.sortBy (fun r -> r.code)
+            |> rowsOf
         let liabilityAccounts =
             ledgerAccounts
             |> List.filter (fun a -> Account.accountType a = AccountType.Liability)
             |> List.filter (fun a -> not (ownedMortgageIds |> Set.contains (Account.accountId a)))
-            |> List.choose rowOf
-            |> List.sortBy (fun r -> r.code)
+            |> rowsOf
 
         let! holdings = fetchHoldingsAsOf context asOf
         let! investmentRows =
@@ -161,8 +151,7 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
                         |> Property.mortgageAccountIds
                         |> Set.toList
                         |> List.choose (fun id -> accountById |> Map.tryFind id)
-                        |> List.choose rowOf
-                        |> List.sortBy (fun r -> r.code)
+                        |> rowsOf
                     let! mortgageTotal = mortgageRows |> List.map (fun r -> r.balance) |> sumOf
                     let! equity = Money.subtractVal1FromVal2 mortgageTotal value
                     return
@@ -201,7 +190,6 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
             |> List.map fst
         return
             { asOf = asOf
-              netWorthDate = netWorthDate
               assetAccounts = assetAccounts
               liabilityAccounts = liabilityAccounts
               investmentAccounts = investmentRows

@@ -11,10 +11,9 @@ open Business.FinancialServices.Positions.PositionsError
 open Business.FinancialServices.Positions.PositionsComponent
 open Business.CrossDomainOrchestration.NetWorth
 
-/// Net worth on one month-end, reduced to its totals, whether the date is pre-ledger, and what is absent.
+/// Net worth on one month-end, reduced to its totals and what is absent.
 type NetWorthPoint = {
     monthEnd: LocalDate
-    netWorthDate: NetWorthDate
     totalLedgerAssets: Money.Money
     totalInvestments: Money.Money
     totalPropertyValues: Money.Money
@@ -27,7 +26,6 @@ type NetWorthPoint = {
 
 let private pointOf (netWorth: NetWorth) : NetWorthPoint =
     { monthEnd = netWorth.asOf
-      netWorthDate = netWorth.netWorthDate
       totalLedgerAssets = netWorth.totalLedgerAssets
       totalInvestments = netWorth.totalInvestments
       totalPropertyValues = netWorth.totalPropertyValues
@@ -38,7 +36,7 @@ let private pointOf (netWorth: NetWorth) : NetWorthPoint =
       absentComponents = netWorth.absentComponents }
 
 /// Net worth on every month-end in the range, in date order. Fails, naming the earliest, when any month-end is neither
-/// in a fiscal period nor a pre-ledger date: a missing month would read as a month with nothing to report.
+/// within a fiscal period nor earlier than the first: a missing month would read as a month with nothing to report.
 let computeNetWorthHistory
     (context: Context.Context)
     (beginDate: LocalDate)
@@ -52,7 +50,7 @@ let computeNetWorthHistory
             let! fiscalPeriods = FiscalPeriod.fetchAll context false
             do!
                 monthEnds
-                |> List.map (classifyDate fiscalPeriods >> Result.map ignore)
+                |> List.map (isWithinFiscalPeriod fiscalPeriods >> Result.map ignore)
                 |> convertListOfResultsToResultsList
                 |> Result.map ignore
             return!

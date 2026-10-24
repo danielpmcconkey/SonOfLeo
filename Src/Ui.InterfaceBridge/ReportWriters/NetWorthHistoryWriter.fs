@@ -41,10 +41,6 @@ let specificCss = [
         ordinal = 50
         declarator = "th.total, td.total"
         definition = "font-weight: 600;" }
-    {
-        ordinal = 60
-        declarator = "tr.pre-ledger td"
-        definition = "font-style: italic;" }
     ]
 
 let private encode (s: string) = System.Net.WebUtility.HtmlEncode s
@@ -78,7 +74,7 @@ let write
               element 40 (Bold endString) NoIdentifier [] ]
     let header = createReportHeader "Net Worth History" subtitle
     let headings =
-        [ "Month end", "text"; "Source", "text"; "Counted ledger assets", ""; "Investments", ""; "Property values", ""
+        [ "Month end", "text"; "Counted ledger assets", ""; "Investments", ""; "Property values", ""
           "Liabilities", ""; "Mortgages of owned properties", ""; "Net worth", "total"; "Investable wealth", "total"
           "Absent", "text" ]
     let cellClass c = if c = "" then NoIdentifier else Class c
@@ -90,9 +86,6 @@ let write
         let absent = point.absentComponents |> List.map NetWorthWriter.componentLabel |> String.concat ", "
         let cells =
             [ point.monthEnd |> dateString, "text"
-              (match point.netWorthDate with
-               | PreLedgerDate -> "pre-ledger"
-               | FiscalPeriodDate -> "ledger"), "text"
               moneyText point.totalLedgerAssets, ""
               moneyText point.totalInvestments, ""
               moneyText point.totalPropertyValues, ""
@@ -101,11 +94,7 @@ let write
               moneyText point.netWorth, "total"
               moneyText point.investableWealth, "total"
               absent, "text" ]
-        let rowClass =
-            match point.netWorthDate with
-            | PreLedgerDate -> Class "pre-ledger"
-            | FiscalPeriodDate -> NoIdentifier
-        element (10 + i) TableRow rowClass
+        element (10 + i) TableRow NoIdentifier
             (cells |> List.mapi (fun j (text, c) -> element (10 + j) (TableDataCell(encode text)) (cellClass c) []))
     let historyTable = element 1 Table NoIdentifier (headRow :: (points |> List.mapi pointRow))
     let reportBody = createReportBody [ historyTable ]

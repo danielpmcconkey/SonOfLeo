@@ -237,10 +237,18 @@ let ``convert [PeriodActivityAccount] to [PeriodActivityAccountReturnRow]``
               lines = account.lines |> List.map ``convert [PeriodActivityLine] to [PeriodActivityLineReturnRow]`` }
     }
 
-let private ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
+let ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
+    (context: Context.Context)
     (row: LedgerAccountBalance)
-    : NetWorthLedgerAccountReturnRow =
-    { code = row.code; name = row.name; balance = row.balance |> Money.amount; balanceDate = row.balanceDate }
+    : Result<NetWorthLedgerAccountReturnRow, IAppError> =
+    result {
+        let! code = row.accountId |> ``convert AccountId to AccountCodeString`` context
+        let! name = row.accountId |> ``convert AccountId to AccountNameString`` context
+        return { code = code; name = name; balance = row.balance |> Money.amount }
+    }
+
+let private ``convert [LedgerAccountBalance list] to [NetWorthLedgerAccountReturnRow list]`` context rows =
+    rows |> List.map (``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]`` context) |> convertListOfResultsToResultsList
 
 /// A net worth investment account's name and its owners' names.
 let netWorthInvestmentAccountNames
@@ -281,28 +289,32 @@ let ``convert [NetWorth] to [NetWorthReturnRow]`` (context: Context.Context) (ne
         let! properties =
             netWorth.properties
             |> List.map (fun p ->
-                netWorthPropertyNames context p
-                |> Result.map (fun (propertyName, owners) ->
-                    { propertyName = propertyName
-                      propertyUse = p.propertyUse |> PropertyUse.toString
-                      owners = owners
-                      value = p.value |> Money.amount
-                      valuationDate =
-                        match p.valueSource with
-                        | ValuationDated d -> Some d
-                        | PurchaseBasisValue -> None
-                      valueIsPurchaseBasis = (p.valueSource = PurchaseBasisValue)
-                      mortgageAccounts =
-                        p.mortgageAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
-                      equity = p.equity |> Money.amount }))
+                result {
+                    let! propertyName, owners = netWorthPropertyNames context p
+                    let! mortgageAccounts =
+                        p.mortgageAccounts |> ``convert [LedgerAccountBalance list] to [NetWorthLedgerAccountReturnRow list]`` context
+                    return
+                        { propertyName = propertyName
+                          propertyUse = p.propertyUse |> PropertyUse.toString
+                          owners = owners
+                          value = p.value |> Money.amount
+                          valuationDate =
+                            match p.valueSource with
+                            | ValuationDated d -> Some d
+                            | PurchaseBasisValue -> None
+                          valueIsPurchaseBasis = (p.valueSource = PurchaseBasisValue)
+                          mortgageAccounts = mortgageAccounts
+                          equity = p.equity |> Money.amount }
+                })
             |> convertListOfResultsToResultsList
+        let! assetAccounts =
+            netWorth.assetAccounts |> ``convert [LedgerAccountBalance list] to [NetWorthLedgerAccountReturnRow list]`` context
+        let! liabilityAccounts =
+            netWorth.liabilityAccounts |> ``convert [LedgerAccountBalance list] to [NetWorthLedgerAccountReturnRow list]`` context
         return
             { asOf = netWorth.asOf
-              isPreLedger = (netWorth.netWorthDate = PreLedgerDate)
-              assetAccounts =
-                netWorth.assetAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
-              liabilityAccounts =
-                netWorth.liabilityAccounts |> List.map ``convert [LedgerAccountBalance] to [NetWorthLedgerAccountReturnRow]``
+              assetAccounts = assetAccounts
+              liabilityAccounts = liabilityAccounts
               investmentAccounts = investmentAccounts
               properties = properties
               totalLedgerAssets = netWorth.totalLedgerAssets |> Money.amount
@@ -361,7 +373,6 @@ let ``convert [WealthPoint] to [WealthPointReturnRow]``
 
 let ``convert [NetWorthPoint] to [NetWorthPointReturnRow]`` (point: NetWorthPoint) : NetWorthPointReturnRow =
     { monthEnd = point.monthEnd
-      isPreLedger = (point.netWorthDate = PreLedgerDate)
       totalLedgerAssets = point.totalLedgerAssets |> Money.amount
       totalInvestments = point.totalInvestments |> Money.amount
       totalPropertyValues = point.totalPropertyValues |> Money.amount

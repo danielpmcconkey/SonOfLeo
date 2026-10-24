@@ -52,9 +52,20 @@ let private propertyNameOf context (p: NetWorthProperty) = p.propertyId |> Posit
 
 let private amount (m: Money.Money) = m |> Money.amount
 
-let private rows (accounts: LedgerAccountBalance list) = accounts |> List.map (fun r -> r.code, r.name, r.balance |> amount)
+/// Each account as listed: code, name and balance, read in the given context so an account a test creates resolves.
+let private rowsIn context (accounts: LedgerAccountBalance list) =
+    accounts
+    |> List.map (fun r ->
+        let account = r.accountId |> Ledger.Account.fetchById context |> mustBe
+        account |> Ledger.Account.code |> Ledger.AccountComponent.AccountCode.value,
+        account |> Ledger.Account.accountName |> Ledger.AccountComponent.AccountName.value,
+        r.balance |> amount)
 
-let private codes (accounts: LedgerAccountBalance list) = accounts |> List.map (fun r -> r.code)
+let private rows accounts = accounts |> rowsIn readOnly
+
+let private codesIn context accounts = accounts |> rowsIn context |> List.map (fun (code, _, _) -> code)
+
+let private codes accounts = accounts |> codesIn readOnly
 
 let private property context name (result: NetWorth) = result.properties |> List.find (fun p -> propertyNameOf context p = name)
 
@@ -286,8 +297,8 @@ type NetWorthTests(fixture: TestDataFixture) =
                         context (toPropertyName "56 Example Lane") Rental [ sam ]
                         (toOwnedPeriod p.rentalAcquired None) (toPurchaseBasis 150000.00M) [ landId; buildingId ] [] []
                 let! result = computeNetWorth context p.monthEnd3
-                Assert.DoesNotContain("RPT-8.2A", result.assetAccounts |> codes)
-                Assert.DoesNotContain("RPT-8.2B", result.assetAccounts |> codes)
+                Assert.DoesNotContain("RPT-8.2A", result.assetAccounts |> codesIn context)
+                Assert.DoesNotContain("RPT-8.2B", result.assetAccounts |> codesIn context)
                 Assert.Equal(5000.00M, result.totalLedgerAssets |> amount)
                 Assert.Equal(150000.00M, (result |> property context "56 Example Lane").value |> amount)
                 Assert.Equal(820000.00M, result.totalPropertyValues |> amount)
@@ -333,7 +344,7 @@ type NetWorthTests(fixture: TestDataFixture) =
                 let! result = computeNetWorth context p.monthEnd3
                 Assert.Equal<(string * string * decimal) list>(
                     [ "RPT-8.5M", "Disposed property mortgage", 50000.00M ],
-                    result.liabilityAccounts |> rows |> List.filter (fun (code, _, _) -> code = "RPT-8.5M"))
+                    result.liabilityAccounts |> rowsIn context |> List.filter (fun (code, _, _) -> code = "RPT-8.5M"))
                 Assert.Equal(49975.00M, result.totalLiabilities |> amount)
                 // subtracted twice it would be 107,945.00; not at all, 207,945.00
                 Assert.Equal(157945.00M, result.netWorth |> amount)
@@ -408,13 +419,13 @@ type NetWorthTests(fixture: TestDataFixture) =
                         context (toPropertyName "01 Example Lane") Rental [ sam ]
                         (toOwnedPeriod p.rentalAcquired None) (toPurchaseBasis 100000.00M) [] [ laterMortgageId; earlierMortgageId ] []
                 let! result = computeNetWorth context p.monthEnd3
-                Assert.Contains("F-1005", result.assetAccounts |> codes)
-                Assert.Equal<string list>(result.assetAccounts |> codes |> List.sort, result.assetAccounts |> codes)
-                Assert.Contains("F-2005", result.liabilityAccounts |> codes)
-                Assert.Equal<string list>(result.liabilityAccounts |> codes |> List.sort, result.liabilityAccounts |> codes)
+                Assert.Contains("F-1005", result.assetAccounts |> codesIn context)
+                Assert.Equal<string list>(result.assetAccounts |> codesIn context |> List.sort, result.assetAccounts |> codesIn context)
+                Assert.Contains("F-2005", result.liabilityAccounts |> codesIn context)
+                Assert.Equal<string list>(result.liabilityAccounts |> codesIn context |> List.sort, result.liabilityAccounts |> codesIn context)
                 Assert.Equal<(string * string * decimal) list>(
                     [ "F-2391", "Order test first mortgage", 0.00M; "F-2392", "Order test second mortgage", 0.00M ],
-                    (result |> property context "01 Example Lane").mortgageAccounts |> rows)
+                    (result |> property context "01 Example Lane").mortgageAccounts |> rowsIn context)
                 Assert.Equal<(string * decimal) list>(
                     [ PF.alexBrokerage, 1620.00M; PF.alexRoth, 1500.00M; "Example Order Brokerage", 0.00M
                       PF.jointBrokerage, 5500.00M; PF.sam401k, 4000.00M; PF.samHsa, 300.00M ],

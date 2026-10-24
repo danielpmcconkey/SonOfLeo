@@ -49,10 +49,12 @@ let private netWorthAsOf date = computeNetWorth (Context.create NoTransaction Fe
 
 let private amount (m: Money.Money) = m |> Money.amount
 
-/// An account as listed: code, balance and the date the balance came from.
-let private dated (accounts: LedgerAccountBalance list) = accounts |> List.map (fun r -> r.code, r.balance |> amount, r.balanceDate)
-
-let private balances (accounts: LedgerAccountBalance list) = accounts |> List.map (fun r -> r.code, r.balance |> amount)
+/// Each account as listed: code and balance.
+let private balances (accounts: LedgerAccountBalance list) =
+    accounts
+    |> List.map (fun r ->
+        let account = r.accountId |> Ledger.Account.fetchById (Context.create NoTransaction FetchOnly) |> mustBe
+        account |> Ledger.Account.code |> Ledger.AccountComponent.AccountCode.value, r.balance |> amount)
 
 /// The seven totals: ledger assets, investments, property values, liabilities, owned-property mortgages, net worth and
 /// investable wealth.
@@ -73,12 +75,7 @@ type NetWorthPreLedgerTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-8.1 REQ-RPT-8.5 net worth as of the day before the earliest fiscal period's start date returns a result marked pre-ledger, and as of that start date returns one marked not pre-ledger`` () =
-        result {
-            let! before = netWorthAsOf (p.ledgerStart.PlusDays(-1))
-            let! onStart = netWorthAsOf p.ledgerStart
-            Assert.Equal((PreLedgerDate, FiscalPeriodDate), (before.netWorthDate, onStart.netWorthDate))
-        }
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C4"
 
     [<Fact>]
     member _.``REQ-RPT-8.1 net worth as of a date in a gap between two fiscal periods fails with a typed error naming the date`` () =
@@ -89,8 +86,9 @@ type NetWorthPreLedgerTests(fixture: TestDataFixture) =
             result {
                 let! _ = monthPlus5Start.PlusMonths(1) |> fiscalPeriodKeyOf |> FiscalPeriodCreation.constructNewAndPersist context
                 computeNetWorth context inGap |> expectError outsideFiscalPeriods (fun d -> Assert.Equal(inGap, d))
-                let! inLaterPeriod = computeNetWorth context (monthPlus5Start.PlusMonths(1).PlusDays(14))
-                Assert.Equal(FiscalPeriodDate, inLaterPeriod.netWorthDate)
+                let inLaterPeriod = monthPlus5Start.PlusMonths(1).PlusDays(14)
+                let! computed = computeNetWorth context inLaterPeriod
+                Assert.Equal(inLaterPeriod, computed.asOf)
             })
         |> railroadWrapper
 

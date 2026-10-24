@@ -162,9 +162,8 @@ type PrePostingReviewReturn =
     | Report of OutputPathReturn
 
 
-// every ledger account carries its name beside its code; on a pre-ledger date, balanceDate is the date of the
-// Pre-ledger Balance the balance came from, and on a date in a fiscal period it is None
-type NetWorthLedgerAccountReturnRow = { code: string; name: string; balance: decimal; balanceDate: LocalDate option }
+// every ledger account carries its name beside its code
+type NetWorthLedgerAccountReturnRow = { code: string; name: string; balance: decimal }
 
 type NetWorthInvestmentAccountReturnRow = {
     accountName: string
@@ -195,7 +194,6 @@ type NetWorthGroupTotalReturnRow = { group: string; marketValue: decimal }
 // OwnedPropertyMortgages that nothing contributes to on the date
 type NetWorthReturnRow = {
     asOf: LocalDate
-    isPreLedger: bool
     assetAccounts: NetWorthLedgerAccountReturnRow list
     liabilityAccounts: NetWorthLedgerAccountReturnRow list
     investmentAccounts: NetWorthInvestmentAccountReturnRow list
@@ -243,7 +241,6 @@ type InvestmentWealthHistoryReturn =
 
 type NetWorthPointReturnRow = {
     monthEnd: LocalDate
-    isPreLedger: bool
     totalLedgerAssets: decimal
     totalInvestments: decimal
     totalPropertyValues: decimal

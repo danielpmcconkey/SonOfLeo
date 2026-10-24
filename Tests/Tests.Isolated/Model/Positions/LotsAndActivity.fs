@@ -283,10 +283,3 @@ let ``REQ-POS-13.3 two ranges for one account in one operation where the second 
     |> expectOk "adjacent ranges"
     InvestmentActivity.confirmRangesDontOverlap [ "key-a", account, b, e; "key-b", "Sam 401k", b, e ]
     |> expectOk "two accounts, same dates"
-
-[<Fact>]
-let ``REQ-RPT-8.1 when no fiscal period exists, a net worth date is rejected with a typed error naming the date rather than treated as pre-ledger`` () =
-    let date = LocalDate(2025, 12, 31)
-    match NetWorth.classifyDate [] date |> positionsError "no fiscal period" with
-    | PositionsNetWorthDateOutsideFiscalPeriods d -> Assert.Equal(date, d)
-    | other -> Assert.Fail $"Wrong error: {other}"
