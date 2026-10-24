@@ -2,11 +2,22 @@
 
 Behavioral specs for the positions domain: what is held, by whom, and what it was worth on a
 date. Positions has two sub-domains, **investments** (accounts at institutions holding
-securities) and **real estate** (property). They are peers: neither depends on the other, and
-anything that combines them (net worth, investable wealth) is a cross-domain computation
-(Reporting §8, §9, §10). Positions also keeps **pre-ledger balances** (§15): what ledger
-accounts held on dates before the ledger began, so net worth can reach back before it.
-(Pre-ledger balances added 2026-10-10.)
+securities) and **real estate** (property), and Positions also keeps **balance accounts**
+(§16): cash held and debts owed, recorded as dated balances. Investments and real estate are
+peers: neither depends on the other. Real estate may reference a balance account, as a
+Property's mortgage (REQ-POS-9.9); balance accounts reference neither. Anything that combines
+them (net worth, investable wealth) is a cross-domain computation (Reporting §8, §9, §10).
+(Balance accounts added 2026-10-12, replacing the pre-ledger balances of 2026-10-10.)
+
+**Design note — balance accounts and the ledger.** Net worth is always what Positions holds plus
+the ledger's assets less its liabilities (Reporting REQ-RPT-8.2). The system knows no cut-over
+date. Cash and debts from before the ledger began are Balance Accounts; from the day the ledger
+takes one over, it carries a zero balance and is never updated again. Keeping the two from
+counting the same money twice is a matter for whoever imports the data, not a rule the system
+enforces. Dan, 2026-10-12: "I don't think the code should be aware of the transition. I think
+the positions should be recorded accurately up to Dec 31, 2025 and then as $0 at Jan 1, 2026,
+never to be updated. It's a data import concern, not code. Then your code is always positions
++ ledger and blissfully unaware that we have a cut-over date."
 
 **Design note — relationship to the ledger.** Positions are not ledger records. The ledger is
 cash basis and carries an investment or a property, if at all, at cost or as the net of the
@@ -58,8 +69,8 @@ whether the shares that moved between two snapshots account for the difference b
 **Design note — naming.** Identifiers in this spec name domain concepts for readability. They do
 not prescribe variable, function, property or table names.
 
-**Addressing.** Persons, Dimension Values, Securities, Investment Accounts and Properties are
-addressed by name at the boundary; ledger accounts by account code (REQ-NGUI-1.4).
+**Addressing.** Persons, Dimension Values, Securities, Investment Accounts, Properties and
+Balance Accounts are addressed by name at the boundary; ledger accounts by account code (REQ-NGUI-1.4).
 
 ## 1. Entity model
 
@@ -91,23 +102,27 @@ Investment Account; each snapshot line references a Holding of that account; eac
 one snapshot line; an Activity references an Investment Account and, optionally, a Holding of
 that account; activity coverage belongs to one Investment Account.
 
-### Pre-ledger balances
+### Balance accounts
 
-- **Pre-ledger Balance.** What one ledger Account held on one date before the ledger began
-  (§15). (2026-10-10)
+- **Balance Account.** Cash held, or a debt owed, outside any Investment Account: a bank
+  account, a credit card, a loan. Has a kind (cash or debt), owners and an institution.
+  (2026-10-12)
+- **Balance.** What a Balance Account held, or owed, on one date. (2026-10-12)
 
-References: a Pre-ledger Balance references a ledger Account.
+References: a Balance Account references Persons (owners); a Balance references a Balance
+Account.
 
 ### Real estate
 
 - **Property.** A piece of real estate. Has owners, a use (primary residence or rental), an
   acquisition date and purchase basis, an optional disposal date, and optional links to its
-  ledger asset accounts and its mortgage liability accounts.
+  ledger asset accounts, its mortgage liability accounts and the Balance Accounts that are its
+  mortgages (2026-10-12).
 - **Valuation.** What a Property was judged to be worth on a date, and on what basis (an
   estimate, an appraisal).
 
-References: a Property references Persons (owners) and optionally ledger Accounts; a Valuation
-references a Property.
+References: a Property references Persons (owners) and optionally ledger Accounts and Balance
+Accounts of kind 'Debt'; a Valuation references a Property.
 
 ## 2. Valid and invalid data states — Dimension Value
 
@@ -213,6 +228,8 @@ from the data consumes.
 - **REQ-POS-9.7** A Property may be linked to zero or more ledger asset Accounts. Each must exist, be of type 'Asset' and have subtype 'FixedAsset'; otherwise the operation fails with a typed error naming the account code and what is wrong. The same ledger Account may not appear twice among one Property's asset Accounts; a repeat is rejected with a typed error naming the account code. A ledger Account may be an asset Account of at most one Property; a second is rejected with a typed error naming the account code and the Property already linked. (Amended 2026-10-05 — a set of asset Accounts, not one; and the at-most-one rule, formerly shared with Investment Accounts under REQ-POS-4.9, is stated here.)
   - *Why a set:* the ledger may carry one property across several FixedAsset accounts (the purchase, capitalised costs, depreciation). The Property's value replaces all of them in net worth (REQ-RPT-8.2); any left unlinked would be counted on top of it. (2026-10-05)
 - **REQ-POS-9.8** A Property may be linked to zero or more ledger mortgage Accounts. Each must exist and be of type 'Liability'; otherwise the operation fails with a typed error naming the account code. The same ledger Account may not appear twice among one Property's mortgage Accounts; a repeat is rejected with a typed error naming the account code. A ledger Account may be a mortgage Account of at most one Property; a second is rejected with a typed error naming the account code and the Property already linked. (Repeat rule added 2026-10-05)
+- **REQ-POS-9.9** A Property may name zero or more Balance Accounts (§16) as its mortgages. Each must exist and be of kind 'Debt'; otherwise the operation fails with a typed error naming the Balance Account and what is wrong. The same Balance Account may not appear twice among one Property's mortgage Balance Accounts; a repeat is rejected with a typed error naming it. A Balance Account may be a mortgage of at most one Property; a second is rejected with a typed error naming the Balance Account and the Property already linked. (2026-10-12)
+  - *Why:* a Property's equity is its value less what is owed on it (Reporting REQ-RPT-8.3), and investable wealth removes the primary residence's equity (REQ-RPT-8.4). Before the ledger began, the loan is a Balance Account. Without the link nothing says which debt the house secures, and investable wealth would remove the house's whole value while keeping its loan. (2026-10-12)
 
 ## 10. Valid and invalid data states — Valuation
 
@@ -229,12 +246,12 @@ from the data consumes.
 - **REQ-POS-11.3** The system must provide a means to create an Investment Account; to update its name, institution, account group, tax treatment, owners (given as the complete new set), active begin, active end (set or clear) and linked ledger Account (set or clear), the account addressed by its current name; and a read-only means to list every Investment Account ordered by name with everything REQ-POS-8.2 lists for an account except the snapshot fields, plus its active begin and active end. Owners are given by Person name and the ledger Account by code.
 - **REQ-POS-11.4** An update to an Investment Account's active period is rejected when any of its Account Snapshots, or any of its Activities (REQ-POS-12.8), would then fall outside it. The error names the earliest and latest offending snapshot dates, and the earliest and latest offending activity dates. (Activities added 2026-10-10)
 - **REQ-POS-11.5** The system must provide a means to create a Holding (Investment Account and Security by name, and basis method), to change a Holding's basis method subject to REQ-POS-5.2 and REQ-POS-5.7, and a read-only means to list Holdings, optionally limited to one Investment Account, ordered by account name and then Security name, each with its basis method.
-- **REQ-POS-11.6** The system must provide a means to create a Property; to update its name, use, owners (given as the complete new set), acquisition date, disposal date (set or clear), purchase basis, asset Accounts (given as the complete new set; amended 2026-10-05, formerly one Account set or cleared) and mortgage Accounts (given as the complete new set), the Property addressed by its current name; and a read-only means to list every Property ordered by name, with its owners' names and its linked Accounts' codes and names.
+- **REQ-POS-11.6** The system must provide a means to create a Property; to update its name, use, owners (given as the complete new set), acquisition date, disposal date (set or clear), purchase basis, asset Accounts (given as the complete new set; amended 2026-10-05, formerly one Account set or cleared), mortgage Accounts (given as the complete new set) and mortgage Balance Accounts (given as the complete new set, by name; 2026-10-12), the Property addressed by its current name; and a read-only means to list every Property ordered by name, with its owners' names, its linked Accounts' codes and names, and its mortgage Balance Accounts' names.
 - **REQ-POS-11.7** An update to a Property's acquisition or disposal date is rejected when any of its Valuations would then fall outside the range REQ-POS-10.3 allows. The error names the earliest and latest offending valuation dates.
 - **REQ-POS-11.8** The system must provide a means to record a Valuation. Recording a Valuation for a Property and date that already has one replaces its value and basis; this is a deliberate exception to REQ-SYS-6.1, made under REQ-SYS-6.1.1, for the reason given at REQ-POS-7.2. The system must provide a means to delete a Valuation, and a read-only means to list a Property's Valuations in date order.
-- **REQ-POS-11.9** A Dimension Value, Security, Investment Account or Property name given to any operation that does not match an existing record fails with a typed error naming the kind of record and the name. A Dimension Value is matched within the dimension given.
+- **REQ-POS-11.9** A Dimension Value, Security, Investment Account, Property or Balance Account (2026-10-12) name given to any operation that does not match an existing record fails with a typed error naming the kind of record and the name. A Dimension Value is matched within the dimension given.
 - **REQ-POS-11.10** The system must provide a means to delete a Holding, given by Investment Account and Security name. A Holding that any Account Snapshot line or any Activity references is not deleted; the operation fails with a typed error naming the account and the security. (2026-10-05; Activity added 2026-10-10)
-- **REQ-POS-11.11** The system must provide a means to delete a Property, addressed by name. A Property that has any Valuation is not deleted; the operation fails with a typed error naming the Property. Deleting a Property removes its owners and ledger links with it. (2026-10-05)
+- **REQ-POS-11.11** The system must provide a means to delete a Property, addressed by name. A Property that has any Valuation is not deleted; the operation fails with a typed error naming the Property. Deleting a Property removes its owners, its ledger links and its mortgage Balance Account links with it. (2026-10-05; Balance Accounts added 2026-10-12)
 - **REQ-POS-11.12** The system must not provide a user interface for hard-deleting a Dimension Value. (2026-10-05)
 - **REQ-POS-11.13** The system must not provide a user interface for hard-deleting a Security. (2026-10-05)
 - **REQ-POS-11.14** The system must not provide a user interface for hard-deleting an Investment Account. (2026-10-05)
@@ -287,25 +304,31 @@ up here.
 - **REQ-POS-14.3** A non-zero difference is returned as data, not raised as an error. The roll-forward makes no judgment. (2026-10-10)
   - *Why a cash Holding usually differs:* an account's cash is a Holding (§1), but the settlement legs that move its units are seldom reported as Activity, so its row differs by them. Nothing derives them (design note: activity is history). (2026-10-11)
 
-## 15. Pre-ledger balances
+## 15. Pre-ledger balances (withdrawn)
 
-The ledger holds nothing before its first fiscal period. A Pre-ledger Balance records what a
-ledger Account held on a date before then, taken from older records, so net worth can be
-computed for those dates (Reporting REQ-RPT-8.7).
+Withdrawn 2026-10-12: cash and debts from before the ledger began are Balance Accounts (§16).
+The requirements are in the Withdrawn table.
 
-- **REQ-POS-15.1** A Pre-ledger Balance references an existing ledger Account, by code, of type 'Asset' or 'Liability', and carries a balance date (a Calendar Date) and a balance (a valid Money value, which may be negative or zero). The balance is stated in the account's normal-balance direction: an asset's holding, a liability's amount owed. No two Pre-ledger Balances may share a ledger Account and balance date. A ledger Account of any other type fails the operation with a typed error naming the account code and its type. (2026-10-10)
-  - *Why zero is allowed:* a loan paid off or an account closed before the ledger began is recorded with a zero balance on the day it ended. Without it, its last balance would count on every later date (REQ-RPT-8.7). (2026-10-10)
-- **REQ-POS-15.2** The balance date must be earlier than the start date of the earliest fiscal period. When no fiscal period exists, the operation fails. Either failure is a typed error naming the account code and the date. (2026-10-10)
-  - *Why:* a date never draws on both the ledger and these balances (Reporting REQ-RPT-8.7). A balance dated on or after the ledger began could only disagree with it. (2026-10-10)
-- **REQ-POS-15.3** A ledger Account linked to an Investment Account (REQ-POS-4.8), or an asset Account of a Property (REQ-POS-9.7), may not carry a Pre-ledger Balance. The operation fails with a typed error naming the account code and what it is linked to. (2026-10-10)
-  - *Why:* net worth counts what such an account stands for from Positions, at market value, and never reads its balance (Reporting REQ-RPT-8.2). A balance recorded for it would silently count for nothing. A Property's mortgage Accounts are not linked in this sense and may carry Pre-ledger Balances; that is how a property's equity is known before the ledger began. (2026-10-10)
-- **REQ-POS-15.4** The system must provide a means to record one or more Pre-ledger Balances in a single atomic operation. A ledger Account and balance date may appear at most once in one operation; a repeat is rejected with a typed error naming both. Recording a Pre-ledger Balance for an Account and date that already has one replaces its balance; this is a deliberate exception to REQ-SYS-6.1, made under REQ-SYS-6.1.1, for the reason given at REQ-POS-7.2. Recording returns each Pre-ledger Balance as stored, with whether it replaced an existing one. (2026-10-10)
-- **REQ-POS-15.5** The system must provide a means to delete the Pre-ledger Balance for a given ledger Account and date. A date with no Pre-ledger Balance fails with a typed not-found error naming the account code and date. (2026-10-10)
-- **REQ-POS-15.6** The system must provide a read-only means to list Pre-ledger Balances, optionally limited to one ledger Account, between two Calendar Dates inclusive, ordered by account code and then balance date, each with the account's code and name. The end date may not be earlier than the begin date; otherwise the listing fails with a typed error naming both dates. (2026-10-10)
-- **REQ-POS-15.7** Creating a fiscal period whose start date is on or before the balance date of any Pre-ledger Balance is rejected with a typed error naming the period and the earliest and latest such balance dates. (2026-10-10)
-  - *Why:* REQ-POS-15.2 holds a Pre-ledger Balance to dates before the ledger began. A new, earlier fiscal period would move the ledger's start back over it, and from then on net worth would read that date from the ledger and the balance would silently stop counting (Reporting REQ-RPT-8.7). Deleting or re-dating the balances first is the operator's decision, not something the system does on its own. (2026-10-10)
-- **REQ-POS-15.8** Linking a ledger Account to an Investment Account (REQ-POS-4.8), or adding it to a Property's asset Accounts (REQ-POS-9.7), is rejected while that Account carries any Pre-ledger Balance. The error names the account code and the earliest and latest balance dates. This applies on create and on update. Adding an Account to a Property's mortgage Accounts is not affected. (2026-10-10)
-  - *Why:* REQ-POS-15.3 refuses a balance on a linked Account because net worth would never read it. Linking an Account that already carries balances reaches the same state from the other side, and the balances would silently count for nothing. (2026-10-10)
+## 16. Balance accounts
+
+Cash and debts that no Investment Account holds, recorded as dated balances: what an account
+held, or owed, on a date. They let net worth reach back before the ledger began (Reporting §8).
+(2026-10-12)
+
+- **REQ-POS-16.1** Balance Account name cannot be null or whitespace only (post-trim, per REQ-SYS-1.1), its length cannot exceed 100 characters, and no two Balance Accounts may share it (exact, case-sensitive comparison). (2026-10-12)
+- **REQ-POS-16.2** Kind must be one of 'Cash' or 'Debt'. A Balance Account's kind is set when it is created and never changes. (2026-10-12)
+  - *Why it never changes:* the same amount is money held under one kind and money owed under the other. Changing the kind would turn every recorded balance from an asset into a debt, or back, with no figure changing. (2026-10-12)
+- **REQ-POS-16.3** Institution cannot be null or whitespace only (post-trim), and its length cannot exceed 100 characters. (2026-10-12)
+- **REQ-POS-16.4** A Balance Account has one or more owners, each an existing Person. The same Person may not appear twice among one Balance Account's owners. (2026-10-12)
+- **REQ-POS-16.5** A Balance references an existing Balance Account and carries a balance date (a Calendar Date) and an amount (a valid Money value, which may be negative or zero). The amount is stated in the kind's own direction: for 'Cash', what is held; for 'Debt', what is owed. No two Balances of one Balance Account may share a balance date. The balance date cannot be later than the current date (the calendar date of the operation's initiation instant); a later one fails with a typed error naming the Balance Account and the date. (2026-10-12)
+  - *Why zero is allowed:* an account closed, a loan paid off, or an account the ledger has taken over is recorded with a zero balance from the day it ended. Without it, its last balance would count on every later date (REQ-POS-16.6). (2026-10-12)
+  - *Why negative is allowed:* an overdrawn account holds less than nothing, and an overpaid card is owed back. (2026-10-12)
+- **REQ-POS-16.6** A Balance Account's balance on a date is the amount of its latest Balance dated on or before that date. A Balance Account with no Balance on or before the date has no balance on it. A zero amount is a balance. (2026-10-12)
+  - *Why no balance rather than zero:* older records cover fewer accounts. An account not yet opened, or not recorded, is unknown, not empty (Reporting REQ-RPT-8.8). (2026-10-12)
+- **REQ-POS-16.7** The system must provide a means to create a Balance Account; to update its name, institution and owners (given as the complete new set), the Balance Account addressed by its current name; and a read-only means to list every Balance Account ordered by name, with its kind, institution and owners' names. Owners are given by Person name. (2026-10-12)
+- **REQ-POS-16.8** The system must provide a means to record one or more Balances in a single atomic operation. A Balance Account and balance date may appear at most once in one operation; a repeat is rejected with a typed error naming both. Recording a Balance for a Balance Account and date that already has one replaces its amount; this is a deliberate exception to REQ-SYS-6.1, made under REQ-SYS-6.1.1, for the reason given at REQ-POS-7.2. Recording returns each Balance as stored, with whether it replaced an existing one. (2026-10-12)
+- **REQ-POS-16.9** The system must provide a means to delete the Balance for a given Balance Account and date; a date with no Balance fails with a typed not-found error naming the Balance Account and date. The system must provide a read-only means to list a Balance Account's Balances between two Calendar Dates inclusive, in date order; the end date may not be earlier than the begin date, otherwise the listing fails with a typed error naming both dates. (2026-10-12)
+- **REQ-POS-16.10** The system must provide a means to delete a Balance Account, addressed by name. A Balance Account that has any Balance, or that is a mortgage of a Property (REQ-POS-9.9), is not deleted; the operation fails with a typed error naming the Balance Account and, for a mortgage, the Property. Deleting a Balance Account removes its owners with it. (2026-10-12)
 
 ## Waived from testing
 
@@ -331,3 +354,11 @@ Active requirements that bind humans, not code. Nothing in the system enforces t
 | ID | Original Requirement | Reason |
 |---|---|---|
 | REQ-POS-5.6 | Changing an Investment Account's tax treatment away from 'Taxable' is rejected while any line of its Account Snapshots carries a Lot. The error names the account and the earliest and latest such snapshot dates. (2026-10-10) | Withdrawn 2026-10-10 as redundant: only a line of a 'Taxable' account carries a Lot (REQ-POS-6.9), every Holding there has a basis method (REQ-POS-5.2), so any change away from 'Taxable' while a Lot exists is already refused by REQ-POS-5.3. Found by the slice 2 build session. |
+| REQ-POS-15.1 | A Pre-ledger Balance references an existing ledger Account, by code, of type 'Asset' or 'Liability', and carries a balance date (a Calendar Date) and a balance (a valid Money value, which may be negative or zero). The balance is stated in the account's normal-balance direction: an asset's holding, a liability's amount owed. No two Pre-ledger Balances may share a ledger Account and balance date. A ledger Account of any other type fails the operation with a typed error naming the account code and its type. (2026-10-10) | Withdrawn 2026-10-12 with all of §15: cash and debts from before the ledger began are Balance Accounts (§16), and net worth no longer branches on the ledger's start (D40; Dan, 2026-10-11 and 2026-10-12). |
+| REQ-POS-15.2 | The balance date must be earlier than the start date of the earliest fiscal period. When no fiscal period exists, the operation fails. Either failure is a typed error naming the account code and the date. (2026-10-10) | Withdrawn 2026-10-12 with all of §15: cash and debts from before the ledger began are Balance Accounts (§16), and net worth no longer branches on the ledger's start (D40; Dan, 2026-10-11 and 2026-10-12). |
+| REQ-POS-15.3 | A ledger Account linked to an Investment Account (REQ-POS-4.8), or an asset Account of a Property (REQ-POS-9.7), may not carry a Pre-ledger Balance. The operation fails with a typed error naming the account code and what it is linked to. (2026-10-10) | Withdrawn 2026-10-12 with all of §15: cash and debts from before the ledger began are Balance Accounts (§16), and net worth no longer branches on the ledger's start (D40; Dan, 2026-10-11 and 2026-10-12). |
+| REQ-POS-15.4 | The system must provide a means to record one or more Pre-ledger Balances in a single atomic operation. A ledger Account and balance date may appear at most once in one operation; a repeat is rejected with a typed error naming both. Recording a Pre-ledger Balance for an Account and date that already has one replaces its balance; this is a deliberate exception to REQ-SYS-6.1, made under REQ-SYS-6.1.1, for the reason given at REQ-POS-7.2. Recording returns each Pre-ledger Balance as stored, with whether it replaced an existing one. (2026-10-10) | Withdrawn 2026-10-12 with all of §15: cash and debts from before the ledger began are Balance Accounts (§16), and net worth no longer branches on the ledger's start (D40; Dan, 2026-10-11 and 2026-10-12). |
+| REQ-POS-15.5 | The system must provide a means to delete the Pre-ledger Balance for a given ledger Account and date. A date with no Pre-ledger Balance fails with a typed not-found error naming the account code and date. (2026-10-10) | Withdrawn 2026-10-12 with all of §15: cash and debts from before the ledger began are Balance Accounts (§16), and net worth no longer branches on the ledger's start (D40; Dan, 2026-10-11 and 2026-10-12). |
+| REQ-POS-15.6 | The system must provide a read-only means to list Pre-ledger Balances, optionally limited to one ledger Account, between two Calendar Dates inclusive, ordered by account code and then balance date, each with the account's code and name. The end date may not be earlier than the begin date; otherwise the listing fails with a typed error naming both dates. (2026-10-10) | Withdrawn 2026-10-12 with all of §15: cash and debts from before the ledger began are Balance Accounts (§16), and net worth no longer branches on the ledger's start (D40; Dan, 2026-10-11 and 2026-10-12). |
+| REQ-POS-15.7 | Creating a fiscal period whose start date is on or before the balance date of any Pre-ledger Balance is rejected with a typed error naming the period and the earliest and latest such balance dates. (2026-10-10) | Withdrawn 2026-10-12 with all of §15: cash and debts from before the ledger began are Balance Accounts (§16), and net worth no longer branches on the ledger's start (D40; Dan, 2026-10-11 and 2026-10-12). |
+| REQ-POS-15.8 | Linking a ledger Account to an Investment Account (REQ-POS-4.8), or adding it to a Property's asset Accounts (REQ-POS-9.7), is rejected while that Account carries any Pre-ledger Balance. The error names the account code and the earliest and latest balance dates. This applies on create and on update. Adding an Account to a Property's mortgage Accounts is not affected. (2026-10-10) | Withdrawn 2026-10-12 with all of §15: cash and debts from before the ledger began are Balance Accounts (§16), and net worth no longer branches on the ledger's start (D40; Dan, 2026-10-11 and 2026-10-12). |
