@@ -644,6 +644,26 @@ Integrated 1735 plus 72 placeholders.
   must be set"); the name lookup raising `NameAlreadyExists` (REQ-POS-11.9
   test). A first ordering mutation placed before the existing sort had no
   effect and was redone after it.
+- **C4, `NetWorthBalanceAccounts.fs` (16 tests, 3 of them moved from the
+  deleted `NetWorthPreLedger.fs`).** Each mutation alone in `NetWorth.fs` or
+  the Balance query, then restored: debts not subtracted (5 fail); cash not
+  added (4); owned Properties' mortgage Balance Accounts counted as debts
+  (5); mortgage Balance Accounts left out of equity (4); zero-balance
+  Balance Accounts listed (2); zero-balance mortgage Balance Accounts listed
+  under the Property (1); Balance Accounts left unsorted (1); the latest
+  Balance taken strictly before the date (6); cash never absent (4); debts'
+  absence counting owned mortgages (1); a date in a gap accepted ("Expected
+  failure; got success"); the Balance date replaced by the as-of date (1);
+  investable wealth less the residence's value instead of its equity (1);
+  the day before the ledger start rejected (the REQ-RPT-8.1/8.7 test, "falls
+  in no fiscal period"); within a period, no ledger account listed (6,
+  including the zero-ledger-accounts test). Two mutations survived and are
+  equivalent, so other mutations replaced them: treating the ledger start
+  itself as before the ledger (the in-period check runs first, so the start
+  date is still in a period); and dropping the 0.00 default for an account
+  with no ledger lines (`AccountBalance.fetchByAccountIdList` already
+  returns a 0.00 row for every account). Every one of the 16 tests was seen
+  failing at least once.
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)
