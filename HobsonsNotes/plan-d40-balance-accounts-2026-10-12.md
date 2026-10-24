@@ -476,6 +476,30 @@ an empty list records nothing and returns nothing, and the spec names no
 error for it. Build 0 warnings; suites as before (only placeholders fail);
 quick checks green.
 
+**B5. Property mortgages.** `Property` carries `mortgageBalanceAccountIds`
+(after the ledger mortgage set in `create`), read through a
+`mortgage_balance_account_ids` subquery on `property_mortgage_balance_account`
+and persisted, replaced on update and removed on delete as the ledger
+mortgage links are; `PropertyFieldUpdates.mortgageBalanceAccountIdsUpdate`
+carries the complete new set. `RealEstateOrchestration` gains
+`mortgageBalanceAccountSetOf` (public, as `mortgageAccountSetOf` is: each
+Balance Account exists, none repeated, each of kind `Debt`, each the mortgage
+of no other Property); the ledger and Balance Account link checks share one
+generic `confirmLinks`. `constructNewAndPersist` takes the set as its last
+argument; `updateProperty` checks it against the resulting name. New errors
+`PositionsMortgageBalanceAccountAlreadyLinked`,
+`PositionsMortgageBalanceAccountNotDebt`,
+`PositionsPropertyMortgageBalanceAccountRepeated`. Bridge: `PropertyReturn`
+gains `mortgageBalanceAccounts` (names, sorted, through
+`BalanceAccount.idToName`), `PropertyCreateInput` gains
+`mortgageBalanceAccountNames`, `PropertyUpdateInput` gains
+`mortgageBalanceAccountNamesUpdate`, converted by
+``convert [BalanceAccountNameString list] to [BalanceAccountId list]``. These
+Property payload changes are spec-driven (REQ-POS-11.6), which §2 allows; the
+four Property route descriptions now name the mortgage Balance Accounts.
+Existing callers pass an empty set. Build 0 warnings; Integrated 1735 pass
+plus 73 placeholders, Isolated 529 plus 8.
+
 ### 5.3 Fail-then-pass evidence
 
 - **B3 peer guard.** Planted `let private planted = Property.fetchAll` at the

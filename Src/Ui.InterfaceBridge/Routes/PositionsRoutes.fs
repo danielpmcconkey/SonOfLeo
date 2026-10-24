@@ -435,9 +435,20 @@ let private createProperty payload _ =
             let! assetAccountIds = input.assetAccountCodes |> ``convert [AccountCodeString list] to [AccountId list]`` context
             let! mortgageAccountIds =
                 input.mortgageAccountCodes |> ``convert [AccountCodeString list] to [AccountId list]`` context
+            let! mortgageBalanceAccountIds =
+                input.mortgageBalanceAccountNames
+                |> ``convert [BalanceAccountNameString list] to [BalanceAccountId list]`` context
             let! property =
                 RealEstateOrchestration.constructNewAndPersist
-                    context name propertyUse owners ownedPeriod purchaseBasis assetAccountIds mortgageAccountIds
+                    context
+                    name
+                    propertyUse
+                    owners
+                    ownedPeriod
+                    purchaseBasis
+                    assetAccountIds
+                    mortgageAccountIds
+                    mortgageBalanceAccountIds
             return! propertyReturn context property
         })
 
@@ -710,28 +721,28 @@ let positionsDomainCommandRoutes =
       { domain = "Property"
         verb = "Create"
         description =
-          "Create a Property: name, use (PrimaryResidence or Rental), owners by Person name, acquisition and optional disposal date, purchase basis, any asset accounts by code (Asset, subtype FixedAsset) and any mortgage accounts by code (Liability)."
+          "Create a Property: name, use (PrimaryResidence or Rental), owners by Person name, acquisition and optional disposal date, purchase basis, any asset accounts by code (Asset, subtype FixedAsset) and any mortgage accounts by code (Liability) and any mortgage Balance Accounts by name (Debt, each the mortgage of no other Property)."
         inputContract = typeof<PropertyCreateInput>.Name
         outputContract = typeof<PropertyReturn>.Name
         handler = createProperty }
       { domain = "Property"
         verb = "Update"
         description =
-          "Update any of a Property's fields, the Property addressed by its current name. Owners, asset accounts and mortgage accounts are given as complete new sets; the disposal date can be cleared."
+          "Update any of a Property's fields, the Property addressed by its current name. Owners, asset accounts, mortgage accounts and mortgage Balance Accounts are given as complete new sets; the disposal date can be cleared."
         inputContract = typeof<PropertyUpdateInput>.Name
         outputContract = typeof<PropertyReturn>.Name
         handler = updateProperty }
       { domain = "Property"
         verb = "Delete"
         description =
-          "Delete a Property, addressed by name, with its owners and ledger links. Refused while it has any Valuation. Returns the Property as it stood."
+          "Delete a Property, addressed by name, with its owners, ledger links and mortgage Balance Account links. Refused while it has any Valuation. Returns the Property as it stood."
         inputContract = typeof<PropertyDeleteInput>.Name
         outputContract = typeof<PropertyReturn>.Name
         handler = deleteProperty }
       { domain = "Property"
         verb = "List"
         description =
-          "List every Property ordered by name, with its owners' names and its linked accounts' codes and names. Read-only."
+          "List every Property ordered by name, with its owners' names, its linked accounts' codes and names and its mortgage Balance Accounts' names. Read-only."
         inputContract = typeof<NoInput>.Name
         outputContract = typeof<PropertyReturn list>.Name
         handler = listProperties }

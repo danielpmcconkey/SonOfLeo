@@ -284,7 +284,7 @@ type NetWorthTests(fixture: TestDataFixture) =
                 let! _ =
                     RealEstateOrchestration.constructNewAndPersist
                         context (toPropertyName "56 Example Lane") Rental [ sam ]
-                        (toOwnedPeriod p.rentalAcquired None) (toPurchaseBasis 150000.00M) [ landId; buildingId ] []
+                        (toOwnedPeriod p.rentalAcquired None) (toPurchaseBasis 150000.00M) [ landId; buildingId ] [] []
                 let! result = computeNetWorth context p.monthEnd3
                 Assert.DoesNotContain("RPT-8.2A", result.assetAccounts |> codes)
                 Assert.DoesNotContain("RPT-8.2B", result.assetAccounts |> codes)
@@ -312,7 +312,7 @@ type NetWorthTests(fixture: TestDataFixture) =
                 let! _ =
                     RealEstateOrchestration.constructNewAndPersist
                         context (toPropertyName "78 Sold Example Court") Rental [ sam ]
-                        (toOwnedPeriod p.rentalAcquired (Some p.d2)) (toPurchaseBasis 120000.00M) [] [ mortgageId ]
+                        (toOwnedPeriod p.rentalAcquired (Some p.d2)) (toPurchaseBasis 120000.00M) [] [ mortgageId ] []
                 return! test context
             })
         |> railroadWrapper
@@ -406,7 +406,7 @@ type NetWorthTests(fixture: TestDataFixture) =
                 let! _ =
                     RealEstateOrchestration.constructNewAndPersist
                         context (toPropertyName "01 Example Lane") Rental [ sam ]
-                        (toOwnedPeriod p.rentalAcquired None) (toPurchaseBasis 100000.00M) [] [ laterMortgageId; earlierMortgageId ]
+                        (toOwnedPeriod p.rentalAcquired None) (toPurchaseBasis 100000.00M) [] [ laterMortgageId; earlierMortgageId ] []
                 let! result = computeNetWorth context p.monthEnd3
                 Assert.Contains("F-1005", result.assetAccounts |> codes)
                 Assert.Equal<string list>(result.assetAccounts |> codes |> List.sort, result.assetAccounts |> codes)

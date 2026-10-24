@@ -187,6 +187,7 @@ let private createdRecord (fixture: TestDataFixture) (kind: string) (creating: C
                     (PositionsValues.toPurchaseBasis 90000.00M)
                     []
                     []
+                    []
             let propertyId = property |> Property.propertyId
             let read context = propertyId |> Property.fetchById context |> stamps Property.createdAt Property.modifiedAt
             let update context =
@@ -199,7 +200,8 @@ let private createdRecord (fixture: TestDataFixture) (kind: string) (creating: C
                       purchaseBasisUpdate = SetTo(PositionsValues.toPurchaseBasis 95000.00M)
                       assetAccountIdsUpdate = NoChange
                       ownersUpdate = NoChange
-                      mortgageAccountIdsUpdate = NoChange }
+                      mortgageAccountIdsUpdate = NoChange
+                      mortgageBalanceAccountIdsUpdate = NoChange }
                 |> ignoreResult
             return read, update
         | "Valuation" ->

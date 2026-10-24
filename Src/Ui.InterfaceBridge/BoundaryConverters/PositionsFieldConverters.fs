@@ -562,6 +562,13 @@ let ``convert [Property] to [PropertyReturn]`` (context: Context.Context) (prope
         let! owners = property |> Property.owners |> ownerNamesOf context
         let! assetAccounts = property |> Property.assetAccountIds |> ledgerAccountsOf
         let! mortgageAccounts = property |> Property.mortgageAccountIds |> ledgerAccountsOf
+        let! mortgageBalanceAccounts =
+            property
+            |> Property.mortgageBalanceAccountIds
+            |> Set.toList
+            |> List.map (BalanceAccount.idToName context >> Result.map BalanceAccountName.value)
+            |> convertListOfResultsToResultsList
+            |> Result.map List.sort
         return
             { propertyName = property |> Property.propertyName |> PropertyName.value
               propertyUse = property |> Property.propertyUse |> PropertyUse.toString
@@ -571,6 +578,7 @@ let ``convert [Property] to [PropertyReturn]`` (context: Context.Context) (prope
               purchaseBasis = property |> Property.purchaseBasis |> PurchaseBasis.value |> Money.amount
               assetAccounts = assetAccounts
               mortgageAccounts = mortgageAccounts
+              mortgageBalanceAccounts = mortgageBalanceAccounts
               createdAt = property |> Property.createdAt
               modifiedAt = property |> Property.modifiedAt }
     }
@@ -583,6 +591,12 @@ let ``convert [AccountCodeString list] to [AccountId list]``
     (codes: string list)
     : Result<AccountId list, IAppError> =
     codes |> List.map (fallibleConverterAccountCodeToAccountId context) |> convertListOfResultsToResultsList
+
+let ``convert [BalanceAccountNameString list] to [BalanceAccountId list]``
+    (context: Context.Context)
+    (names: string list)
+    : Result<BalanceAccountId list, IAppError> =
+    names |> List.map (``convert [BalanceAccountNameString] to [BalanceAccountId]`` context) |> convertListOfResultsToResultsList
 
 let ``convert [PropertyUpdateInput] to [PropertyFieldUpdates]``
     (context: Context.Context)
@@ -624,6 +638,12 @@ let ``convert [PropertyUpdateInput] to [PropertyFieldUpdates]``
                 ``convert [AccountCodeString list] to [AccountId list]`` context
                 >> Result.bind (mortgageAccountSetOf context resultingName)
             )
+        let! mortgageBalanceAccountIdsUpdate =
+            input.mortgageBalanceAccountNamesUpdate
+            |> convertFieldUpdateToNewTypeFallible (
+                ``convert [BalanceAccountNameString list] to [BalanceAccountId list]`` context
+                >> Result.bind (mortgageBalanceAccountSetOf context resultingName)
+            )
         return
             { propertyIdToUpdate = propertyId
               propertyNameUpdate = nameUpdate
@@ -632,7 +652,8 @@ let ``convert [PropertyUpdateInput] to [PropertyFieldUpdates]``
               purchaseBasisUpdate = purchaseBasisUpdate
               assetAccountIdsUpdate = assetAccountIdsUpdate
               ownersUpdate = ownersUpdate
-              mortgageAccountIdsUpdate = mortgageAccountIdsUpdate }
+              mortgageAccountIdsUpdate = mortgageAccountIdsUpdate
+              mortgageBalanceAccountIdsUpdate = mortgageBalanceAccountIdsUpdate }
     }
 
 // ---- Valuations ----

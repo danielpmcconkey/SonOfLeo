@@ -90,6 +90,8 @@ type PositionsError =
     | PositionsLotsNotAllowed of string * string
     | PositionsMortgageAccountAlreadyLinked of string * string
     | PositionsMortgageAccountNotLiability of string * string
+    | PositionsMortgageBalanceAccountAlreadyLinked of string * string
+    | PositionsMortgageBalanceAccountNotDebt of string * string
     | PositionsNetWorthDateOutsideFiscalPeriods of LocalDate
     | PositionsNetWorthHistoryEndBeforeBegin of LocalDate * LocalDate
     | PositionsOwnershipExcludesValuations of string * LocalDate * LocalDate
@@ -100,6 +102,7 @@ type PositionsError =
     | PositionsPropertyIdDoesntExist of Guid
     | PositionsPropertyLedgerAccountNotAssetFixedAsset of string * string * string option
     | PositionsPropertyMortgageAccountRepeated of string * string
+    | PositionsPropertyMortgageBalanceAccountRepeated of string * string
     | PositionsPropertyNameAlreadyExists of string
     | PositionsPropertyNameDoesntMatch of string
     | PositionsPropertyNameIsEmpty of string
@@ -238,6 +241,8 @@ type PositionsError =
             | PositionsLotsNotAllowed(account, security) -> $"Investment Account \"{account}\" is not Taxable, so its line for \"{security}\" cannot carry lots."
             | PositionsMortgageAccountAlreadyLinked(code, property) -> $"Ledger account {code} is already a mortgage account of Property \"{property}\"."
             | PositionsMortgageAccountNotLiability(code, accountType) -> $"Ledger account {code} cannot be a mortgage account: it must be a Liability account, and it is {accountType}."
+            | PositionsMortgageBalanceAccountAlreadyLinked(balanceAccount, property) -> $"Balance Account \"{balanceAccount}\" is already a mortgage of Property \"{property}\"."
+            | PositionsMortgageBalanceAccountNotDebt(balanceAccount, kind) -> $"Balance Account \"{balanceAccount}\" cannot be a mortgage: it must be of kind Debt, and it is {kind}."
             | PositionsNetWorthDateOutsideFiscalPeriods date -> $"Net worth cannot be computed as of {date}: the date falls in no fiscal period and is not before the first one."
             | PositionsNetWorthHistoryEndBeforeBegin(beginDate, endDate) -> $"The end date ({endDate}) cannot be earlier than the begin date ({beginDate})."
             | PositionsOwnershipExcludesValuations(property, earliest, latest) -> $"Property \"{property}\" would have Valuations outside its ownership, the earliest {earliest} and the latest {latest}."
@@ -250,6 +255,7 @@ type PositionsError =
                 let shownSubtype = subtype |> Option.defaultValue "none"
                 $"Ledger account {code} cannot stand for a Property: it must be an Asset account of subtype FixedAsset, and it is {accountType} with subtype {shownSubtype}."
             | PositionsPropertyMortgageAccountRepeated(property, code) -> $"Property \"{property}\" names ledger account {code} as a mortgage account more than once."
+            | PositionsPropertyMortgageBalanceAccountRepeated(property, balanceAccount) -> $"Property \"{property}\" names Balance Account \"{balanceAccount}\" as a mortgage more than once."
             | PositionsPropertyNameAlreadyExists name -> $"A Property named \"{name}\" already exists."
             | PositionsPropertyNameDoesntMatch name -> $"No Property is named \"{name}\"."
             | PositionsPropertyNameIsEmpty raw -> $"Property name cannot be empty. Provided name is \"{raw}\"."

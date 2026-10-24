@@ -102,6 +102,21 @@ let assetAccountSetOf (context: Context.Context) (propertyName: PropertyName) (a
 let mortgageAccountSetOf (context: Context.Context) (propertyName: PropertyName) (accountIds: AccountId list) =
     accountSetOf context propertyName PositionsPropertyMortgageAccountRepeated accountIds
 
+/// Confirms no Balance Account is given twice among a Property's mortgage Balance Accounts, and returns them as a set.
+let mortgageBalanceAccountSetOf
+    (context: Context.Context)
+    (propertyName: PropertyName)
+    (balanceAccountIds: BalanceAccountId list)
+    : Result<Set<BalanceAccountId>, IAppError> =
+    match balanceAccountIds |> List.countBy id |> List.tryFind (fun (_, count) -> count > 1) with
+    | Some(repeated, _) ->
+        result {
+            let! balanceAccount = repeated |> BalanceAccount.fetchById context
+            let shownName = balanceAccount |> BalanceAccount.balanceAccountName |> BalanceAccountName.value
+            return! error (PositionsPropertyMortgageBalanceAccountRepeated(propertyName |> PropertyName.value, shownName))
+        }
+    | None -> Ok(balanceAccountIds |> Set.ofList)
+
 let private confirmAssetLink (context: Context.Context) (self: PropertyId) (accountId: AccountId) : Result<unit, IAppError> =
     result {
         let! account = accountId |> fetchLedgerAccount context
@@ -134,13 +149,33 @@ let private confirmMortgageLink (context: Context.Context) (self: PropertyId) (a
         | _ -> return ()
     }
 
+let private confirmMortgageBalanceAccountLink
+    (context: Context.Context)
+    (self: PropertyId)
+    (balanceAccountId: BalanceAccountId)
+    : Result<unit, IAppError> =
+    result {
+        let! balanceAccount = balanceAccountId |> BalanceAccount.fetchById context
+        let shownName = balanceAccount |> BalanceAccount.balanceAccountName |> BalanceAccountName.value
+        do!
+            match balanceAccount |> BalanceAccount.kind with
+            | BalanceAccountKind.Debt -> Ok()
+            | other -> error (PositionsMortgageBalanceAccountNotDebt(shownName, other |> BalanceAccountKind.toString))
+        let! linked = balanceAccountId |> Property.fetchByMortgageBalanceAccountId context
+        match linked with
+        | Some other when other |> Property.propertyId <> self ->
+            let name = other |> Property.propertyName |> PropertyName.value
+            return! error (PositionsMortgageBalanceAccountAlreadyLinked(shownName, name))
+        | _ -> return ()
+    }
+
 let private confirmLinks
     (context: Context.Context)
     (self: PropertyId)
-    (confirmLink: Context.Context -> PropertyId -> AccountId -> Result<unit, IAppError>)
-    (accountIds: Set<AccountId>)
+    (confirmLink: Context.Context -> PropertyId -> 'id -> Result<unit, IAppError>)
+    (ids: Set<'id>)
     : Result<unit, IAppError> =
-    accountIds
+    ids
     |> Set.toList
     |> List.map (confirmLink context self)
     |> convertListOfResultsToResultsList
@@ -155,6 +190,7 @@ let constructNewAndPersist
     (purchaseBasis: PurchaseBasis)
     (assetAccountIds: AccountId list)
     (mortgageAccountIds: AccountId list)
+    (mortgageBalanceAccountIds: BalanceAccountId list)
     : Result<Property.Property, IAppError> =
     let instant = context |> Context.getInitiationInstant
     let propertyId = PropertyId.create ()
@@ -166,6 +202,8 @@ let constructNewAndPersist
         do! assetAccountSet |> confirmLinks context propertyId confirmAssetLink
         let! mortgageAccountSet = mortgageAccountSetOf context name mortgageAccountIds
         do! mortgageAccountSet |> confirmLinks context propertyId confirmMortgageLink
+        let! mortgageBalanceAccountSet = mortgageBalanceAccountSetOf context name mortgageBalanceAccountIds
+        do! mortgageBalanceAccountSet |> confirmLinks context propertyId confirmMortgageBalanceAccountLink
         let property =
             Property.create
                 propertyId
@@ -176,6 +214,7 @@ let constructNewAndPersist
                 assetAccountSet
                 ownerSet
                 mortgageAccountSet
+                mortgageBalanceAccountSet
                 instant
                 instant
         do! property |> Property.persist context
@@ -204,7 +243,8 @@ let private confirmPeriodKeepsValuations
                 )
     }
 
-/// ownersUpdate, assetAccountIdsUpdate and mortgageAccountIdsUpdate each carry the complete new set.
+/// ownersUpdate, assetAccountIdsUpdate, mortgageAccountIdsUpdate and mortgageBalanceAccountIdsUpdate each carry the
+/// complete new set.
 let updateProperty
     (context: Context.Context)
     (fieldUpdates: Property.PropertyFieldUpdates)
@@ -240,6 +280,10 @@ let updateProperty
             match fieldUpdates.mortgageAccountIdsUpdate with
             | SetTo accountIds -> accountIds |> confirmLinks context self confirmMortgageLink
             | NoChange -> Ok()
+        do!
+            match fieldUpdates.mortgageBalanceAccountIdsUpdate with
+            | SetTo balanceAccountIds -> balanceAccountIds |> confirmLinks context self confirmMortgageBalanceAccountLink
+            | NoChange -> Ok()
         return! Property.update context fieldUpdates
     }
 
@@ -247,7 +291,8 @@ let updateProperty
 let listProperties (context: Context.Context) : Result<Property.Property list, IAppError> =
     Property.fetchAll context |> Result.map (List.sortBy (Property.propertyName >> PropertyName.value))
 
-/// Deletes the Property with its owners and ledger links, and returns it as it stood before deletion.
+/// Deletes the Property with its owners, ledger links and mortgage Balance Account links, and returns it as it stood
+/// before deletion.
 let deleteProperty (context: Context.Context) (propertyId: PropertyId) : Result<Property.Property, IAppError> =
     result {
         let! property = propertyId |> Property.fetchById context

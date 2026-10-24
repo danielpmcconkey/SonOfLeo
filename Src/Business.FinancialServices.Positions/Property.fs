@@ -26,11 +26,13 @@ type Property = private {
     assetAccountIds: Set<AccountId>
     owners: Set<PersonId>
     mortgageAccountIds: Set<AccountId>
+    mortgageBalanceAccountIds: Set<BalanceAccountId>
     createdAt: Instant
     modifiedAt: Instant
 }
 
-/// An ownersUpdate, assetAccountIdsUpdate or mortgageAccountIdsUpdate carries the complete new set.
+/// An ownersUpdate, assetAccountIdsUpdate, mortgageAccountIdsUpdate or mortgageBalanceAccountIdsUpdate carries the
+/// complete new set.
 type PropertyFieldUpdates = {
     propertyIdToUpdate: PropertyId
     propertyNameUpdate: FieldUpdate<PropertyName>
@@ -40,6 +42,7 @@ type PropertyFieldUpdates = {
     assetAccountIdsUpdate: FieldUpdate<Set<AccountId>>
     ownersUpdate: FieldUpdate<Set<PersonId>>
     mortgageAccountIdsUpdate: FieldUpdate<Set<AccountId>>
+    mortgageBalanceAccountIdsUpdate: FieldUpdate<Set<BalanceAccountId>>
 }
 
 let propertyId p = p.propertyId
@@ -50,6 +53,7 @@ let purchaseBasis p = p.purchaseBasis
 let assetAccountIds p = p.assetAccountIds
 let owners p = p.owners
 let mortgageAccountIds p = p.mortgageAccountIds
+let mortgageBalanceAccountIds p = p.mortgageBalanceAccountIds
 let createdAt p = p.createdAt
 let modifiedAt p = p.modifiedAt
 
@@ -62,6 +66,7 @@ let create
     (assetAccountIds: Set<AccountId>)
     (owners: Set<PersonId>)
     (mortgageAccountIds: Set<AccountId>)
+    (mortgageBalanceAccountIds: Set<BalanceAccountId>)
     (createdAt: Instant)
     (modifiedAt: Instant)
     : Property =
@@ -73,6 +78,7 @@ let create
       assetAccountIds = assetAccountIds
       owners = owners
       mortgageAccountIds = mortgageAccountIds
+      mortgageBalanceAccountIds = mortgageBalanceAccountIds
       createdAt = createdAt
       modifiedAt = modifiedAt }
 
@@ -119,6 +125,11 @@ let private persistMortgageAccounts context propertyId (accountIds: Set<AccountI
     |> Set.map AccountId.value
     |> persistChildren context "property_mortgage_account" "ledger_account_id" propertyId
 
+let private persistMortgageBalanceAccounts context propertyId (balanceAccountIds: Set<BalanceAccountId>) =
+    balanceAccountIds
+    |> Set.map BalanceAccountId.value
+    |> persistChildren context "property_mortgage_balance_account" "balance_account_id" propertyId
+
 let persist (context: Context.Context) (property: Property) : Result<unit, IAppError> =
     let queryStatement =
         """
@@ -142,6 +153,7 @@ let persist (context: Context.Context) (property: Property) : Result<unit, IAppE
         do! persistOwners context property.propertyId property.owners
         do! persistAssetAccounts context property.propertyId property.assetAccountIds
         do! persistMortgageAccounts context property.propertyId property.mortgageAccountIds
+        do! persistMortgageBalanceAccounts context property.propertyId property.mortgageBalanceAccountIds
     }
 
 let private parseIdSet (raw: string option) : Set<Guid> =
@@ -152,7 +164,7 @@ let private parseIdSet (raw: string option) : Set<Guid> =
 let private reconstitute raw =
     result {
         let uuid, nameStr, useStr, acquisitionDate, disposalDate, purchaseBasisRaw, assetIds, ownerIds, mortgageIds,
-            createdAt, modifiedAt = raw
+            mortgageBalanceAccountIds, createdAt, modifiedAt = raw
         let! name = nameStr |> PropertyName.create
         let! propertyUse = useStr |> PropertyUse.fromString
         let! ownedPeriod = OwnedPeriod.create acquisitionDate disposalDate
@@ -168,6 +180,7 @@ let private reconstitute raw =
                 (assetIds |> parseIdSet |> Set.map AccountId.fromGuid)
                 (ownerIds |> parseIdSet |> Set.map PersonId.fromGuid)
                 (mortgageIds |> parseIdSet |> Set.map AccountId.fromGuid)
+                (mortgageBalanceAccountIds |> parseIdSet |> Set.map BalanceAccountId.fromGuid)
                 createdAt
                 modifiedAt
     }
@@ -182,6 +195,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getStringOption "asset_account_ids"),
     (row |> RowReader.getStringOption "owner_ids"),
     (row |> RowReader.getStringOption "mortgage_account_ids"),
+    (row |> RowReader.getStringOption "mortgage_balance_account_ids"),
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
@@ -221,6 +235,9 @@ let private fetchAny
         (select string_agg(pma.ledger_account_id::text, ',' order by pma.ledger_account_id)
          from positions.property_mortgage_account pma
          where pma.property_id = prop.unique_id) as mortgage_account_ids,
+        (select string_agg(pmba.balance_account_id::text, ',' order by pmba.balance_account_id)
+         from positions.property_mortgage_balance_account pmba
+         where pmba.property_id = prop.unique_id) as mortgage_balance_account_ids,
         prop.created_at, prop.modified_at"""
     query context None select None predicate None None None parameters expectedRows
 
@@ -293,6 +310,8 @@ let update (context: Context.Context) (fieldUpdates: PropertyFieldUpdates) : Res
     let ownersUpdate = fieldUpdates.ownersUpdate |> mapNoChangeToOptionWithConversion id
     let assetUpdate = fieldUpdates.assetAccountIdsUpdate |> mapNoChangeToOptionWithConversion id
     let mortgageUpdate = fieldUpdates.mortgageAccountIdsUpdate |> mapNoChangeToOptionWithConversion id
+    let mortgageBalanceAccountUpdate =
+        fieldUpdates.mortgageBalanceAccountIdsUpdate |> mapNoChangeToOptionWithConversion id
     let setClauses = columnUpdates |> List.map (fun (clause, _) -> $"{clause}, ") |> String.concat ""
     let parameters =
         [ { name = "@unique_id"; value = UniqueId uuid }
@@ -308,7 +327,8 @@ let update (context: Context.Context) (fieldUpdates: PropertyFieldUpdates) : Res
             if columnUpdates |> List.isEmpty
                && ownersUpdate |> Option.isNone
                && assetUpdate |> Option.isNone
-               && mortgageUpdate |> Option.isNone then
+               && mortgageUpdate |> Option.isNone
+               && mortgageBalanceAccountUpdate |> Option.isNone then
                 error PositionsPropertyUpdateNoOp
             else
                 Ok()
@@ -333,10 +353,16 @@ let update (context: Context.Context) (fieldUpdates: PropertyFieldUpdates) : Res
                 deleteChildren context "property_mortgage_account" propertyId
                 |> Result.bind (fun () -> persistMortgageAccounts context propertyId newMortgageAccounts)
             | None -> Ok()
+        do!
+            match mortgageBalanceAccountUpdate with
+            | Some newMortgageBalanceAccounts ->
+                deleteChildren context "property_mortgage_balance_account" propertyId
+                |> Result.bind (fun () -> persistMortgageBalanceAccounts context propertyId newMortgageBalanceAccounts)
+            | None -> Ok()
         return! propertyId |> fetchById context
     }
 
-/// Removes the Property with its owners and ledger links.
+/// Removes the Property with its owners, ledger links and mortgage Balance Account links.
 let delete (context: Context.Context) (propertyId: PropertyId) : Result<unit, IAppError> =
     let queryStatement =
         """
@@ -346,6 +372,7 @@ let delete (context: Context.Context) (propertyId: PropertyId) : Result<unit, IA
         do! deleteChildren context "property_owner" propertyId
         do! deleteChildren context "property_asset_account" propertyId
         do! deleteChildren context "property_mortgage_account" propertyId
+        do! deleteChildren context "property_mortgage_balance_account" propertyId
         do!
             executeNonQuery
                 (context |> Context.getDatabaseTransaction) queryStatement [ propertyParameter propertyId ] ExactlyOne

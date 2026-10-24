@@ -457,7 +457,7 @@ module PositionsFixture =
                     let! owners = PositionsLookups.personIdsOf context owners
                     return!
                         RealEstateOrchestration.constructNewAndPersist
-                            context name propertyUse owners period basis assetAccountIds mortgageIds
+                            context name propertyUse owners period basis assetAccountIds mortgageIds []
                 }
             let formerResidenceAcquired = today.PlusYears(-6)
             let! _ =

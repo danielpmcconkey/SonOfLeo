@@ -100,7 +100,7 @@ let private createProperty context (n: NewProperty) =
             n.owners |> List.map Business.General.PersonComponent.PersonName.value |> PositionsLookups.personIdsOf context
         return!
             constructNewAndPersist
-                context n.name n.propertyUse owners n.ownedPeriod n.purchaseBasis n.assetAccountIds n.mortgageAccountIds
+                context n.name n.propertyUse owners n.ownedPeriod n.purchaseBasis n.assetAccountIds n.mortgageAccountIds []
     }
 
 // the route path: the update goes through the route's converter as an input contract, then to the orchestrator. The
@@ -116,7 +116,8 @@ let private updateProperty context (u: PropertyUpdate) =
               disposalDateUpdate = u.disposalDateUpdate
               purchaseBasisUpdate = u.purchaseBasisUpdate |> map (PurchaseBasis.value >> Money.amount)
               assetAccountCodesUpdate = NoChange
-              mortgageAccountCodesUpdate = NoChange }
+              mortgageAccountCodesUpdate = NoChange
+              mortgageBalanceAccountNamesUpdate = NoChange }
         let! fieldUpdates = input |> ``convert [PropertyUpdateInput] to [PropertyFieldUpdates]`` context
         let resultingName = u.nameUpdate |> valueOrCurrent u.currentName
         let! assetAccountIdsUpdate =

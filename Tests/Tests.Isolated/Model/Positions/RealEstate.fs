@@ -28,6 +28,7 @@ let private propertyWith (purchaseBasis: decimal) =
         Set.empty
         (Set.singleton (PersonId.create ()))
         Set.empty
+        Set.empty
         instant
         instant
 

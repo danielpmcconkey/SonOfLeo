@@ -175,7 +175,8 @@ let private noPropertyChange name : C.PropertyUpdateInput =
       disposalDateUpdate = NoChange
       purchaseBasisUpdate = NoChange
       assetAccountCodesUpdate = NoChange
-      mortgageAccountCodesUpdate = NoChange }
+      mortgageAccountCodesUpdate = NoChange
+      mortgageBalanceAccountNamesUpdate = NoChange }
 
 // ---- Valuations ----
 
@@ -229,7 +230,8 @@ type PositionsRoutesTests(fixture: TestDataFixture) =
           disposalDate = None
           purchaseBasis = 180000.00M
           assetAccountCodes = []
-          mortgageAccountCodes = mortgages }
+          mortgageAccountCodes = mortgages
+          mortgageBalanceAccountNames = [] }
 
     // ---- Dimension Values ----
 

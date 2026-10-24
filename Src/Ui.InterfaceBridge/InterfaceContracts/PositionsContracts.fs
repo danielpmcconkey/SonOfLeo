@@ -325,6 +325,7 @@ type PropertyReturn = {
     purchaseBasis: decimal
     assetAccounts: LedgerAccountReturn list
     mortgageAccounts: LedgerAccountReturn list
+    mortgageBalanceAccounts: string list
     createdAt: Instant
     modifiedAt: Instant
 }
@@ -338,10 +339,11 @@ type PropertyCreateInput = {
     purchaseBasis: decimal
     assetAccountCodes: string list
     mortgageAccountCodes: string list
+    mortgageBalanceAccountNames: string list
 }
 
-// the Property is addressed by its current name; ownersUpdate, assetAccountCodesUpdate and mortgageAccountCodesUpdate
-// carry complete new sets
+// the Property is addressed by its current name; ownersUpdate, assetAccountCodesUpdate, mortgageAccountCodesUpdate and
+// mortgageBalanceAccountNamesUpdate carry complete new sets
 type PropertyUpdateInput = {
     propertyName: string
     propertyNameUpdate: FieldUpdate<string>
@@ -352,6 +354,7 @@ type PropertyUpdateInput = {
     purchaseBasisUpdate: FieldUpdate<decimal>
     assetAccountCodesUpdate: FieldUpdate<string list>
     mortgageAccountCodesUpdate: FieldUpdate<string list>
+    mortgageBalanceAccountNamesUpdate: FieldUpdate<string list>
 }
 
 type PropertyDeleteInput = { propertyName: string }
