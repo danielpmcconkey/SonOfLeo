@@ -47,10 +47,6 @@ type BalanceAccountRoutesTests(fixture: TestDataFixture) =
         Assert.Fail "Not yet implemented"
 
     [<Fact>]
-    member _.``REQ-RPT-10.4 the NetWorthHistory route in data-only mode for a range spanning the earliest fiscal period's start returns the same points, totals including cash and debts, and absent components as the net worth history computation`` () =
-        Assert.Fail "Not yet implemented"
-
-    [<Fact>]
     member _.``REQ-RPT-10.4 the rendered net worth history has one row per month-end and one column per total, including cash and debts, and marks no point as pre-ledger`` () =
         Assert.Fail "Not yet implemented"
 

@@ -261,7 +261,9 @@ type NetWorthPointReturnRow = {
     totalLedgerAssets: decimal
     totalInvestments: decimal
     totalPropertyValues: decimal
+    totalCash: decimal
     totalLiabilities: decimal
+    totalDebts: decimal
     totalOwnedPropertyMortgages: decimal
     netWorth: decimal
     investableWealth: decimal

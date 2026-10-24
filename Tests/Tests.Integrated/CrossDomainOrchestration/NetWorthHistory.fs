@@ -22,17 +22,22 @@ open Xunit
 
 (* Expected figures are derived by hand from the fixture (see PositionsFixture.fs and NetWorthPreLedger.fs).
 
-   monthEnd6, the last pre-ledger month-end (the same records as monthEnd7):
-     ledger assets 2,585.00; investments 250.00 (Sam HSA's pre-ledger snapshot); property values 450,000.00 (the rental
-     and the former residence); liabilities 0.00 (F-2230); owned-property mortgages 184,000.00 (F-2320)
-     net worth 268,835.00; investable wealth 68,835.00 (less the former residence's equity, 200,000.00); nothing absent
+   monthEnd6, the last month-end before the earliest fiscal period (the same records as monthEnd7):
+     no ledger account has a balance, so counted ledger assets and liabilities are absent, each 0.00
+     investments 250.00 (Sam HSA's pre-ledger snapshot); property values 450,000.00 (the rental and the former
+     residence); cash 2,600.00 (Fixture Savings 100.00, Fixture Checking 2,500.00); debts 15.00 (Fixture Card 15.00,
+     Fixture Loan 0.00); owned-property mortgages 184,000.00 (Fixture Rental Mortgage, the rental's mortgage Balance
+     Account)
+     net worth 250.00 + 450,000.00 + 2,600.00 - 15.00 - 184,000.00 = 268,835.00; investable wealth 68,835.00 (less the
+     former residence's equity, 200,000.00)
    monthEnd5, the end of the earliest (closed) fiscal period:
      ledger assets 0.00, every unlinked Asset account listed at its ledger balance of 0.00
      investments 250.00 (Sam HSA's pre-ledger snapshot is still its latest; its d1 snapshot is in month -4)
      property values 250,000.00 (the rental; the former residence was disposed of on the first of month -5 and the
        residence is acquired in month -4)
      liabilities -25.00 (F-2210's 25.00 Debit in the closed period); owned-property mortgages 0.00 (F-2320's 180,000.00
-       Credit is dated in month -4)
+       Credit is dated in month -4, and Fixture Rental Mortgage closed at 0.00 on the first of month -5)
+     cash 0.00 and debts 0.00: every Balance Account closed at 0.00 on the first of month -5, which is still a balance
      net worth 0.00 + 250.00 + 250,000.00 - (-25.00) - 0.00 = 250,275.00; no primary residence owned, so investable
      wealth is also 250,275.00; nothing absent *)
 
@@ -41,10 +46,10 @@ let private historyOf beginDate endDate =
 
 let private monthEnds (points: NetWorthPoint list) = points |> List.map (fun pt -> pt.monthEnd)
 
-/// A point: month-end, the seven totals and the absent components.
+/// A point: month-end, the nine totals and the absent components.
 let private pointSummary (pt: NetWorthPoint) =
     pt.monthEnd,
-    [ pt.totalLedgerAssets; pt.totalInvestments; pt.totalPropertyValues; pt.totalLiabilities
+    [ pt.totalLedgerAssets; pt.totalInvestments; pt.totalPropertyValues; pt.totalCash; pt.totalLiabilities; pt.totalDebts
       pt.totalOwnedPropertyMortgages; pt.netWorth; pt.investableWealth ]
     |> List.map Money.amount,
     pt.absentComponents
@@ -89,8 +94,18 @@ type NetWorthHistoryTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-10.2 a range from the last pre-ledger month-end to the first fiscal-period month-end gives two points: the first marked pre-ledger and the second not, each with its seven hand-derived totals and its absent components`` () =
-        Assert.Fail "Not yet implemented: reworked in item C2"
+    member _.``REQ-RPT-10.2 a range from the last month-end before the earliest fiscal period to the first fiscal-period month-end gives two points, the first without ledger figures and the second with them, each with its nine hand-derived totals and its absent components`` () =
+        historyOf p.monthEnd6 p.monthEnd5
+        |> Result.map (fun points ->
+            Assert.Equal<(LocalDate * decimal list * NetWorthComponent list) list>(
+                [ p.monthEnd6,
+                  [ 0.00M; 250.00M; 450000.00M; 2600.00M; 0.00M; 15.00M; 184000.00M; 268835.00M; 68835.00M ],
+                  [ CountedLedgerAssets; Liabilities ]
+                  p.monthEnd5,
+                  [ 0.00M; 250.00M; 250000.00M; 0.00M; -25.00M; 0.00M; 0.00M; 250275.00M; 250275.00M ],
+                  [] ],
+                points |> List.map pointSummary))
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-10.3 a range whose month-ends run past the last fiscal period fails with a typed error naming the earliest month-end that is neither within a fiscal period nor pre-ledger`` () =

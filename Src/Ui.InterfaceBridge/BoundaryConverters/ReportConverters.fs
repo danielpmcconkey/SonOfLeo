@@ -416,7 +416,9 @@ let ``convert [NetWorthPoint] to [NetWorthPointReturnRow]`` (point: NetWorthPoin
       totalLedgerAssets = point.totalLedgerAssets |> Money.amount
       totalInvestments = point.totalInvestments |> Money.amount
       totalPropertyValues = point.totalPropertyValues |> Money.amount
+      totalCash = point.totalCash |> Money.amount
       totalLiabilities = point.totalLiabilities |> Money.amount
+      totalDebts = point.totalDebts |> Money.amount
       totalOwnedPropertyMortgages = point.totalOwnedPropertyMortgages |> Money.amount
       netWorth = point.netWorth |> Money.amount
       investableWealth = point.investableWealth |> Money.amount

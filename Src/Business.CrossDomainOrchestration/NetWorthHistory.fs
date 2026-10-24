@@ -17,7 +17,9 @@ type NetWorthPoint = {
     totalLedgerAssets: Money.Money
     totalInvestments: Money.Money
     totalPropertyValues: Money.Money
+    totalCash: Money.Money
     totalLiabilities: Money.Money
+    totalDebts: Money.Money
     totalOwnedPropertyMortgages: Money.Money
     netWorth: Money.Money
     investableWealth: Money.Money
@@ -29,7 +31,9 @@ let private pointOf (netWorth: NetWorth) : NetWorthPoint =
       totalLedgerAssets = netWorth.totalLedgerAssets
       totalInvestments = netWorth.totalInvestments
       totalPropertyValues = netWorth.totalPropertyValues
+      totalCash = netWorth.totalCash
       totalLiabilities = netWorth.totalLiabilities
+      totalDebts = netWorth.totalDebts
       totalOwnedPropertyMortgages = netWorth.totalOwnedPropertyMortgages
       netWorth = netWorth.netWorth
       investableWealth = netWorth.investableWealth

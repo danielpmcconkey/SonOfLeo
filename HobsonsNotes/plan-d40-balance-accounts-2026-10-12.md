@@ -559,6 +559,21 @@ tests now expect Cash and Debts absent too and say "seven"/"six"
 components. The "reworked in item C2" placeholders are filled in C4. Build 0
 warnings; Integrated 1733 plus 75 placeholders, Isolated 529 plus 7.
 
+**C3. Net worth history.** `NetWorthPoint` (and `NetWorthPointReturnRow`)
+carry `totalCash` and `totalDebts` beside the other seven totals; the
+pre-ledger flag went in C1. The month-end check uses
+`isWithinFiscalPeriod`, so REQ-RPT-10.3 follows the new REQ-RPT-8.1 (every
+month-end accepted when there is no fiscal period). The rendered table
+gains Cash and Debts columns after Property values and Liabilities; the
+route description says nine totals. Tests: the NetWorthHistory REQ-RPT-10.2
+two-point test is filled (monthEnd6 with no ledger figures, monthEnd5 with
+them, nine hand-derived totals each, derivation in the file's header) and
+the PositionsReportRoutes data-only route test is reworked to compare all
+nine totals and to show the ledger components absent only before
+ledgerStart. That reworked test covers the BalanceAccountRoutes placeholder
+of the same name, so the placeholder is deleted rather than duplicated.
+Integrated 1735 plus 72 placeholders.
+
 ### 5.3 Fail-then-pass evidence
 
 - **B3 peer guard.** Planted `let private planted = Property.fetchAll` at the
@@ -578,6 +593,12 @@ warnings; Integrated 1733 plus 75 placeholders, Isolated 529 plus 7.
   Actual: [CountedLedgerAssets, Investments, Liabilities,
   OwnedPropertyMortgages]", and the same for the seven-component test.
   Restored: both pass.
+- **C3, REQ-RPT-10.4 data-only history route (PositionsReportRoutes).** With
+  the point converter's `totalCash` set to 0: "Assert.Equal() Failure:
+  Collections differ" on the point list. Restored: passes.
+- **C3, REQ-RPT-10.2 two points (NetWorthHistory).** With `pointOf` copying
+  cash into `totalDebts`: "Assert.Equal() Failure: Collections differ".
+  Restored: passes.
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)

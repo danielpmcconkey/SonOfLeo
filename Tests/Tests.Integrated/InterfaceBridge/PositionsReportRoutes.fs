@@ -395,8 +395,37 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
         Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
-    member _.``REQ-RPT-10.4 the NetWorthHistory route in data-only mode for a range spanning pre-ledger and fiscal-period month-ends returns the same points, totals, pre-ledger flags and absent components as the net worth history computation`` () =
-        Assert.Fail "Not yet implemented: reworked in item C3"
+    member _.``REQ-RPT-10.4 the NetWorthHistory route in data-only mode for a range spanning the first fiscal period's start returns the same points, nine totals and absent components as the net worth history computation, the ledger components absent only before that start`` () =
+        result {
+            let! returned = runNetWorthHistory p.monthEnd9 p.monthEnd4 OutputSpecifier.DataOnly
+            let! points =
+                match returned with
+                | NetWorthHistoryReturn.DataOnly points -> Ok points
+                | NetWorthHistoryReturn.Report _ -> Error(TestingError "Expected DataOnly but got Report")
+            let! computed = computeNetWorthHistory (fresh ()) p.monthEnd9 p.monthEnd4
+            Assert.Equal(6, computed.Length)
+            Assert.Equal<(LocalDate * decimal list * string list) list>(
+                computed
+                |> List.map (fun pt ->
+                    pt.monthEnd,
+                    [ pt.totalLedgerAssets; pt.totalInvestments; pt.totalPropertyValues; pt.totalCash; pt.totalLiabilities
+                      pt.totalDebts; pt.totalOwnedPropertyMortgages; pt.netWorth; pt.investableWealth ]
+                    |> List.map Money.amount,
+                    pt.absentComponents |> List.map NetWorthComponent.toString),
+                points
+                |> List.map (fun pt ->
+                    pt.monthEnd,
+                    [ pt.totalLedgerAssets; pt.totalInvestments; pt.totalPropertyValues; pt.totalCash; pt.totalLiabilities
+                      pt.totalDebts; pt.totalOwnedPropertyMortgages; pt.netWorth; pt.investableWealth ],
+                    pt.absentComponents))
+            Assert.Equal<bool list>(
+                [ true; true; true; true; false; false ],
+                points
+                |> List.map (fun pt ->
+                    pt.absentComponents |> List.contains "CountedLedgerAssets"
+                    && pt.absentComponents |> List.contains "Liabilities"))
+        }
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-RPT-10.4 REQ-RPT-2.3 the NetWorthHistory route in report mode writes a new HTML file and returns its fully qualified path`` () =

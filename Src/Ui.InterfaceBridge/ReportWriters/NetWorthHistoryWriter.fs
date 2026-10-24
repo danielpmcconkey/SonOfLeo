@@ -74,8 +74,8 @@ let write
               element 40 (Bold endString) NoIdentifier [] ]
     let header = createReportHeader "Net Worth History" subtitle
     let headings =
-        [ "Month end", "text"; "Counted ledger assets", ""; "Investments", ""; "Property values", ""
-          "Liabilities", ""; "Mortgages of owned properties", ""; "Net worth", "total"; "Investable wealth", "total"
+        [ "Month end", "text"; "Counted ledger assets", ""; "Investments", ""; "Property values", ""; "Cash", ""
+          "Liabilities", ""; "Debts", ""; "Mortgages of owned properties", ""; "Net worth", "total"; "Investable wealth", "total"
           "Absent", "text" ]
     let cellClass c = if c = "" then NoIdentifier else Class c
     let headRow =
@@ -89,7 +89,9 @@ let write
               moneyText point.totalLedgerAssets, ""
               moneyText point.totalInvestments, ""
               moneyText point.totalPropertyValues, ""
+              moneyText point.totalCash, ""
               moneyText point.totalLiabilities, ""
+              moneyText point.totalDebts, ""
               moneyText point.totalOwnedPropertyMortgages, ""
               moneyText point.netWorth, "total"
               moneyText point.investableWealth, "total"
