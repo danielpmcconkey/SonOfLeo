@@ -163,6 +163,7 @@ module PositionsLookups =
     let securityIdOf context name = name |> ``convert [SecurityNameString] to [SecurityId]`` context
     let investmentAccountIdOf context name = name |> ``convert [InvestmentAccountNameString] to [InvestmentAccountId]`` context
     let propertyIdOf context name = name |> ``convert [PropertyNameString] to [PropertyId]`` context
+    let balanceAccountIdOf context name = name |> ``convert [BalanceAccountNameString] to [BalanceAccountId]`` context
 
     let private orFail (r: Result<'T, IAppError>) : 'T =
         match r with

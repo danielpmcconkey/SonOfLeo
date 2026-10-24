@@ -82,7 +82,7 @@ let private describedToday (description: string) =
     |> List.filter (fun e -> e |> JE.header |> JournalEntryHeader.description |> JournalEntryDescription.value = description)
 
 /// One record of the kind, created under the creating context. Gives back a read of its stored created-at and modified-at,
-/// and an update of it (for an Account Snapshot or a Valuation, recording the same date again).
+/// and an update of it (for an Account Snapshot, a Valuation or a Balance, recording the same date again).
 let private createdRecord (fixture: TestDataFixture) (kind: string) (creating: Context.Context) =
     let p = fixture.Data.positions
     let stamps (createdAt: 'r -> Instant) (modifiedAt: 'r -> Instant) (read: Result<'r, IAppError>) =
@@ -255,6 +255,38 @@ let private createdRecord (fixture: TestDataFixture) (kind: string) (creating: C
                 |> stamps InvestmentActivityCoverage.createdAt InvestmentActivityCoverage.modifiedAt
             // coverage is never updated in place: a merge deletes the rows it absorbs and inserts a new one
             let update (_: Context.Context) : Result<unit, IAppError> = failwith "Activity coverage is never updated"
+            return read, update
+        | "Balance Account" ->
+            let! balanceAccount =
+                BalanceAccountOrchestration.constructNewAndPersist
+                    creating
+                    (BalanceAccountName.create "Instant Checking" |> PositionsValues.mustBe)
+                    BalanceAccountKind.Cash
+                    (PositionsValues.toInstitution "Example Bank")
+                    [ samId ]
+            let balanceAccountId = balanceAccount |> BalanceAccount.balanceAccountId
+            let read context =
+                balanceAccountId |> BalanceAccount.fetchById context |> stamps BalanceAccount.createdAt BalanceAccount.modifiedAt
+            let update context =
+                BalanceAccountOrchestration.updateBalanceAccount
+                    context
+                    { balanceAccountIdToUpdate = balanceAccountId
+                      balanceAccountNameUpdate = NoChange
+                      institutionUpdate = SetTo(PositionsValues.toInstitution "Example Credit Union")
+                      ownersUpdate = NoChange }
+                |> ignoreResult
+            return read, update
+        | "Balance" ->
+            let! loanId = PositionsLookups.balanceAccountIdOf creating PositionsFixture.loan
+            let! recorded = BalanceAccountOrchestration.recordBalances creating [ loanId, p.d2, PositionsValues.toMoney 900.00M ]
+            let balanceId = recorded |> List.exactlyOne |> fun r -> r.balance |> BalanceAccountBalance.balanceAccountBalanceId
+            let read context =
+                balanceId
+                |> BalanceAccountBalance.fetchById context
+                |> stamps BalanceAccountBalance.createdAt BalanceAccountBalance.modifiedAt
+            let update context =
+                BalanceAccountOrchestration.recordBalances context [ loanId, p.d2, PositionsValues.toMoney 850.00M ]
+                |> ignoreResult
             return read, update
         | other -> return failwith $"No record kind \"{other}\""
     }
@@ -614,7 +646,9 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
     [<InlineData("Valuation")>]
     [<InlineData("Investment Activity")>]
     [<InlineData("Activity Coverage")>]
-    member _.``REQ-SYS-3.2 for each of Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot, Property, Valuation, Investment Activity and activity coverage, creating one under a clock that advances on every read sets its created-at and modified-at both to the operation's initiation instant`` (kind: string) =
+    [<InlineData("Balance Account")>]
+    [<InlineData("Balance")>]
+    member _.``REQ-SYS-3.2 for each of Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot, Property, Valuation, Investment Activity, activity coverage, Balance Account and Balance, creating one under a clock that advances on every read sets its created-at and modified-at both to the operation's initiation instant`` (kind: string) =
         runCommandRouteAndAutoRollback PositionsCreateProperty (fun creating ->
             result {
                 let! read, _ = createdRecord fixture kind creating
@@ -632,7 +666,9 @@ type OperationInstantAndAtomicityTests(fixture: TestDataFixture) =
     [<InlineData("Account Snapshot")>]
     [<InlineData("Property")>]
     [<InlineData("Valuation")>]
-    member _.``REQ-SYS-3.3 for each update to a Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot (re-recorded), Property and Valuation (re-recorded), under a clock that advances on every read, the record's modified-at is set to the operation's initiation instant and its created-at is unchanged`` (kind: string) =
+    [<InlineData("Balance Account")>]
+    [<InlineData("Balance")>]
+    member _.``REQ-SYS-3.3 for each update to a Person, Dimension Value, Security, Investment Account, Holding, Account Snapshot (re-recorded), Property, Valuation (re-recorded), Balance Account and Balance (re-recorded), under a clock that advances on every read, the record's modified-at is set to the operation's initiation instant and its created-at is unchanged`` (kind: string) =
         runCommandRouteAndAutoRollback PositionsUpdateProperty (fun creating ->
             result {
                 let! read, update = createdRecord fixture kind creating

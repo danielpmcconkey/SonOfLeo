@@ -105,12 +105,3 @@ type BalanceAccountMaintenanceTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-POS-16.10 REQ-POS-11.9 deleting a Balance Account by a name that matches no Balance Account fails with a typed not-found error naming Balance Account and the name`` () =
         Assert.Fail "Not yet implemented"
-
-    [<Fact>]
-    member _.``REQ-SYS-3.2 for each of Balance Account and Balance, creating one under a clock that advances on every read sets its created-at and modified-at both to the operation's initiation instant`` () =
-        Assert.Fail "Not yet implemented"
-
-    [<Fact>]
-    member _.``REQ-SYS-3.3 for each of an update to a Balance Account and a re-recorded Balance, under a clock that advances on every read, the record's modified-at is set to the operation's initiation instant and its created-at is unchanged`` () =
-        Assert.Fail "Not yet implemented"
-

@@ -607,6 +607,13 @@ Integrated 1735 plus 72 placeholders.
   1 fails (REQ-POS-16.2); "cash" accepted, 1 fails (REQ-POS-16.2);
   `Institution.maxLength` 101, 1 fails (REQ-POS-16.3). The REQ-RPT-8.1 test
   is under C1.
+- **C4, REQ-SYS-3.2/3.3 theories (OperationInstantAndAtomicity).** The
+  "Balance Account" and "Balance" cases, each seen failing alone ("Assert.Equal()
+  Failure: Values differ", 1 of 40) with: the new Balance Account's
+  modified-at one millisecond after the instant; the new Balance's likewise;
+  `BalanceAccount.update` stamping one millisecond late; and
+  `BalanceAccountBalance.update` likewise. A one-tick shift did not fail:
+  the database keeps microseconds. Each restored; 40 of 40 pass.
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)
