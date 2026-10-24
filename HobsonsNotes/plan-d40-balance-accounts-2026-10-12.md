@@ -399,6 +399,38 @@ four, and all four in the fixture's TRUNCATE list, each parent before its
 child as the list already orders them. `sonofleo_test` rebuilt from scratch
 with both new scripts: the four tables exist and the suite is unchanged.
 
+**B2. Types and entity modules.** `PositionsComponent` gains
+`BalanceAccountId`, `BalanceAccountBalanceId`, `BalanceAccountName` (trimmed,
+at most 100, REQ-POS-16.1) and `BalanceAccountKind` (`Cash | Debt`,
+`toString`/`fromString`). **`Institution` is reused**: its rule (trimmed, not
+empty, at most 100) is REQ-POS-16.3's word for word, and its error cases
+(`PositionsInstitutionIsEmpty`/`TooLong`) name no Investment Account.
+`BalanceAccount.fs` follows `Property.fs`: owners as a child set (one table,
+so a private `persistOwners`/`deleteOwners` pair instead of the generic
+`persistChildren`), persist, private `reconstitute`/`query`, `fetchById`,
+`fetchByName`, `fetchAll`, `update` (name, institution, owners; no kind),
+`delete` (owners first) and a private cache behind a typed `idToName`.
+`BalanceAccountBalance.fs` follows `Valuation.fs`: persist, `update` (the
+amount, through a one-field `FieldUpdates` record so it keeps the canon
+shape and no-op guard), `delete`, `fetchById`, `fetchByAccountAndDate`,
+`fetchBetween` (one account, both ends included, date order),
+`existsForAccount` (for the delete guard) and `fetchLatestOnOrBefore`, one
+query for every account's latest Balance on or before a date (see §5.6), and
+`balanceOn` per REQ-POS-16.6, returning the Balance itself so net worth has
+its date. Both compile before `Property.fs`. New error cases:
+`PositionsBalanceAccountBalanceIdDoesntExist`,
+`PositionsBalanceAccountBalanceUpdateNoOp`,
+`PositionsBalanceAccountHasNoOwners`, `PositionsBalanceAccountIdDoesntExist`,
+`PositionsBalanceAccountNameIsEmpty`, `PositionsBalanceAccountNameTooLong`,
+`PositionsBalanceAccountUpdateNoOp`, `PositionsInvalidBalanceAccountKind`.
+Auditable actions: `PositionsCreateBalanceAccount`,
+`PositionsUpdateBalanceAccount`, `PositionsDeleteBalanceAccount`,
+`PositionsRecordBalanceAccountBalances`,
+`PositionsDeleteBalanceAccountBalance`. Aliases `bacc`, `baow`, `babal` (and
+`pmba` in B5) added to the skill's table. Build 0 warnings. The peer guard
+fails at this commit (the two new modules are in no list) and B3, the next
+commit, lists them.
+
 ### 5.3 Fail-then-pass evidence
 
 ### 5.4 The migrations Dan must apply

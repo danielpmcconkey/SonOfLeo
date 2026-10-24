@@ -360,6 +360,9 @@ within one file. Before picking one for a new entity, check this list and
 | `positions.account_snapshot` | `snap` |
 | `positions.account_snapshot_line` | `snapl` |
 | `positions.account_snapshot_lot` | `snaplot` |
+| `positions.balance_account` | `bacc` |
+| `positions.balance_account_balance` | `babal` |
+| `positions.balance_account_owner` | `baow` |
 | `positions.dimension_value` | `dv` |
 | `positions.holding` | `hol` |
 | `positions.investment_account` | `ia` |
@@ -368,6 +371,7 @@ within one file. Before picking one for a new entity, check this list and
 | `positions.property` | `prop` |
 | `positions.property_asset_account` | `paa` |
 | `positions.property_mortgage_account` | `pma` |
+| `positions.property_mortgage_balance_account` | `pmba` |
 | `positions.property_owner` | `prow` |
 | `positions.security` | `sec` |
 | `positions.valuation` | `val` |

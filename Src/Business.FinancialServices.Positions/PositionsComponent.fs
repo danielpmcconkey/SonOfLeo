@@ -83,6 +83,18 @@ module ValuationId =
     let fromGuid g = ValuationId g
     let value (ValuationId g) : Guid = g
 
+type BalanceAccountId = private BalanceAccountId of Guid
+module BalanceAccountId =
+    let create () : BalanceAccountId = BalanceAccountId(Guid.NewGuid())
+    let fromGuid g = BalanceAccountId g
+    let value (BalanceAccountId g) : Guid = g
+
+type BalanceAccountBalanceId = private BalanceAccountBalanceId of Guid
+module BalanceAccountBalanceId =
+    let create () : BalanceAccountBalanceId = BalanceAccountBalanceId(Guid.NewGuid())
+    let fromGuid g = BalanceAccountBalanceId g
+    let value (BalanceAccountBalanceId g) : Guid = g
+
 type Dimension =
     | InvestmentType
     | MarketCap
@@ -381,6 +393,30 @@ module ValuationValue =
     let create (money: Money.Money) : Result<ValuationValue, IAppError> =
         if money |> Money.isPositive then Ok(ValuationValue money)
         else error (PositionsValuationValueNotPositive(money |> Money.amount))
+
+type BalanceAccountName = private BalanceAccountName of string
+module BalanceAccountName =
+    let maxLength = 100
+    let value (BalanceAccountName n) = n
+    let create (raw: string) : Result<BalanceAccountName, IAppError> =
+        raw
+        |> trimmedAndBounded maxLength PositionsBalanceAccountNameIsEmpty PositionsBalanceAccountNameTooLong
+        |> Result.map BalanceAccountName
+
+type BalanceAccountKind =
+    | Cash
+    | Debt
+
+module BalanceAccountKind =
+    let toString kind =
+        match kind with
+        | Cash -> "Cash"
+        | Debt -> "Debt"
+    let fromString (raw: string) : Result<BalanceAccountKind, IAppError> =
+        match raw.Trim() with
+        | "Cash" -> Ok Cash
+        | "Debt" -> Ok Debt
+        | _ -> error (PositionsInvalidBalanceAccountKind raw)
 
 /// The dates a Property is held: from its acquisition date up to, but not including, its disposal date. Unlike an
 /// Investment Account's active period, the last day is not inside it.

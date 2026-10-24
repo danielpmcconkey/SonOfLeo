@@ -29,6 +29,13 @@ type PositionsError =
     | PositionsActivitySourceIsEmpty of string
     | PositionsActivitySourceTooLong of string * int
     | PositionsAssetAccountAlreadyLinked of string * string
+    | PositionsBalanceAccountBalanceIdDoesntExist of Guid
+    | PositionsBalanceAccountBalanceUpdateNoOp
+    | PositionsBalanceAccountHasNoOwners of string
+    | PositionsBalanceAccountIdDoesntExist of Guid
+    | PositionsBalanceAccountNameIsEmpty of string
+    | PositionsBalanceAccountNameTooLong of string * int
+    | PositionsBalanceAccountUpdateNoOp
     | PositionsBasisMethodNotAllowed of string * string * string
     | PositionsContributionBasisNegative of decimal
     | PositionsContributionBasisNotAllowed of string * string
@@ -49,6 +56,7 @@ type PositionsError =
     | PositionsInstitutionIsEmpty of string
     | PositionsInstitutionTooLong of string * int
     | PositionsInvalidActivityKind of string
+    | PositionsInvalidBalanceAccountKind of string
     | PositionsInvalidBasisMethod of string
     | PositionsInvalidDimension of string
     | PositionsInvalidPropertyUse of string
@@ -158,6 +166,13 @@ type PositionsError =
             | PositionsActivitySourceIsEmpty raw -> $"Activity source cannot be empty when given. Provided source is \"{raw}\"."
             | PositionsActivitySourceTooLong(raw, max) -> $"Activity source cannot exceed {max} characters. Provided source is \"{raw}\"."
             | PositionsAssetAccountAlreadyLinked(code, property) -> $"Ledger account {code} is already an asset account of Property \"{property}\"."
+            | PositionsBalanceAccountBalanceIdDoesntExist uuid -> $"No Balance exists with ID {uuid}."
+            | PositionsBalanceAccountBalanceUpdateNoOp -> "Updating the Balance record failed because at least one updatable parameter must be set."
+            | PositionsBalanceAccountHasNoOwners balanceAccount -> $"Balance Account \"{balanceAccount}\" must have at least one owner."
+            | PositionsBalanceAccountIdDoesntExist uuid -> $"No Balance Account exists with ID {uuid}."
+            | PositionsBalanceAccountNameIsEmpty raw -> $"Balance Account name cannot be empty. Provided name is \"{raw}\"."
+            | PositionsBalanceAccountNameTooLong(raw, max) -> $"Balance Account name cannot exceed {max} characters. Provided name is \"{raw}\"."
+            | PositionsBalanceAccountUpdateNoOp -> "Updating the Balance Account record failed because at least one updatable parameter must be set."
             | PositionsBasisMethodNotAllowed(account, security, taxTreatment) -> $"The Holding of \"{security}\" in Investment Account \"{account}\" breaks the basis method rule for a {taxTreatment} account: a Taxable account's Holding has a basis method, and any other account's Holding has none."
             | PositionsContributionBasisNegative raw -> $"A contribution basis cannot be negative. Provided contribution basis is {raw}."
             | PositionsContributionBasisNotAllowed(account, taxTreatment) -> $"Investment Account \"{account}\" is {taxTreatment}; only a Roth account's snapshot carries a contribution basis."
@@ -178,6 +193,7 @@ type PositionsError =
             | PositionsInstitutionIsEmpty raw -> $"Institution cannot be empty. Provided institution is \"{raw}\"."
             | PositionsInstitutionTooLong(raw, max) -> $"Institution cannot exceed {max} characters. Provided institution is \"{raw}\"."
             | PositionsInvalidActivityKind raw -> $"Invalid activity kind of \"{raw}\"."
+            | PositionsInvalidBalanceAccountKind raw -> $"Invalid balance account kind of \"{raw}\"."
             | PositionsInvalidBasisMethod raw -> $"Invalid basis method of \"{raw}\"."
             | PositionsInvalidDimension raw -> $"Invalid dimension of \"{raw}\"."
             | PositionsInvalidPropertyUse raw -> $"Invalid property use of \"{raw}\"."
