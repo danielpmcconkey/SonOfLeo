@@ -574,6 +574,26 @@ ledgerStart. That reworked test covers the BalanceAccountRoutes placeholder
 of the same name, so the placeholder is deleted rather than duplicated.
 Integrated 1735 plus 72 placeholders.
 
+**D2. Model.** Removed "Record pre-ledger balances", PreLedgerBalance and
+PreLedgerBalanceOrchestration with every relationship naming them, and the
+now-unused PositionsError serves FiscalPeriodCreation edge. Added
+components BalanceAccount and BalanceAccountBalance (Positions) and
+BalanceAccountOrchestration (CrossDomainOrchestration), each composed from
+its project, with one serving edge per module reference `model_drift.py`
+reported (45). Added functions "Maintain balance accounts" and "Record
+balance account balances" under Positions functions; the first is realized
+by BalanceAccount and BalanceAccountOrchestration, the second by
+BalanceAccountBalance and BalanceAccountOrchestration. The six named
+documentations no longer mention pre-ledger balances; the two net worth
+ones describe cash and debt Balance Accounts and owned Properties' mortgage
+Balance Accounts, and "Maintain properties" names mortgage Balance
+Accounts. "Domains Build Upward" now says, inside Positions, investments
+and real estate are unordered peers, balance accounts sit below real
+estate (a property may name one as its mortgage), and investments and
+balance accounts are unrelated; this settles 11a #056. `validate.py`
+VALID (677 elements, 2917 relationships), `model_drift.py` NO DRIFT.
+`Skills/ArchiMate/SKILL.md` needed no change.
+
 ### 5.3 Fail-then-pass evidence
 
 - **B3 peer guard.** Planted `let private planted = Property.fetchAll` at the
