@@ -431,7 +431,21 @@ Auditable actions: `PositionsCreateBalanceAccount`,
 fails at this commit (the two new modules are in no list) and B3, the next
 commit, lists them.
 
+**B3. Peer rule.** `check-peer-guard.sh` has a third list, `balance=`
+(`BalanceAccount BalanceAccountBalance BalanceAccountOrchestration`), and
+three scans: real estate may not name investments; investments may name
+neither real estate nor balance modules; balance modules may name neither
+investments nor real estate. Real estate naming a balance module passes.
+Evidence in §5.3.
+
 ### 5.3 Fail-then-pass evidence
+
+- **B3 peer guard.** Planted `let private planted = Property.fetchAll` at the
+  end of `BalanceAccountBalance.fs`: `BalanceAccountBalance.fs:209: let
+  private planted = Property.fetchAll`, exit 1. Planted
+  `BalanceAccount.fetchAll` in `HoldingsAsOf.fs` (an investment module):
+  `HoldingsAsOf.fs:202: …`, exit 1. The same line in `Property.fs` (real
+  estate naming a balance module): exit 0. Each restored; the guard passes.
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)
