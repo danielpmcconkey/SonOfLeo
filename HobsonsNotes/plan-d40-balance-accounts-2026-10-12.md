@@ -380,10 +380,21 @@ in `PositionsReportRoutes.fs` (8.6/8.5 rendered pre-ledger; 10.4 rendered
 history; 8.6/8.5 data-only pre-ledger). Build 0 warnings; Isolated 529 pass
 and 8 placeholders; Integrated 1735 pass, 61 named placeholders and these 12.
 
+**A2. The table is dropped.** `202610241000-DropPreLedgerBalanceTable.sql`
+(timestamped on the day the work was done, after every existing script)
+drops `positions.pre_ledger_balance`; its grants go with it, and the two
+older scripts that created it and granted on it are untouched. The
+fixture's TRUNCATE list no longer names it. `sonofleo_test` rebuilt from
+scratch: the table is gone and the suite is as after A1 (1735 pass, only the
+73 placeholders fail).
+
 ### 5.3 Fail-then-pass evidence
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)
+
+1. `202610241000-DropPreLedgerBalanceTable.sql`: drops
+   `positions.pre_ledger_balance` (empty in every environment).
 
 ### 5.5 ArchReviewer
 
