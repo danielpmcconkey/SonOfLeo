@@ -382,54 +382,11 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-8.6 REQ-RPT-8.5 the NetWorth route in data-only mode on a pre-ledger date with absent components returns the pre-ledger flag, each listed account's balance date and the absent components the computation gives`` () =
-        // on monthEnd8 investments are absent and every listed balance is dated monthEnd8
-        result {
-            let! returned = runNetWorth p.monthEnd8 OutputSpecifier.DataOnly
-            let! row =
-                match returned with
-                | NetWorthReturn.DataOnly row -> Ok row
-                | NetWorthReturn.Report _ -> Error(TestingError "Expected DataOnly but got Report")
-            let! computed = computeNetWorth (fresh ()) p.monthEnd8
-            let dated (rows: LedgerAccountBalance list) = rows |> List.map (fun r -> r.code, r.balance |> Money.amount, r.balanceDate)
-            let returnedDated (rows: NetWorthLedgerAccountReturnRow list) = rows |> List.map (fun r -> r.code, r.balance, r.balanceDate)
-            let mortgagesOf (rows: NetWorthPropertyReturnRow list) = rows |> List.collect (fun x -> x.mortgageAccounts)
-            Assert.True(row.isPreLedger)
-            Assert.Equal<(string * decimal * LocalDate option) list>(
-                computed.assetAccounts @ computed.liabilityAccounts @ (computed.properties |> List.collect (fun x -> x.mortgageAccounts))
-                |> dated,
-                row.assetAccounts @ row.liabilityAccounts @ mortgagesOf row.properties |> returnedDated)
-            Assert.Equal<string list>(
-                computed.absentComponents |> List.map NetWorthComponent.toString, row.absentComponents)
-            Assert.Equal<string list>([ "Investments" ], row.absentComponents)
-            Assert.Contains(("F-2320", 185000.00M, Some p.monthEnd8), mortgagesOf row.properties |> returnedDated)
-        }
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-8.6 REQ-RPT-8.5 the rendered net worth on a pre-ledger date marks the date as pre-ledger, shows each listed account's balance date, and names the absent components`` () =
-        // on monthEnd7 F-1275's balance is dated monthEnd7 and F-1000's monthEnd8; on monthEnd9 three components are absent
-        writtenFresh
-            (Path.Combine(outputDir, "rpt-8-6-net-worth-pre-ledger.html"))
-            (fun () -> netWorthReportPath p.monthEnd7 false "rpt-8-6-net-worth-pre-ledger")
-        |> Result.map (fun html ->
-            Assert.StartsWith("This is a pre-ledger date", html |> paragraphWithClass "pre-ledger-note")
-            Assert.Equal("No component is absent.", html |> paragraphWithClass "absent-note")
-            let rows = html |> dataRowsOf
-            Assert.Contains([ "F-1000"; "Assets"; dateText p.monthEnd8; "100.00" ], rows)
-            Assert.Contains([ "F-1275"; "Fixture Positions Cash"; dateText p.monthEnd7; "2,500.00" ], rows)
-            Assert.Contains(
-                rows,
-                fun cells -> cells |> List.exists (fun c -> c.StartsWith "Mortgage F-2320")
-                             && cells |> List.contains $"pre-ledger balance of {dateText p.monthEnd7}"))
-        |> railroadWrapper
-        writtenFresh
-            (Path.Combine(outputDir, "rpt-8-6-net-worth-absent.html"))
-            (fun () -> netWorthReportPath p.monthEnd9 false "rpt-8-6-net-worth-absent")
-        |> Result.map (fun html ->
-            Assert.Equal(
-                "Absent on this date, each totalling 0.00: Counted ledger assets, Investments, Liabilities.",
-                html |> paragraphWithClass "absent-note"))
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-10.4 the NetWorthHistory route in data-only mode for a range spanning pre-ledger and fiscal-period month-ends returns the same points, totals, pre-ledger flags and absent components as the net worth history computation`` () =
@@ -495,23 +452,4 @@ type PositionsReportRoutesTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-10.4 the rendered net worth history has one row per month-end and one column per total, a pre-ledger point is marked as such, and the absent column names a point's absent components and is empty for a point with none absent`` () =
-        // monthEnd9 has three components absent, monthEnd8 one, monthEnd7 and monthEnd6 none, monthEnd5 is in a fiscal period
-        writtenFresh
-            (Path.Combine(outputDir, "rpt-10-4-net-worth-history-table.html"))
-            (fun () -> netWorthHistoryReportPath p.monthEnd9 p.monthEnd5 false "rpt-10-4-net-worth-history-table")
-        |> Result.map (fun html ->
-            Assert.Equal<string list>(
-                [ "Month end"; "Source"; "Counted ledger assets"; "Investments"; "Property values"; "Liabilities"
-                  "Mortgages of owned properties"; "Net worth"; "Investable wealth"; "Absent" ],
-                html |> cellsIn "th")
-            let rows = html |> dataRowsOf
-            Assert.All(rows, fun cells -> Assert.Equal(10, cells.Length))
-            Assert.Equal<(string * string * string * string) list>(
-                [ dateText p.monthEnd9, "pre-ledger", "264,000.00", "Counted ledger assets, Investments, Liabilities"
-                  dateText p.monthEnd8, "pre-ledger", "265,585.00", "Investments"
-                  dateText p.monthEnd7, "pre-ledger", "268,835.00", ""
-                  dateText p.monthEnd6, "pre-ledger", "268,835.00", ""
-                  dateText p.monthEnd5, "ledger", "250,275.00", "" ],
-                rows |> List.map (fun cells -> cells.[0], cells.[1], cells.[7], cells.[9]))
-            Assert.Equal(4, Regex.Matches(html, "<tr[^>]*class=\"pre-ledger\"").Count))
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"

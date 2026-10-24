@@ -96,15 +96,6 @@ Activity, recorded as one range per account:
   The roll-forward from d3 to d4 does not balance: EXTMX expected 12 - 15 = -3 against 12, a difference of 15;
   EXINX expected 20 against 0 (it is not on d4), a difference of -20.
 
-Pre-ledger balances (the earliest fiscal period starts on ledgerStart, the first of month -5; monthEnd k is the last
-day of month -k):
-
-  F-1000 Assets                   100.00 on monthEnd8
-  F-1275 Fixture Positions Cash   2,000.00 on monthEnd8; 2,500.00 on monthEnd7
-  F-1280 Fixture Operating Cash   -15.00 on monthEnd8
-  F-2230 Fixture Loan Payable     1,500.00 on monthEnd8; 0.00 on monthEnd7
-  F-2320 Fixture Rental Mortgage  186,000.00 on monthEnd9; 185,000.00 on monthEnd8; 184,000.00 on monthEnd7
-
 Ledger entries, all dated ledgerEntryDate (the 5th of month -4) except the last:
 
   F-1260 Fixture Brokerage at Cost   Debit 1,400.00     F-3040 Credit 1,400.00
@@ -151,9 +142,7 @@ type PositionsFixtureData =
       residenceAtCost1510Id: AccountId
       residenceMortgage2310Id: AccountId
       rentalMortgage2320Id: AccountId
-      positionsEquity3040Id: AccountId
-      operatingCash1280Id: AccountId
-      loanPayable2230Id: AccountId }
+      positionsEquity3040Id: AccountId }
 
 /// Name-to-ID lookups for tests that address Persons and Positions entities by name, as the routes' converters do.
 module PositionsLookups =
@@ -459,21 +448,6 @@ module PositionsFixture =
                       [ activity (day d3 2) ActivityKind.Sale "Sale" None (Some totalMarket) (Some 15M) (Some 105.00M) 1575.00M
                         activity (day d3 3) ActivityKind.Dividend "Dividend paid" None (Some international) None None 5.50M ] ]
 
-            // Pre-ledger balances
-            let! operatingCashId = "F-1280" |> fallibleConverterAccountCodeToAccountId context
-            let! loanPayableId = "F-2230" |> fallibleConverterAccountCodeToAccountId context
-            let! _ =
-                PreLedgerBalanceOrchestration.recordPreLedgerBalances context
-                    [ assets1000Id, monthEnd 8, money 100.00M
-                      positionsCashId, monthEnd 8, money 2000.00M
-                      positionsCashId, monthEnd 7, money 2500.00M
-                      operatingCashId, monthEnd 8, money -15.00M
-                      loanPayableId, monthEnd 8, money 1500.00M
-                      loanPayableId, monthEnd 7, money 0.00M
-                      rentalMortgageId, monthEnd 9, money 186000.00M
-                      rentalMortgageId, monthEnd 8, money 185000.00M
-                      rentalMortgageId, monthEnd 7, money 184000.00M ]
-
             // Properties and Valuations
             let property name propertyUse owners acquired disposed basis assetAccountIds mortgageIds =
                 result {
@@ -533,9 +507,7 @@ module PositionsFixture =
                   residenceAtCost1510Id = residenceAtCostId
                   residenceMortgage2310Id = residenceMortgageId
                   rentalMortgage2320Id = rentalMortgageId
-                  positionsEquity3040Id = positionsEquityId
-                  operatingCash1280Id = operatingCashId
-                  loanPayable2230Id = loanPayableId }
+                  positionsEquity3040Id = positionsEquityId }
             let accounts = [ brokerageAtCost; positionsCash; residenceAtCost; residenceMortgage; rentalMortgage; positionsEquity ]
             let entries = [ brokerageEntry; cashEntry; residenceEntry; rentalEntry; mortgagePaymentEntry ]
             return data, accounts, (entries: JournalEntry list)

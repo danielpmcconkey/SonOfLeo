@@ -120,8 +120,6 @@
     <Compile Include="CrossDomainOrchestration\InvestmentActivityRecording.fs" />
     <Compile Include="CrossDomainOrchestration\InvestmentActivityCoverage.fs" />
     <Compile Include="CrossDomainOrchestration\UnitRollForward.fs" />
-    <Compile Include="CrossDomainOrchestration\PreLedgerBalances.fs" />
-    <Compile Include="CrossDomainOrchestration\PreLedgerBalanceGuards.fs" />
     <Compile Include="CrossDomainOrchestration\NetWorthPreLedger.fs" />
     <Compile Include="CrossDomainOrchestration\NetWorthHistory.fs" />
     <Compile Include="CrossDomainOrchestration\BalanceAccountMaintenance.fs" />

@@ -317,48 +317,6 @@ let private rollInvestmentAccountForward payload _ =
             return! returned |> Json.toJson<RollForwardReturn>
         })
 
-// ---- Pre-ledger Balances ----
-
-let private recordPreLedgerBalances payload _ =
-    runCommandRouteAndAutoCompleteTransaction PositionsRecordPreLedgerBalances (fun context ->
-        result {
-            let! input = Json.fromJson<PreLedgerBalanceRecordInput> payload
-            let! balances =
-                input.balances
-                |> List.map (``convert [PreLedgerBalanceEntryInput] to [PreLedgerBalanceInput]`` context)
-                |> convertListOfResultsToResultsList
-            let! recorded = PreLedgerBalanceOrchestration.recordPreLedgerBalances context balances
-            return!
-                recorded
-                |> List.map (fun r ->
-                    ({ balance = r.balance |> ``convert [PreLedgerBalanceView] to [PreLedgerBalanceReturn]``
-                       replacedExisting = r.replacedExisting }
-                     : RecordedPreLedgerBalanceReturn))
-                |> Json.toJson<RecordedPreLedgerBalanceReturn list>
-        })
-
-let private deletePreLedgerBalance payload _ =
-    runCommandRouteAndAutoCompleteTransaction PositionsDeletePreLedgerBalance (fun context ->
-        result {
-            let! input = Json.fromJson<PreLedgerBalanceDeleteInput> payload
-            let! accountId = input.accountCode |> fallibleConverterAccountCodeToAccountId context
-            let! deleted = PreLedgerBalanceOrchestration.deletePreLedgerBalance context accountId input.balanceDate
-            return! deleted |> ``convert [PreLedgerBalanceView] to [PreLedgerBalanceReturn]`` |> Json.toJson<PreLedgerBalanceReturn>
-        })
-
-let private listPreLedgerBalances payload _ =
-    readOnly (fun context ->
-        result {
-            let! input = Json.fromJson<PreLedgerBalanceListInput> payload
-            let! accountId =
-                input.accountCode |> convertOptionToDesiredTypeWithFallibleConverter (fallibleConverterAccountCodeToAccountId context)
-            let! views = PreLedgerBalanceOrchestration.listPreLedgerBalances context accountId input.beginDate input.endDate
-            return!
-                views
-                |> List.map ``convert [PreLedgerBalanceView] to [PreLedgerBalanceReturn]``
-                |> Json.toJson<PreLedgerBalanceReturn list>
-        })
-
 // ---- Properties ----
 
 let private propertyReturn context property =
@@ -601,27 +559,6 @@ let positionsDomainCommandRoutes =
         inputContract = typeof<InvestmentActivityCoverageGapsInput>.Name
         outputContract = typeof<InvestmentActivityCoverageGapReturn list>.Name
         handler = listInvestmentActivityCoverageGaps }
-      { domain = "PreLedgerBalance"
-        verb = "Record"
-        description =
-          "Record one or more Pre-ledger Balances in one operation: all are recorded or none is. Each is an Asset or Liability ledger account by code, a date before the first fiscal period, and its balance in the account's normal direction. A balance for an account and date that already has one replaces it. Returns each as stored, marked new or replacement."
-        inputContract = typeof<PreLedgerBalanceRecordInput>.Name
-        outputContract = typeof<RecordedPreLedgerBalanceReturn list>.Name
-        handler = recordPreLedgerBalances }
-      { domain = "PreLedgerBalance"
-        verb = "Delete"
-        description =
-          "Delete the Pre-ledger Balance of a ledger account, by code, for a date. Returns it as it stood before deletion. This is a hard delete."
-        inputContract = typeof<PreLedgerBalanceDeleteInput>.Name
-        outputContract = typeof<PreLedgerBalanceReturn>.Name
-        handler = deletePreLedgerBalance }
-      { domain = "PreLedgerBalance"
-        verb = "List"
-        description =
-          "List Pre-ledger Balances between two dates, both included, optionally of one ledger account by code, ordered by account code and then date. Read-only."
-        inputContract = typeof<PreLedgerBalanceListInput>.Name
-        outputContract = typeof<PreLedgerBalanceReturn list>.Name
-        handler = listPreLedgerBalances }
       { domain = "Property"
         verb = "Create"
         description =

@@ -15,9 +15,8 @@ DimensionValueOrchestration SecurityOrchestration InvestmentAccountOrchestration
 HoldingOrchestration AccountSnapshotOrchestration HoldingsAsOf InvestmentWealthHistory
 AccountSnapshotLot InvestmentActivity InvestmentActivityCoverage InvestmentActivityOrchestration UnitRollForward'
 
-# Shared by both peers. PreLedgerBalance is here only until the D40 cash-and-debt positions
-# slice moves it out of the Positions project.
-shared='PositionsComponent PositionsError PositionsAuditableAction PreLedgerBalance'
+# Shared by both peers.
+shared='PositionsComponent PositionsError PositionsAuditableAction'
 
 positionsProject='Src/Business.FinancialServices.Positions'
 

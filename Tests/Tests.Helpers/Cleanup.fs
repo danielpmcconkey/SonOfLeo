@@ -398,13 +398,6 @@ let cleanUpSecurityByName (name: string) : Result<unit, IAppError> =
     |> List.map (fun query -> query, parameters)
     |> executeCleanUpStatements
 
-/// Deletes the Pre-ledger Balance of the ledger account with the code, dated so. One that doesn't exist deletes nothing.
-let cleanUpPreLedgerBalance (accountCode: string) (balanceDate: NodaTime.LocalDate) : Result<unit, IAppError> =
-    [ """delete from positions.pre_ledger_balance WHERE balance_date = @balance_date
-            AND ledger_account_id IN (select unique_id from ledger.account where code = @code);""",
-      [ { name = "@code"; value = CharString accountCode }; { name = "@balance_date"; value = DbLocalDate balanceDate } ] ]
-    |> executeCleanUpStatements
-
 /// Deletes a Dimension Value by dimension and name. A Security still pointing at it must go first.
 let cleanUpDimensionValueByName (dimension: string) (name: string) : Result<unit, IAppError> =
     [ """delete from positions.dimension_value WHERE dimension = @dimension AND value_name = @name;""",

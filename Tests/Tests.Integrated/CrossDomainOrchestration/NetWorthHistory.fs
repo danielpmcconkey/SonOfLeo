@@ -91,13 +91,7 @@ type NetWorthHistoryTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-10.2 a range from the last pre-ledger month-end to the first fiscal-period month-end gives two points: the first marked pre-ledger and the second not, each with its seven hand-derived totals and its absent components`` () =
-        historyOf p.monthEnd6 p.monthEnd5
-        |> Result.map (fun points ->
-            Assert.Equal<(LocalDate * bool * decimal list * NetWorthComponent list) list>(
-                [ p.monthEnd6, true, [ 2585.00M; 250.00M; 450000.00M; 0.00M; 184000.00M; 268835.00M; 68835.00M ], []
-                  p.monthEnd5, false, [ 0.00M; 250.00M; 250000.00M; -25.00M; 0.00M; 250275.00M; 250275.00M ], [] ],
-                points |> List.map pointSummary))
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-10.3 a range whose month-ends run past the last fiscal period fails with a typed error naming the earliest month-end that is neither within a fiscal period nor pre-ledger`` () =

@@ -78,13 +78,7 @@ let private balancesOn
                 balances |> List.map (fun b -> AccountBalance.accountId b, AccountBalance.netBalance b) |> Map.ofList
             let! zero = Money.fromDecimal 0M
             return fun accountId -> Some(balanceById |> Map.tryFind accountId |> Option.defaultValue zero, None)
-        | PreLedgerDate ->
-            let! balances = PreLedgerBalance.fetchOnOrBefore context asOf
-            let latest = balances |> PreLedgerBalance.latestOnOrBefore asOf
-            return fun accountId ->
-                latest
-                |> Map.tryFind accountId
-                |> Option.map (fun b -> PreLedgerBalance.balance b, Some(PreLedgerBalance.balanceDate b))
+        | PreLedgerDate -> return fun _ -> None
     }
 
 let private sumOf (amounts: Money.Money list) = Money.sumList amounts

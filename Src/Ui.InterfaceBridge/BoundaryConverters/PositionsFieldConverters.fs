@@ -18,7 +18,6 @@ open Business.CrossDomainOrchestration.AccountSnapshotOrchestration
 open Business.CrossDomainOrchestration.InvestmentActivityOrchestration
 open Business.CrossDomainOrchestration.UnitRollForward
 open Business.CrossDomainOrchestration.RealEstateOrchestration
-open Business.CrossDomainOrchestration.PreLedgerBalanceOrchestration
 open Business.CrossDomainOrchestration.HoldingsAsOf
 open Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
 open Ui.InterfaceBridge.BoundaryConverters.PersonFieldConverters
@@ -472,26 +471,6 @@ let ``convert [RollForward] to [RollForwardReturn]``
               secondDate = rollForward.secondDate
               rows = rows }
     }
-
-// ---- Pre-ledger Balances ----
-
-let ``convert [PreLedgerBalanceEntryInput] to [PreLedgerBalanceInput]``
-    (context: Context.Context)
-    (input: PreLedgerBalanceEntryInput)
-    : Result<PreLedgerBalanceOrchestration.PreLedgerBalanceInput, IAppError> =
-    result {
-        let! accountId = input.accountCode |> fallibleConverterAccountCodeToAccountId context
-        let! balance = input.balance |> Money.fromDecimal
-        return accountId, input.balanceDate, balance
-    }
-
-let ``convert [PreLedgerBalanceView] to [PreLedgerBalanceReturn]`` (view: PreLedgerBalanceView) : PreLedgerBalanceReturn =
-    let preLedgerBalance = view.preLedgerBalance
-    { ledgerAccount = { code = view.accountCode; name = view.accountName }
-      balanceDate = preLedgerBalance |> PreLedgerBalance.balanceDate
-      balance = preLedgerBalance |> PreLedgerBalance.balance |> Money.amount
-      createdAt = preLedgerBalance |> PreLedgerBalance.createdAt
-      modifiedAt = preLedgerBalance |> PreLedgerBalance.modifiedAt }
 
 // ---- Properties ----
 

@@ -365,7 +365,6 @@ within one file. Before picking one for a new entity, check this list and
 | `positions.investment_account` | `ia` |
 | `positions.investment_account_owner` | `iao` |
 | `positions.investment_activity` | `invact` |
-| `positions.pre_ledger_balance` | `plb` |
 | `positions.property` | `prop` |
 | `positions.property_asset_account` | `paa` |
 | `positions.property_mortgage_account` | `pma` |

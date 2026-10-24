@@ -96,40 +96,19 @@ type NetWorthPreLedgerTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-8.2 REQ-RPT-8.7 net worth on a pre-ledger date is the hand-derived sum of the latest pre-ledger balances of the unlinked Asset accounts, the holdings' market values and the owned Properties' values, less the latest pre-ledger balances of the Liability accounts`` () =
-        netWorthAsOf p.monthEnd7
-        |> Result.map (fun r ->
-            Assert.Equal<decimal list>([ 2585.00M; 250.00M; 450000.00M; 0.00M; 184000.00M; 268835.00M; 68835.00M ], totals r))
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-8.7 on a pre-ledger date, an account with several pre-ledger balances takes the latest one on or before the date, ignores one dated after it, and carries that balance's date`` () =
-        // F-1275 has 2,000.00 on monthEnd8 and 2,500.00 on monthEnd7
-        result {
-            let! onMe8 = netWorthAsOf p.monthEnd8
-            let! onMe7 = netWorthAsOf p.monthEnd7
-            let f1275 (r: NetWorth) = r.assetAccounts |> dated |> List.find (fun (c, _, _) -> c = "F-1275")
-            Assert.Equal(("F-1275", 2000.00M, Some p.monthEnd8), f1275 onMe8)
-            Assert.Equal(("F-1275", 2500.00M, Some p.monthEnd7), f1275 onMe7)
-        }
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-8.7 on a pre-ledger date, an account whose pre-ledger balance is 0.00 is listed at 0.00, and an account with no pre-ledger balance on or before the date is not listed at all`` () =
-        // on monthEnd7 F-2230's latest balance is 0.00; F-1250, F-2210 and the rest have none
-        netWorthAsOf p.monthEnd7
-        |> Result.map (fun r ->
-            Assert.Equal<(string * decimal) list>([ "F-2230", 0.00M ], r.liabilityAccounts |> balances)
-            Assert.Equal<string list>([ "F-1000"; "F-1275"; "F-1280" ], r.assetAccounts |> List.map (fun a -> a.code)))
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-8.7 on a pre-ledger date a parent account and its child, each with a pre-ledger balance, are each listed at their own balance, not summed`` () =
-        // F-1000 is the parent of F-1275 and F-1280; rolled up it would be 2,085.00
-        netWorthAsOf p.monthEnd8
-        |> Result.map (fun r ->
-            Assert.Equal<(string * decimal) list>(
-                [ "F-1000", 100.00M; "F-1275", 2000.00M; "F-1280", -15.00M ], r.assetAccounts |> balances))
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-8.7 on a date within a fiscal period, an account that carries pre-ledger balances is listed at its ledger balance and no pre-ledger balance figures in the result`` () =
@@ -146,48 +125,19 @@ type NetWorthPreLedgerTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-RPT-8.3 REQ-RPT-8.7 on a pre-ledger date a Property's equity is its value less its mortgage account's latest pre-ledger balance on or before the date`` () =
-        // 34 Example Avenue: 250,000.00 less F-2320's 185,000.00 of monthEnd8
-        netWorthAsOf p.monthEnd8
-        |> Result.map (fun r ->
-            let rental = r.properties |> List.find (fun prop -> prop.propertyId |> PositionsLookups.propertyNameOf (Context.create NoTransaction FetchOnly) = PF.rental)
-            Assert.Equal<(string * decimal * LocalDate option) list>(
-                [ "F-2320", 185000.00M, Some p.monthEnd8 ], rental.mortgageAccounts |> dated)
-            Assert.Equal(65000.00M, rental.equity |> amount))
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-8.5 on a pre-ledger date the result gives every listed asset, liability and mortgage account the date of the pre-ledger balance it came from, and on a fiscal-period date it gives no balance dates`` () =
-        result {
-            let! preLedger = netWorthAsOf p.monthEnd7
-            let mortgages (r: NetWorth) = r.properties |> List.collect (fun prop -> prop.mortgageAccounts)
-            Assert.Equal<(string * LocalDate option) list>(
-                [ "F-1000", Some p.monthEnd8; "F-1275", Some p.monthEnd7; "F-1280", Some p.monthEnd8
-                  "F-2230", Some p.monthEnd7; "F-2320", Some p.monthEnd7 ],
-                (preLedger.assetAccounts @ preLedger.liabilityAccounts @ mortgages preLedger)
-                |> List.map (fun a -> a.code, a.balanceDate))
-            let! fiscal = netWorthAsOf p.monthEnd3
-            let all = fiscal.assetAccounts @ fiscal.liabilityAccounts @ mortgages fiscal
-            Assert.NotEmpty(all)
-            Assert.All(all, fun a -> Assert.Equal(None, a.balanceDate))
-        }
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-8.8 on a pre-ledger date on which only investments are absent, investments is named as the one absent component and totals 0.00`` () =
-        netWorthAsOf p.monthEnd8
-        |> Result.map (fun r ->
-            Assert.Equal<NetWorthComponent list>([ Investments ], r.absentComponents)
-            Assert.Equal(0.00M, r.totalInvestments |> amount)
-            Assert.Equal(265585.00M, r.netWorth |> amount))
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-8.8 on a pre-ledger date on which the only Liability balance is an owned Property's mortgage, liabilities is named absent with counted ledger assets and investments, each totalling 0.00, and mortgages of owned Properties and property values are present`` () =
-        netWorthAsOf p.monthEnd9
-        |> Result.map (fun r ->
-            Assert.Equal<NetWorthComponent list>([ CountedLedgerAssets; Investments; Liabilities ], r.absentComponents)
-            Assert.Equal<decimal list>([ 0.00M; 0.00M; 450000.00M; 0.00M; 186000.00M; 264000.00M; 64000.00M ], totals r))
-        |> railroadWrapper
+        Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
     member _.``REQ-RPT-8.8 on a pre-ledger date on which property values are the only contributor, the other four components are named absent, each totalling 0.00`` () =

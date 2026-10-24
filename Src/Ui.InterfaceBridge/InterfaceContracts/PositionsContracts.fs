@@ -269,27 +269,6 @@ type RollForwardReturn = {
     rows: RollForwardRowReturn list
 }
 
-// ---- Pre-ledger Balances ----
-
-type PreLedgerBalanceEntryInput = { accountCode: string; balanceDate: LocalDate; balance: decimal }
-
-// every balance is recorded, or none is
-type PreLedgerBalanceRecordInput = { balances: PreLedgerBalanceEntryInput list }
-
-type PreLedgerBalanceReturn = {
-    ledgerAccount: LedgerAccountReturn
-    balanceDate: LocalDate
-    balance: decimal
-    createdAt: Instant
-    modifiedAt: Instant
-}
-
-type RecordedPreLedgerBalanceReturn = { balance: PreLedgerBalanceReturn; replacedExisting: bool }
-
-type PreLedgerBalanceDeleteInput = { accountCode: string; balanceDate: LocalDate }
-
-type PreLedgerBalanceListInput = { accountCode: string option; beginDate: LocalDate; endDate: LocalDate }
-
 // ---- Properties ----
 
 type PropertyReturn = {

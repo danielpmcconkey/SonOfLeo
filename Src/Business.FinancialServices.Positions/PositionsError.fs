@@ -76,17 +76,6 @@ type PositionsError =
     | PositionsNetWorthDateOutsideFiscalPeriods of LocalDate
     | PositionsNetWorthHistoryEndBeforeBegin of LocalDate * LocalDate
     | PositionsOwnershipExcludesValuations of string * LocalDate * LocalDate
-    | PositionsPreLedgerAccountIsPropertyAsset of string * string
-    | PositionsPreLedgerAccountLinkedToInvestmentAccount of string * string
-    | PositionsPreLedgerAccountTypeNotAllowed of string * string
-    | PositionsPreLedgerBalanceDoesntExist of string * LocalDate
-    | PositionsPreLedgerBalanceListIsEmpty
-    | PositionsPreLedgerBalanceRepeatedInRequest of string * LocalDate
-    | PositionsPreLedgerBalancesBlockFiscalPeriod of string * LocalDate * LocalDate
-    | PositionsPreLedgerBalancesBlockLink of string * LocalDate * LocalDate
-    | PositionsPreLedgerDateNotBeforeLedger of string * LocalDate
-    | PositionsPreLedgerListEndBeforeBegin of LocalDate * LocalDate
-    | PositionsPreLedgerNoFiscalPeriod of string * LocalDate
     | PositionsPrimaryResidencesOverlap of string * string
     | PositionsPropertyAssetAccountRepeated of string * string
     | PositionsPropertyHasNoOwners of string
@@ -218,17 +207,6 @@ type PositionsError =
             | PositionsNetWorthDateOutsideFiscalPeriods date -> $"Net worth cannot be computed as of {date}: the date falls in no fiscal period and is not before the first one."
             | PositionsNetWorthHistoryEndBeforeBegin(beginDate, endDate) -> $"The end date ({endDate}) cannot be earlier than the begin date ({beginDate})."
             | PositionsOwnershipExcludesValuations(property, earliest, latest) -> $"Property \"{property}\" would have Valuations outside its ownership, the earliest {earliest} and the latest {latest}."
-            | PositionsPreLedgerAccountIsPropertyAsset(code, property) -> $"Ledger account {code} is an asset account of Property \"{property}\", so it cannot carry a pre-ledger balance."
-            | PositionsPreLedgerAccountLinkedToInvestmentAccount(code, account) -> $"Ledger account {code} stands for Investment Account \"{account}\", so it cannot carry a pre-ledger balance."
-            | PositionsPreLedgerAccountTypeNotAllowed(code, accountType) -> $"Ledger account {code} is {accountType}; only an Asset or Liability account can carry a pre-ledger balance."
-            | PositionsPreLedgerBalanceDoesntExist(code, date) -> $"Ledger account {code} has no pre-ledger balance dated {date}."
-            | PositionsPreLedgerBalanceListIsEmpty -> "At least one pre-ledger balance must be given to record."
-            | PositionsPreLedgerBalanceRepeatedInRequest(code, date) -> $"Ledger account {code} and date {date} appear more than once in one request."
-            | PositionsPreLedgerBalancesBlockFiscalPeriod(period, earliest, latest) -> $"Fiscal period {period} cannot be created: it would start on or before pre-ledger balances, the earliest dated {earliest} and the latest {latest}, which must stay before the ledger began."
-            | PositionsPreLedgerBalancesBlockLink(code, earliest, latest) -> $"Ledger account {code} cannot stand for an Investment Account or be a Property's asset account: it carries pre-ledger balances, the earliest dated {earliest} and the latest {latest}."
-            | PositionsPreLedgerDateNotBeforeLedger(code, date) -> $"A pre-ledger balance of ledger account {code} cannot be dated {date}: it must be earlier than the start of the earliest fiscal period."
-            | PositionsPreLedgerListEndBeforeBegin(beginDate, endDate) -> $"The end date ({endDate}) cannot be earlier than the begin date ({beginDate})."
-            | PositionsPreLedgerNoFiscalPeriod(code, date) -> $"A pre-ledger balance of ledger account {code} dated {date} cannot be recorded: no fiscal period exists, so no date is before the ledger."
             | PositionsPrimaryResidencesOverlap(first, second) -> $"Properties \"{first}\" and \"{second}\" would both be a primary residence owned on the same date."
             | PositionsPropertyAssetAccountRepeated(property, code) -> $"Property \"{property}\" names ledger account {code} as an asset account more than once."
             | PositionsPropertyHasNoOwners property -> $"Property \"{property}\" must have at least one owner."

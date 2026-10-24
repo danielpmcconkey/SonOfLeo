@@ -111,7 +111,6 @@ let private confirmAssetLink (context: Context.Context) (self: PropertyId) (acco
             | _ ->
                 let accountType, subtype = describeType account
                 error (PositionsPropertyLedgerAccountNotAssetFixedAsset(codeOf account, accountType, subtype))
-        do! confirmCarriesNoPreLedgerBalance context account
         let! linked = accountId |> Property.fetchByAssetAccountId context
         match linked with
         | Some other when other |> Property.propertyId <> self ->

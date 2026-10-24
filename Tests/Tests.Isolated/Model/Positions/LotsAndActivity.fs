@@ -285,15 +285,6 @@ let ``REQ-POS-13.3 two ranges for one account in one operation where the second 
     |> expectOk "two accounts, same dates"
 
 [<Fact>]
-let ``REQ-POS-15.2 when no fiscal period exists, a pre-ledger balance is rejected with a typed error naming the account code and the balance date`` () =
-    let balanceDate = LocalDate(2025, 12, 31)
-    match PreLedgerBalance.confirmBeforeLedger "F-1000" balanceDate None |> positionsError "no fiscal period" with
-    | PositionsPreLedgerNoFiscalPeriod(code, d) ->
-        Assert.Equal("F-1000", code)
-        Assert.Equal(balanceDate, d)
-    | other -> Assert.Fail $"Wrong error: {other}"
-
-[<Fact>]
 let ``REQ-RPT-8.1 when no fiscal period exists, a net worth date is rejected with a typed error naming the date rather than treated as pre-ledger`` () =
     let date = LocalDate(2025, 12, 31)
     match NetWorth.classifyDate [] date |> positionsError "no fiscal period" with

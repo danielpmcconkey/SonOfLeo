@@ -8,7 +8,6 @@ open App.Session
 open App.Utility.IAppError
 open App.Utility.Json
 open App.Utility.Result
-open Business.FinancialServices.Ledger.LedgerError
 open Business.FinancialServices.Positions
 open Business.FinancialServices.Positions.PositionsError
 open Business.CrossDomainOrchestration
@@ -24,8 +23,7 @@ module C = Ui.InterfaceBridge.InterfaceContracts.PositionsContracts
 module PF = PositionsFixture
 
 (* Every route that writes commits. A test that writes to Positions makes its own Investment Accounts, named uniquely,
-   through the routes and deletes them by name in a finally. Pre-ledger balances go on the fixture's ledger accounts
-   on monthEnd6, a date the fixture leaves empty, and are deleted in a finally. Tests that only read use the fixture. *)
+   through the routes and deletes them by name in a finally. Tests that only read use the fixture. *)
 
 let private fresh () = Context.create NoTransaction FetchOnly
 
@@ -37,8 +35,6 @@ let private call<'i, 'r> domain verb (input: 'i) : Result<'r, IAppError> =
     input |> Json.toJson<'i> |> Result.bind (send domain verb) |> Result.bind Json.fromJson<'r>
 
 let private cleanUp (cleanUps: (unit -> Result<unit, IAppError>) list) = cleanUps |> cleanUpAll |> railroadWrapper
-
-let private ledger code name : C.LedgerAccountReturn = { code = code; name = name }
 
 // ---- Accounts, Holdings and snapshots ----
 
@@ -90,20 +86,6 @@ let private coverageGaps account beginDate endDate =
 
 let private activityOf (a: C.InvestmentActivityReturn) =
     a.activityDate, a.kind, a.description, a.securityName, a.quantity, a.price, a.amount
-
-// ---- Pre-ledger balances ----
-
-let private recordBalances (balances: (string * LocalDate * decimal) list) =
-    call<C.PreLedgerBalanceRecordInput, C.RecordedPreLedgerBalanceReturn list> "PreLedgerBalance" "Record"
-        { balances = balances |> List.map (fun (code, date, balance) -> { accountCode = code; balanceDate = date; balance = balance }) }
-
-let private listBalances (code: string option) beginDate endDate =
-    call<C.PreLedgerBalanceListInput, C.PreLedgerBalanceReturn list> "PreLedgerBalance" "List"
-        { accountCode = code; beginDate = beginDate; endDate = endDate }
-
-let private balanceOf (b: C.PreLedgerBalanceReturn) = b.ledgerAccount, b.balanceDate, b.balance
-
-let private codeNotFound = function AsError (AccountCodeDoesntMatchAccountId code) -> Some code | _ -> None
 
 [<Collection("SharedTestData")>]
 type PositionsSliceTwoRoutesTests(fixture: TestDataFixture) =
@@ -319,95 +301,6 @@ type PositionsSliceTwoRoutesTests(fixture: TestDataFixture) =
             Assert.Equal((PF.alexBrokerage, p.d3, p.d4), (returned.accountName, returned.firstDate, returned.secondDate))
             Assert.Equal<(string * decimal * decimal * decimal * decimal * decimal * decimal) list>(fromComputed, fromRoute)
             Assert.Equal<decimal list>([ -20M; 15M ], fromRoute |> List.map (fun (_, _, _, _, _, _, d) -> d))
-        }
-        |> railroadWrapper
-
-    [<Fact>]
-    member _.``REQ-POS-15.4 REQ-NGUI-1.6 a PreLedgerBalance Record payload records each balance and returns each with its account code, the account's name beside it, the date, the balance and whether it replaced one`` () =
-        try
-            result {
-                let! _ = recordBalances [ "F-1275", p.monthEnd6, 10.00M ]
-                let! returned = recordBalances [ "F-1275", p.monthEnd6, 11.00M; "F-2230", p.monthEnd6, -2.50M ]
-                Assert.Equal<(C.LedgerAccountReturn * LocalDate * decimal * bool) list>(
-                    [ ledger "F-1275" "Fixture Positions Cash", p.monthEnd6, 11.00M, true
-                      ledger "F-2230" "Fixture Loan Payable", p.monthEnd6, -2.50M, false ],
-                    returned |> List.map (fun r -> r.balance.ledgerAccount, r.balance.balanceDate, r.balance.balance, r.replacedExisting))
-                let! stored = listBalances None p.monthEnd6 p.monthEnd6
-                Assert.Equal<(C.LedgerAccountReturn * LocalDate * decimal) list>(
-                    [ ledger "F-1275" "Fixture Positions Cash", p.monthEnd6, 11.00M
-                      ledger "F-2230" "Fixture Loan Payable", p.monthEnd6, -2.50M ],
-                    stored |> List.map balanceOf)
-            }
-            |> railroadWrapper
-        finally
-            cleanUp [ (fun () -> cleanUpPreLedgerBalance "F-1275" p.monthEnd6); (fun () -> cleanUpPreLedgerBalance "F-2230" p.monthEnd6) ]
-
-    [<Fact>]
-    member _.``REQ-POS-15.4 REQ-NGUI-1.5 a PreLedgerBalance Record payload whose account code matches no account fails with a typed error naming the code, and nothing is recorded`` () =
-        try
-            result {
-                recordBalances [ "F-1275", p.monthEnd6, 10.00M; "F-1998", p.monthEnd6, 10.00M ]
-                |> expectError codeNotFound (fun code -> Assert.Equal("F-1998", code))
-                let! stored = listBalances None p.monthEnd6 p.monthEnd6
-                Assert.Empty(stored)
-            }
-            |> railroadWrapper
-        finally
-            cleanUp [ fun () -> cleanUpPreLedgerBalance "F-1275" p.monthEnd6 ]
-
-    [<Fact>]
-    member _.``REQ-POS-15.4 a PreLedgerBalance Record payload whose second balance is invalid records neither, as read back after the route returns`` () =
-        try
-            result {
-                recordBalances [ "F-1275", p.monthEnd6, 10.00M; "F-3040", p.monthEnd6, 10.00M ]
-                |> expectError
-                    (function AsError (PositionsPreLedgerAccountTypeNotAllowed (c, t)) -> Some(c, t) | _ -> None)
-                    (fun found -> Assert.Equal(("F-3040", "Equity"), found))
-                let! stored = listBalances None p.monthEnd6 p.monthEnd6
-                Assert.Empty(stored)
-            }
-            |> railroadWrapper
-        finally
-            cleanUp [ fun () -> cleanUpPreLedgerBalance "F-1275" p.monthEnd6 ]
-
-    [<Fact>]
-    member _.``REQ-POS-15.5 a PreLedgerBalance Delete payload deletes the balance for the account and date given, after which the PreLedgerBalance List route no longer returns it and still returns the account's other balances`` () =
-        try
-            result {
-                let! _ = recordBalances [ "F-1275", p.monthEnd6, 10.00M ]
-                let! deleted =
-                    call<C.PreLedgerBalanceDeleteInput, C.PreLedgerBalanceReturn> "PreLedgerBalance" "Delete"
-                        { accountCode = "F-1275"; balanceDate = p.monthEnd6 }
-                Assert.Equal((ledger "F-1275" "Fixture Positions Cash", p.monthEnd6, 10.00M), balanceOf deleted)
-                let! stored = listBalances (Some "F-1275") p.monthEnd8 p.monthEnd6
-                Assert.Equal<(C.LedgerAccountReturn * LocalDate * decimal) list>(
-                    [ ledger "F-1275" "Fixture Positions Cash", p.monthEnd8, 2000.00M
-                      ledger "F-1275" "Fixture Positions Cash", p.monthEnd7, 2500.00M ],
-                    stored |> List.map balanceOf)
-            }
-            |> railroadWrapper
-        finally
-            cleanUp [ fun () -> cleanUpPreLedgerBalance "F-1275" p.monthEnd6 ]
-
-    [<Fact>]
-    member _.``REQ-POS-15.6 REQ-NGUI-1.6 the PreLedgerBalance List route with and without an account filter returns the balances in the range ordered by account code then date, each account's name beside its code`` () =
-        let mortgage = ledger "F-2320" "Fixture Rental Mortgage"
-        result {
-            let! filtered = listBalances (Some "F-2320") p.monthEnd9 p.monthEnd7
-            Assert.Equal<(C.LedgerAccountReturn * LocalDate * decimal) list>(
-                [ mortgage, p.monthEnd9, 186000.00M; mortgage, p.monthEnd8, 185000.00M; mortgage, p.monthEnd7, 184000.00M ],
-                filtered |> List.map balanceOf)
-            let! all = listBalances None p.monthEnd8 p.monthEnd7
-            Assert.Equal<(C.LedgerAccountReturn * LocalDate * decimal) list>(
-                [ ledger "F-1000" "Assets", p.monthEnd8, 100.00M
-                  ledger "F-1275" "Fixture Positions Cash", p.monthEnd8, 2000.00M
-                  ledger "F-1275" "Fixture Positions Cash", p.monthEnd7, 2500.00M
-                  ledger "F-1280" "Fixture Operating Cash", p.monthEnd8, -15.00M
-                  ledger "F-2230" "Fixture Loan Payable", p.monthEnd8, 1500.00M
-                  ledger "F-2230" "Fixture Loan Payable", p.monthEnd7, 0.00M
-                  mortgage, p.monthEnd8, 185000.00M
-                  mortgage, p.monthEnd7, 184000.00M ],
-                all |> List.map balanceOf)
         }
         |> railroadWrapper
 

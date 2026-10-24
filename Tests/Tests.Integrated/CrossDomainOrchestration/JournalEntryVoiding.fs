@@ -194,8 +194,7 @@ type JournalEntryVoidingTests(fixture: TestDataFixture) =
     [<Fact>]
     member _.``REQ-JE-4.5 voidJournalEntryOrchestration rejects void when fiscal period is closed``() =
         let today = Calendar.today()
-        // the fixture's fiscal periods begin with month -5, and its pre-ledger balances run up to the end of month -7, so
-        // month -6 is the only month before the ledger that a new period may still start in
+        // the fixture's fiscal periods begin with month -5, so month -6 has none yet
         let sixMonthsAgo = today.PlusMonths(-6)
         let monthF = sixMonthsAgo.Month.ToString("D2")
         let periodKeyStr = $"{sixMonthsAgo.Year}-{monthF}"

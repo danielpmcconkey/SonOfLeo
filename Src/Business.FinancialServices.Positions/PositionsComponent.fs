@@ -71,12 +71,6 @@ module InvestmentActivityCoverageId =
     let fromGuid g = InvestmentActivityCoverageId g
     let value (InvestmentActivityCoverageId g) : Guid = g
 
-type PreLedgerBalanceId = private PreLedgerBalanceId of Guid
-module PreLedgerBalanceId =
-    let create () : PreLedgerBalanceId = PreLedgerBalanceId(Guid.NewGuid())
-    let fromGuid g = PreLedgerBalanceId g
-    let value (PreLedgerBalanceId g) : Guid = g
-
 type PropertyId = private PropertyId of Guid
 module PropertyId =
     let create () : PropertyId = PropertyId(Guid.NewGuid())

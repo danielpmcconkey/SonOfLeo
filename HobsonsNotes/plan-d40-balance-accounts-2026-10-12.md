@@ -354,6 +354,32 @@ theories as the plan says. Placeholders whose natural home is an existing
 file (net worth route and history tests) sit in the new files and move in C4
 if that reads better.
 
+**A1. Pre-ledger balances deleted.** Gone: `PreLedgerBalance.fs`,
+`PreLedgerBalanceOrchestration.fs` and their `.fsproj` entries,
+`PreLedgerBalanceId`, the eleven `PositionsPreLedger…` cases and messages,
+the two auditable actions, the fiscal-period guard (fiscal-period creation
+no longer opens Positions), `confirmCarriesNoPreLedgerBalance` and its two
+callers, the six contracts, two converters and three routes, `PreLedgerBalance`
+from the peer guard's `shared` list, and the `plb` alias. Tests:
+`PreLedgerBalances.fs` (13) and `PreLedgerBalanceGuards.fs` (13) deleted, the
+five route tests and their helpers (and the now-unused `ledger` and
+`codeNotFound` helpers and `LedgerError` open), the isolated REQ-POS-15.2
+test, `Cleanup.cleanUpPreLedgerBalance`, the fixture's nine balances, its
+doc block, and the two fixture fields only they used
+(`operatingCash1280Id`, `loanPayable2230Id`). The JournalEntryVoiding comment
+now says only that month -6 has no fiscal period yet.
+To keep the build whole, `NetWorth.balancesOn` returns no balance for a date
+before the ledger (what C1 makes permanent); `NetWorthDate` itself stays
+until C1. Twelve tests depend on pre-ledger figures and are placeholders
+saying "reworked in item C2": eight in `NetWorthPreLedger.fs`
+(REQ-RPT-8.5 balance dates; 8.7 parent and child; 8.8 only liability is a
+mortgage; 8.2/8.7 pre-ledger sum; 8.7 latest of several; 8.8 only
+investments absent; 8.7 zero listed; 8.3/8.7 equity), `NetWorthHistory.fs`
+REQ-RPT-10.2 (last pre-ledger month-end to first fiscal month-end), and three
+in `PositionsReportRoutes.fs` (8.6/8.5 rendered pre-ledger; 10.4 rendered
+history; 8.6/8.5 data-only pre-ledger). Build 0 warnings; Isolated 529 pass
+and 8 placeholders; Integrated 1735 pass, 61 named placeholders and these 12.
+
 ### 5.3 Fail-then-pass evidence
 
 ### 5.4 The migrations Dan must apply

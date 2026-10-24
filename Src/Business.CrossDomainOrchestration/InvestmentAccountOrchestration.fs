@@ -40,7 +40,6 @@ let private confirmInvestmentAccountLink
             | _ ->
                 let accountType, subtype = describeType account
                 error (PositionsInvestmentLedgerAccountNotAssetInvestment(codeOf account, accountType, subtype))
-        do! confirmCarriesNoPreLedgerBalance context account
         let! linked = ledgerAccountId |> InvestmentAccount.fetchByLedgerAccountId context
         match linked with
         | Some other when other |> InvestmentAccount.investmentAccountId <> self ->

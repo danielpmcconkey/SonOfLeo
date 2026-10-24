@@ -19,14 +19,3 @@ let codeOf (account: Account.Account) = account |> Account.code |> AccountCode.v
 let describeType (account: Account.Account) =
     (account |> Account.accountType |> AccountType.toString),
     (account |> Account.accountSubType |> Option.map AccountSubtype.toString)
-
-// Net worth counts what a linked account stands for from Positions and never reads its balances, so a pre-ledger balance
-// on an account that becomes linked would silently count for nothing. A Property's mortgage account is not linked in
-// that sense.
-let confirmCarriesNoPreLedgerBalance (context: Context.Context) (account: Account.Account) : Result<unit, IAppError> =
-    result {
-        let! balances = account |> Account.accountId |> PreLedgerBalance.fetchByAccount context
-        match balances |> PreLedgerBalance.dateRange with
-        | Some(earliest, latest) -> return! error (PositionsPreLedgerBalancesBlockLink(codeOf account, earliest, latest))
-        | None -> return ()
-    }
