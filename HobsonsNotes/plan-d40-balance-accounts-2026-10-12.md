@@ -599,6 +599,14 @@ Integrated 1735 plus 72 placeholders.
 - **C3, REQ-RPT-10.2 two points (NetWorthHistory).** With `pointOf` copying
   cash into `totalDebts`: "Assert.Equal() Failure: Collections differ".
   Restored: passes.
+- **C4, isolated `BalanceAccounts.fs`.** Mutations of the code under test,
+  each restored after: `BalanceAccountName.create` returning the raw text
+  unchecked, 3 fail (empty, 100/101, trimmed); `balanceOn` with `<` for
+  `<=`, 2 fail (both REQ-POS-16.6); `balanceOn` taking the earliest instead
+  of the latest, 2 fail (both REQ-POS-16.6); `Debt` written back as "Cash",
+  1 fails (REQ-POS-16.2); "cash" accepted, 1 fails (REQ-POS-16.2);
+  `Institution.maxLength` 101, 1 fails (REQ-POS-16.3). The REQ-RPT-8.1 test
+  is under C1.
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)
