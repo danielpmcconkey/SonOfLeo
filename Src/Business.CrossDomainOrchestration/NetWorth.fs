@@ -16,6 +16,15 @@ open Business.CrossDomainOrchestration.HoldingsAsOf
 /// A ledger account's balance on the date.
 type LedgerAccountBalance = { accountId: AccountId; balance: Money.Money }
 
+/// A Balance Account's balance on the date: its latest Balance on or before it, and that Balance's date.
+type NetWorthBalanceAccount = {
+    balanceAccountId: BalanceAccountId
+    kind: BalanceAccountKind
+    ownerIds: Set<PersonId>
+    balance: Money.Money
+    balanceDate: LocalDate
+}
+
 type NetWorthProperty = {
     propertyId: PropertyId
     propertyUse: PropertyUse
@@ -23,6 +32,8 @@ type NetWorthProperty = {
     value: Money.Money
     valueSource: PropertyValueSource
     mortgageAccounts: LedgerAccountBalance list
+    /// Those whose balance is not zero; equity counts them all.
+    mortgageBalanceAccounts: NetWorthBalanceAccount list
     equity: Money.Money
 }
 
@@ -32,10 +43,15 @@ type NetWorth = {
     liabilityAccounts: LedgerAccountBalance list
     investmentAccounts: NetWorthInvestmentAccount list
     properties: NetWorthProperty list
+    /// Every Cash Balance Account and every Debt one that is not an owned Property's mortgage, whose balance is not
+    /// zero; the totals count them all.
+    balanceAccounts: NetWorthBalanceAccount list
     totalLedgerAssets: Money.Money
     totalInvestments: Money.Money
     totalPropertyValues: Money.Money
+    totalCash: Money.Money
     totalLiabilities: Money.Money
+    totalDebts: Money.Money
     totalOwnedPropertyMortgages: Money.Money
     netWorth: Money.Money
     investableWealth: Money.Money
@@ -75,6 +91,30 @@ let private balancesOn
             return fun _ -> None
     }
 
+// Every Balance Account that has a balance on the date, in name order. One with no Balance on or before the date has
+// none, and is left out.
+let private balanceAccountsOn (context: Context.Context) (asOf: LocalDate) : Result<NetWorthBalanceAccount list, IAppError> =
+    result {
+        let! balanceAccounts = BalanceAccount.fetchAll context
+        let! latest = BalanceAccountBalance.fetchLatestOnOrBefore context asOf
+        let latestById = latest |> List.map (fun b -> BalanceAccountBalance.balanceAccountId b, b) |> Map.ofList
+        return
+            balanceAccounts
+            |> List.sortBy (BalanceAccount.balanceAccountName >> BalanceAccountName.value)
+            |> List.choose (fun balanceAccount ->
+                let balanceAccountId = balanceAccount |> BalanceAccount.balanceAccountId
+                latestById
+                |> Map.tryFind balanceAccountId
+                |> Option.map (fun b ->
+                    { balanceAccountId = balanceAccountId
+                      kind = balanceAccount |> BalanceAccount.kind
+                      ownerIds = balanceAccount |> BalanceAccount.owners
+                      balance = b |> BalanceAccountBalance.amount
+                      balanceDate = b |> BalanceAccountBalance.balanceDate }))
+    }
+
+let private isNotZero (b: NetWorthBalanceAccount) = b.balance |> Money.amount <> 0M
+
 let private sumOf (amounts: Money.Money list) = Money.sumList amounts
 
 let private totalsBy (key: 'k -> 'g) (amount: 'k -> Money.Money) (items: 'k list) : Result<('g * Money.Money) list, IAppError> =
@@ -111,6 +151,17 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
             |> List.filter (fun p -> p |> Property.ownedPeriod |> OwnedPeriod.isOwnedOn asOf)
             |> List.sortBy (Property.propertyName >> PropertyName.value)
         let ownedMortgageIds = ownedProperties |> List.map Property.mortgageAccountIds |> Set.unionMany
+        let ownedMortgageBalanceAccountIds = ownedProperties |> List.map Property.mortgageBalanceAccountIds |> Set.unionMany
+        let! withBalance = balanceAccountsOn context asOf
+        let cashAccounts = withBalance |> List.filter (fun b -> b.kind = BalanceAccountKind.Cash)
+        let debtAccounts =
+            withBalance
+            |> List.filter (fun b -> b.kind = BalanceAccountKind.Debt)
+            |> List.filter (fun b -> not (ownedMortgageBalanceAccountIds |> Set.contains b.balanceAccountId))
+        let listedBalanceAccounts =
+            withBalance
+            |> List.filter (fun b -> b.kind = BalanceAccountKind.Cash || debtAccounts |> List.contains b)
+            |> List.filter isNotZero
 
         let assetAccounts =
             ledgerAccounts
@@ -141,7 +192,8 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
                 })
             |> convertListOfResultsToResultsList
 
-        let! propertyRows =
+        // each owned Property's row, its mortgages' total, and whether any mortgage of it has a balance
+        let! propertyFigures =
             ownedProperties
             |> List.map (fun property ->
                 result {
@@ -152,7 +204,13 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
                         |> Set.toList
                         |> List.choose (fun id -> accountById |> Map.tryFind id)
                         |> rowsOf
-                    let! mortgageTotal = mortgageRows |> List.map (fun r -> r.balance) |> sumOf
+                    let mortgageIds = property |> Property.mortgageBalanceAccountIds
+                    let mortgageBalanceAccounts =
+                        withBalance |> List.filter (fun b -> mortgageIds |> Set.contains b.balanceAccountId)
+                    let! mortgageTotal =
+                        (mortgageRows |> List.map (fun r -> r.balance))
+                        @ (mortgageBalanceAccounts |> List.map (fun b -> b.balance))
+                        |> sumOf
                     let! equity = Money.subtractVal1FromVal2 mortgageTotal value
                     return
                         { propertyId = property |> Property.propertyId
@@ -161,18 +219,23 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
                           value = value
                           valueSource = source
                           mortgageAccounts = mortgageRows
-                          equity = equity }
+                          mortgageBalanceAccounts = mortgageBalanceAccounts |> List.filter isNotZero
+                          equity = equity },
+                    mortgageTotal,
+                    not (mortgageRows |> List.isEmpty && mortgageBalanceAccounts |> List.isEmpty)
                 })
             |> convertListOfResultsToResultsList
+        let propertyRows = propertyFigures |> List.map (fun (row, _, _) -> row)
 
         let! totalLedgerAssets = assetAccounts |> List.map (fun r -> r.balance) |> sumOf
         let! totalInvestments = investmentRows |> List.map (fun r -> r.marketValue) |> sumOf
         let! totalPropertyValues = propertyRows |> List.map (fun r -> r.value) |> sumOf
+        let! totalCash = cashAccounts |> List.map (fun b -> b.balance) |> sumOf
         let! totalLiabilities = liabilityAccounts |> List.map (fun r -> r.balance) |> sumOf
-        let! totalOwnedPropertyMortgages =
-            propertyRows |> List.collect (fun r -> r.mortgageAccounts) |> List.map (fun r -> r.balance) |> sumOf
-        let! grossAssets = sumOf [ totalLedgerAssets; totalInvestments; totalPropertyValues ]
-        let! allLiabilities = Money.add totalLiabilities totalOwnedPropertyMortgages
+        let! totalDebts = debtAccounts |> List.map (fun b -> b.balance) |> sumOf
+        let! totalOwnedPropertyMortgages = propertyFigures |> List.map (fun (_, total, _) -> total) |> sumOf
+        let! grossAssets = sumOf [ totalLedgerAssets; totalInvestments; totalPropertyValues; totalCash ]
+        let! allLiabilities = sumOf [ totalLiabilities; totalDebts; totalOwnedPropertyMortgages ]
         let! netWorth = Money.subtractVal1FromVal2 allLiabilities grossAssets
         let! investableWealth =
             match propertyRows |> List.tryFind (fun r -> r.propertyUse = PropertyUse.PrimaryResidence) with
@@ -184,8 +247,10 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
             [ CountedLedgerAssets, assetAccounts |> List.isEmpty
               Investments, investmentRows |> List.isEmpty
               PropertyValues, propertyRows |> List.isEmpty
+              Cash, cashAccounts |> List.isEmpty
               Liabilities, liabilityAccounts |> List.isEmpty
-              OwnedPropertyMortgages, propertyRows |> List.forall (fun r -> r.mortgageAccounts |> List.isEmpty) ]
+              Debts, debtAccounts |> List.isEmpty
+              OwnedPropertyMortgages, propertyFigures |> List.forall (fun (_, _, hasMortgage) -> not hasMortgage) ]
             |> List.filter snd
             |> List.map fst
         return
@@ -194,10 +259,13 @@ let computeNetWorth (context: Context.Context) (asOf: LocalDate) : Result<NetWor
               liabilityAccounts = liabilityAccounts
               investmentAccounts = investmentRows
               properties = propertyRows
+              balanceAccounts = listedBalanceAccounts
               totalLedgerAssets = totalLedgerAssets
               totalInvestments = totalInvestments
               totalPropertyValues = totalPropertyValues
+              totalCash = totalCash
               totalLiabilities = totalLiabilities
+              totalDebts = totalDebts
               totalOwnedPropertyMortgages = totalOwnedPropertyMortgages
               netWorth = netWorth
               investableWealth = investableWealth

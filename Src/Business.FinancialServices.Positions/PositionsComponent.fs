@@ -403,6 +403,7 @@ module BalanceAccountName =
         |> trimmedAndBounded maxLength PositionsBalanceAccountNameIsEmpty PositionsBalanceAccountNameTooLong
         |> Result.map BalanceAccountName
 
+[<RequireQualifiedAccess>]
 type BalanceAccountKind =
     | Cash
     | Debt
@@ -410,12 +411,12 @@ type BalanceAccountKind =
 module BalanceAccountKind =
     let toString kind =
         match kind with
-        | Cash -> "Cash"
-        | Debt -> "Debt"
+        | BalanceAccountKind.Cash -> "Cash"
+        | BalanceAccountKind.Debt -> "Debt"
     let fromString (raw: string) : Result<BalanceAccountKind, IAppError> =
         match raw.Trim() with
-        | "Cash" -> Ok Cash
-        | "Debt" -> Ok Debt
+        | "Cash" -> Ok BalanceAccountKind.Cash
+        | "Debt" -> Ok BalanceAccountKind.Debt
         | _ -> error (PositionsInvalidBalanceAccountKind raw)
 
 /// The dates a Property is held: from its acquisition date up to, but not including, its disposal date. Unlike an
@@ -480,12 +481,14 @@ module WealthGrouping =
         | Some grouping -> Ok grouping
         | None -> error (PositionsInvalidWealthGrouping raw)
 
-/// The five parts of net worth that may have nothing contributing to them on a date.
+/// The seven parts of net worth that may have nothing contributing to them on a date, in the order they are named.
 type NetWorthComponent =
     | CountedLedgerAssets
     | Investments
     | PropertyValues
+    | Cash
     | Liabilities
+    | Debts
     | OwnedPropertyMortgages
 
 module NetWorthComponent =
@@ -494,7 +497,9 @@ module NetWorthComponent =
         | CountedLedgerAssets -> "CountedLedgerAssets"
         | Investments -> "Investments"
         | PropertyValues -> "PropertyValues"
+        | Cash -> "Cash"
         | Liabilities -> "Liabilities"
+        | Debts -> "Debts"
         | OwnedPropertyMortgages -> "OwnedPropertyMortgages"
 
 /// An Investment Account's part in net worth: its latest snapshot on or before the date, at market value.

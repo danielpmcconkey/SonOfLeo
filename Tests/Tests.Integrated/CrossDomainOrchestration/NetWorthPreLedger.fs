@@ -138,20 +138,20 @@ type NetWorthPreLedgerTests(fixture: TestDataFixture) =
         Assert.Fail "Not yet implemented: reworked in item C2"
 
     [<Fact>]
-    member _.``REQ-RPT-8.8 on a pre-ledger date on which property values are the only contributor, the other four components are named absent, each totalling 0.00`` () =
+    member _.``REQ-RPT-8.8 on a pre-ledger date on which property values are the only contributor, the other six components are named absent, each totalling 0.00`` () =
         netWorthAsOf (p.formerResidenceAcquired.PlusYears(3))
         |> Result.map (fun r ->
             Assert.Equal<NetWorthComponent list>(
-                [ CountedLedgerAssets; Investments; Liabilities; OwnedPropertyMortgages ], r.absentComponents)
+                [ CountedLedgerAssets; Investments; Cash; Liabilities; Debts; OwnedPropertyMortgages ], r.absentComponents)
             Assert.Equal<decimal list>([ 0.00M; 0.00M; 200000.00M; 0.00M; 0.00M; 200000.00M; 0.00M ], totals r))
         |> railroadWrapper
 
     [<Fact>]
-    member _.``REQ-RPT-8.8 on a pre-ledger date before any record, all five components are named absent, each totalling 0.00, and net worth is 0.00`` () =
+    member _.``REQ-RPT-8.8 on a pre-ledger date before any record, all seven components are named absent, each totalling 0.00, and net worth is 0.00`` () =
         netWorthAsOf (p.formerResidenceAcquired.PlusDays(-1))
         |> Result.map (fun r ->
             Assert.Equal<NetWorthComponent list>(
-                [ CountedLedgerAssets; Investments; PropertyValues; Liabilities; OwnedPropertyMortgages ], r.absentComponents)
+                [ CountedLedgerAssets; Investments; PropertyValues; Cash; Liabilities; Debts; OwnedPropertyMortgages ], r.absentComponents)
             Assert.Equal<decimal list>([ 0.00M; 0.00M; 0.00M; 0.00M; 0.00M; 0.00M; 0.00M ], totals r))
         |> railroadWrapper
 

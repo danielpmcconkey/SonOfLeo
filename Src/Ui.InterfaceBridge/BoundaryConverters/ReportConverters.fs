@@ -269,6 +269,29 @@ let netWorthPropertyNames (context: Context.Context) (property: NetWorthProperty
         return name |> PropertyName.value, owners
     }
 
+/// A net worth Balance Account's name and its owners' names.
+let netWorthBalanceAccountNames
+    (context: Context.Context)
+    (balanceAccount: NetWorthBalanceAccount)
+    : Result<string * string list, IAppError> =
+    result {
+        let! name = balanceAccount.balanceAccountId |> Business.FinancialServices.Positions.BalanceAccount.idToName context
+        let! owners = balanceAccount.ownerIds |> PositionsFieldConverters.ownerNamesOf context
+        return name |> BalanceAccountName.value, owners
+    }
+
+let ``convert [NetWorthBalanceAccount] to [NetWorthBalanceAccountReturnRow]``
+    (context: Context.Context)
+    (balanceAccount: NetWorthBalanceAccount)
+    : Result<NetWorthBalanceAccountReturnRow, IAppError> =
+    netWorthBalanceAccountNames context balanceAccount
+    |> Result.map (fun (name, owners) ->
+        { balanceAccountName = name
+          kind = balanceAccount.kind |> BalanceAccountKind.toString
+          owners = owners
+          balance = balanceAccount.balance |> Money.amount
+          balanceDate = balanceAccount.balanceDate })
+
 let ``convert [NetWorth] to [NetWorthReturnRow]`` (context: Context.Context) (netWorth: NetWorth) : Result<NetWorthReturnRow, IAppError> =
     let groupTotal (group, total) : NetWorthGroupTotalReturnRow = { group = group; marketValue = total |> Money.amount }
     result {
@@ -293,6 +316,15 @@ let ``convert [NetWorth] to [NetWorthReturnRow]`` (context: Context.Context) (ne
                     let! propertyName, owners = netWorthPropertyNames context p
                     let! mortgageAccounts =
                         p.mortgageAccounts |> ``convert [LedgerAccountBalance list] to [NetWorthLedgerAccountReturnRow list]`` context
+                    let! mortgageBalanceAccounts =
+                        p.mortgageBalanceAccounts
+                        |> List.map (fun b ->
+                            b.balanceAccountId
+                            |> Business.FinancialServices.Positions.BalanceAccount.idToName context
+                            |> Result.map (fun name ->
+                                ({ balanceAccountName = name |> BalanceAccountName.value; balance = b.balance |> Money.amount }
+                                : NetWorthMortgageBalanceAccountReturnRow)))
+                        |> convertListOfResultsToResultsList
                     return
                         { propertyName = propertyName
                           propertyUse = p.propertyUse |> PropertyUse.toString
@@ -304,6 +336,7 @@ let ``convert [NetWorth] to [NetWorthReturnRow]`` (context: Context.Context) (ne
                             | PurchaseBasisValue -> None
                           valueIsPurchaseBasis = (p.valueSource = PurchaseBasisValue)
                           mortgageAccounts = mortgageAccounts
+                          mortgageBalanceAccounts = mortgageBalanceAccounts
                           equity = p.equity |> Money.amount }
                 })
             |> convertListOfResultsToResultsList
@@ -311,16 +344,23 @@ let ``convert [NetWorth] to [NetWorthReturnRow]`` (context: Context.Context) (ne
             netWorth.assetAccounts |> ``convert [LedgerAccountBalance list] to [NetWorthLedgerAccountReturnRow list]`` context
         let! liabilityAccounts =
             netWorth.liabilityAccounts |> ``convert [LedgerAccountBalance list] to [NetWorthLedgerAccountReturnRow list]`` context
+        let! balanceAccounts =
+            netWorth.balanceAccounts
+            |> List.map (``convert [NetWorthBalanceAccount] to [NetWorthBalanceAccountReturnRow]`` context)
+            |> convertListOfResultsToResultsList
         return
             { asOf = netWorth.asOf
               assetAccounts = assetAccounts
               liabilityAccounts = liabilityAccounts
               investmentAccounts = investmentAccounts
               properties = properties
+              balanceAccounts = balanceAccounts
               totalLedgerAssets = netWorth.totalLedgerAssets |> Money.amount
               totalInvestments = netWorth.totalInvestments |> Money.amount
               totalPropertyValues = netWorth.totalPropertyValues |> Money.amount
+              totalCash = netWorth.totalCash |> Money.amount
               totalLiabilities = netWorth.totalLiabilities |> Money.amount
+              totalDebts = netWorth.totalDebts |> Money.amount
               totalOwnedPropertyMortgages = netWorth.totalOwnedPropertyMortgages |> Money.amount
               netWorth = netWorth.netWorth |> Money.amount
               investableWealth = netWorth.investableWealth |> Money.amount

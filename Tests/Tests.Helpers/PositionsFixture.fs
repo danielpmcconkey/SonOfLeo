@@ -96,6 +96,16 @@ Activity, recorded as one range per account:
   The roll-forward from d3 to d4 does not balance: EXTMX expected 12 - 15 = -3 against 12, a difference of 15;
   EXINX expected 20 against 0 (it is not on d4), a difference of -20.
 
+Balance Accounts and their Balances (the earliest fiscal period starts on ledgerStart, the first of month -5; monthEnd k
+is the last day of month -k). Each closes at 0.00 on ledgerStart, when the ledger takes it over:
+
+  Fixture Savings          Cash, Alex and Sam   100.00 on monthEnd8
+  Fixture Checking         Cash, Alex and Sam   2,000.00 on monthEnd8; 2,500.00 on monthEnd7
+  Fixture Card             Debt, Alex           15.00 on monthEnd8
+  Fixture Loan             Debt, Sam            1,500.00 on monthEnd8; 0.00 on monthEnd7
+  Fixture Rental Mortgage  Debt, Sam            186,000.00 on monthEnd9; 185,000.00 on monthEnd8; 184,000.00 on
+                                                monthEnd7. The mortgage Balance Account of 34 Example Avenue.
+
 Ledger entries, all dated ledgerEntryDate (the 5th of month -4) except the last:
 
   F-1260 Fixture Brokerage at Cost   Debit 1,400.00     F-3040 Credit 1,400.00
@@ -212,6 +222,12 @@ module PositionsFixture =
     let samHsa = "Sam HSA"
     let oldBrokerage = "Old Brokerage"
     let jordanCustodial = "Jordan Custodial"
+
+    let savings = "Fixture Savings"
+    let checking = "Fixture Checking"
+    let card = "Fixture Card"
+    let loan = "Fixture Loan"
+    let rentalMortgageBalanceAccount = "Fixture Rental Mortgage"
 
     let residence = "12 Example Street"
     let rental = "34 Example Avenue"
@@ -448,8 +464,40 @@ module PositionsFixture =
                       [ activity (day d3 2) ActivityKind.Sale "Sale" None (Some totalMarket) (Some 15M) (Some 105.00M) 1575.00M
                         activity (day d3 3) ActivityKind.Dividend "Dividend paid" None (Some international) None None 5.50M ] ]
 
+            // Balance Accounts and Balances
+            let balanceAccount name kind institution owners =
+                result {
+                    let! name = BalanceAccountName.create name
+                    let! institution = Institution.create institution
+                    let! owners = PositionsLookups.personIdsOf context owners
+                    let! created = BalanceAccountOrchestration.constructNewAndPersist context name kind institution owners
+                    return created |> Business.FinancialServices.Positions.BalanceAccount.balanceAccountId
+                }
+            let! savingsId = balanceAccount savings BalanceAccountKind.Cash "Example Bank" [ alex; sam ]
+            let! checkingId = balanceAccount checking BalanceAccountKind.Cash "Example Bank" [ alex; sam ]
+            let! cardId = balanceAccount card BalanceAccountKind.Debt "Example Card Issuer" [ alex ]
+            let! loanId = balanceAccount loan BalanceAccountKind.Debt "Example Lender" [ sam ]
+            let! rentalMortgageBalanceAccountId =
+                balanceAccount rentalMortgageBalanceAccount BalanceAccountKind.Debt "Example Mortgage Lender" [ sam ]
+            let ledgerStart = monthStart 5
+            let! _ =
+                BalanceAccountOrchestration.recordBalances context
+                    [ savingsId, monthEnd 8, money 100.00M
+                      checkingId, monthEnd 8, money 2000.00M
+                      checkingId, monthEnd 7, money 2500.00M
+                      cardId, monthEnd 8, money 15.00M
+                      loanId, monthEnd 8, money 1500.00M
+                      loanId, monthEnd 7, money 0.00M
+                      rentalMortgageBalanceAccountId, monthEnd 9, money 186000.00M
+                      rentalMortgageBalanceAccountId, monthEnd 8, money 185000.00M
+                      rentalMortgageBalanceAccountId, monthEnd 7, money 184000.00M ]
+            let! _ =
+                [ savingsId; checkingId; cardId; loanId; rentalMortgageBalanceAccountId ]
+                |> List.map (fun id -> id, ledgerStart, money 0.00M)
+                |> BalanceAccountOrchestration.recordBalances context
+
             // Properties and Valuations
-            let property name propertyUse owners acquired disposed basis assetAccountIds mortgageIds =
+            let property name propertyUse owners acquired disposed basis assetAccountIds mortgageIds mortgageBalanceAccountIds =
                 result {
                     let! name = PropertyName.create name
                     let! period = OwnedPeriod.create acquired disposed
@@ -457,16 +505,17 @@ module PositionsFixture =
                     let! owners = PositionsLookups.personIdsOf context owners
                     return!
                         RealEstateOrchestration.constructNewAndPersist
-                            context name propertyUse owners period basis assetAccountIds mortgageIds []
+                            context name propertyUse owners period basis assetAccountIds mortgageIds mortgageBalanceAccountIds
                 }
             let formerResidenceAcquired = today.PlusYears(-6)
             let! _ =
                 property formerResidence PrimaryResidence [ alex ] formerResidenceAcquired (Some formerResidenceDisposed)
-                    200000.00M [] []
+                    200000.00M [] [] []
             let! _ =
                 property residence PrimaryResidence [ alex; sam ] residenceAcquired None 400000.00M
-                    [ residenceAtCostId ] [ residenceMortgageId ]
-            let! _ = property rental Rental [ sam ] lastYear None 250000.00M [] [ rentalMortgageId ]
+                    [ residenceAtCostId ] [ residenceMortgageId ] []
+            let! _ =
+                property rental Rental [ sam ] lastYear None 250000.00M [] [ rentalMortgageId ] [ rentalMortgageBalanceAccountId ]
             let valuation date value basis =
                 result {
                     let! propertyId = PositionsLookups.propertyIdOf context residence
@@ -491,7 +540,7 @@ module PositionsFixture =
                   monthEnd7 = monthEnd 7
                   monthEnd8 = monthEnd 8
                   monthEnd9 = monthEnd 9
-                  ledgerStart = monthStart 5
+                  ledgerStart = ledgerStart
                   samHsaPreLedgerDate = samHsaPreLedgerDate
                   accountsActiveBegin = lastYear
                   ledgerEntryDate = ledgerEntryDate

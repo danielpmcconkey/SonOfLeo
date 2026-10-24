@@ -176,6 +176,17 @@ type NetWorthInvestmentAccountReturnRow = {
     contributionBasis: decimal option
 }
 
+// balanceDate is the date of the Balance the balance came from
+type NetWorthBalanceAccountReturnRow = {
+    balanceAccountName: string
+    kind: string
+    owners: string list
+    balance: decimal
+    balanceDate: LocalDate
+}
+
+type NetWorthMortgageBalanceAccountReturnRow = { balanceAccountName: string; balance: decimal }
+
 type NetWorthPropertyReturnRow = {
     propertyName: string
     propertyUse: string
@@ -185,23 +196,29 @@ type NetWorthPropertyReturnRow = {
     valuationDate: LocalDate option
     valueIsPurchaseBasis: bool
     mortgageAccounts: NetWorthLedgerAccountReturnRow list
+    // only those whose balance is not zero
+    mortgageBalanceAccounts: NetWorthMortgageBalanceAccountReturnRow list
     equity: decimal
 }
 
 type NetWorthGroupTotalReturnRow = { group: string; marketValue: decimal }
 
-// absentComponents names each of CountedLedgerAssets, Investments, PropertyValues, Liabilities and
-// OwnedPropertyMortgages that nothing contributes to on the date
+// balanceAccounts lists every Cash Balance Account and every Debt one that is not an owned Property's mortgage, whose
+// balance is not zero. absentComponents names each of CountedLedgerAssets, Investments, PropertyValues, Cash,
+// Liabilities, Debts and OwnedPropertyMortgages that nothing contributes to on the date
 type NetWorthReturnRow = {
     asOf: LocalDate
     assetAccounts: NetWorthLedgerAccountReturnRow list
     liabilityAccounts: NetWorthLedgerAccountReturnRow list
     investmentAccounts: NetWorthInvestmentAccountReturnRow list
     properties: NetWorthPropertyReturnRow list
+    balanceAccounts: NetWorthBalanceAccountReturnRow list
     totalLedgerAssets: decimal
     totalInvestments: decimal
     totalPropertyValues: decimal
+    totalCash: decimal
     totalLiabilities: decimal
+    totalDebts: decimal
     totalOwnedPropertyMortgages: decimal
     netWorth: decimal
     investableWealth: decimal

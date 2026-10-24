@@ -93,7 +93,9 @@ let componentLabel (netWorthComponent: NetWorthComponent) =
     | CountedLedgerAssets -> "Counted ledger assets"
     | Investments -> "Investments"
     | PropertyValues -> "Property values"
+    | Cash -> "Cash"
     | Liabilities -> "Liabilities"
+    | Debts -> "Debts"
     | OwnedPropertyMortgages -> "Mortgages of owned properties"
 
 /// A ledger account's code, name and balance.
@@ -129,9 +131,16 @@ let private investmentsBlock ordinal (accounts: (NetWorthInvestmentAccount * (st
               "Market value", true; "Contribution basis", true ]
             rows ]
 
-/// Each property with its name, its owners' names and its named mortgage accounts.
-let private propertiesBlock ordinal (properties: (NetWorthProperty * (string * string list) * NamedLedgerRow list) list) =
-    let propertyTable i (p: NetWorthProperty, (propertyName: string, ownerNames: string list), mortgages) =
+/// A mortgage Balance Account's name, the date of the Balance its balance came from, and that balance.
+type private NamedMortgageBalanceAccount = string * LocalDate * Money.Money
+
+/// Each property with its name, its owners' names, its named mortgage accounts and its named mortgage Balance Accounts.
+let private propertiesBlock
+    ordinal
+    (properties:
+        (NetWorthProperty * (string * string list) * NamedLedgerRow list * NamedMortgageBalanceAccount list) list)
+    =
+    let propertyTable i (p: NetWorthProperty, (propertyName: string, ownerNames: string list), mortgages, mortgageBalanceAccounts) =
         let source =
             match p.valueSource with
             | ValuationDated d -> $"valuation of {dateString d}"
@@ -143,13 +152,35 @@ let private propertiesBlock ordinal (properties: (NetWorthProperty * (string * s
                     [ (fun o -> textCell o $"Mortgage {code} · {name}")
                       (fun o -> textCell o "")
                       (fun o -> moneyCell o balance) ])
+        let mortgageBalanceAccountRows =
+            mortgageBalanceAccounts
+            |> List.mapi (fun j (name, balanceDate, balance) ->
+                row (50 + j) None
+                    [ (fun o -> textCell o $"Mortgage {name}")
+                      (fun o -> textCell o $"balance of {dateString balanceDate}")
+                      (fun o -> moneyCell o balance) ])
         table (10 + i)
             [ $"{propertyName} ({p.propertyUse |> PropertyUse.toString}), owned by {joined ownerNames}", false
               "Source", false; "Amount", true ]
             ([ row 10 None [ (fun o -> textCell o "Value"); (fun o -> textCell o source); (fun o -> moneyCell o p.value) ] ]
              @ mortgageRows
+             @ mortgageBalanceAccountRows
              @ [ row 90 (Some "total") [ (fun o -> textCell o "Equity"); (fun o -> textCell o ""); (fun o -> moneyCell o p.equity) ] ])
     block ordinal "Properties owned on the date" (properties |> List.mapi propertyTable)
+
+/// Each Balance Account listed, with its name and its owners' names.
+let private balanceAccountsBlock ordinal (balanceAccounts: (NetWorthBalanceAccount * (string * string list)) list) =
+    let rows =
+        balanceAccounts
+        |> List.mapi (fun i (b, (name, ownerNames)) ->
+            row (10 + i) None
+                [ (fun o -> textCell o name)
+                  (fun o -> textCell o (b.kind |> BalanceAccountKind.toString))
+                  (fun o -> textCell o (joined ownerNames))
+                  (fun o -> textCell o (dateString b.balanceDate))
+                  (fun o -> moneyCell o b.balance) ])
+    block ordinal "Cash and debts in Balance Accounts"
+        [ table 10 [ "Balance Account", false; "Kind", false; "Owners", false; "Balance date", false; "Balance", true ] rows ]
 
 let private totalsBlock ordinal (netWorth: NetWorth) =
     let line i label amount = row (10 + i) None [ (fun o -> textCell o label); (fun o -> moneyCell o amount) ]
@@ -158,8 +189,10 @@ let private totalsBlock ordinal (netWorth: NetWorth) =
             [ line 0 "Counted ledger assets" netWorth.totalLedgerAssets
               line 1 "Investments" netWorth.totalInvestments
               line 2 "Property values" netWorth.totalPropertyValues
-              line 3 "Liabilities" netWorth.totalLiabilities
-              line 4 "Mortgages of owned properties" netWorth.totalOwnedPropertyMortgages
+              line 3 "Cash" netWorth.totalCash
+              line 4 "Liabilities" netWorth.totalLiabilities
+              line 5 "Debts" netWorth.totalDebts
+              line 6 "Mortgages of owned properties" netWorth.totalOwnedPropertyMortgages
               row 20 (Some "total") [ (fun o -> textCell o "Net worth"); (fun o -> moneyCell o netWorth.netWorth) ]
               row 21 (Some "total") [ (fun o -> textCell o "Investable wealth"); (fun o -> moneyCell o netWorth.investableWealth) ] ] ]
 
@@ -175,7 +208,9 @@ let private writeNamed
     (assetAccounts: NamedLedgerRow list)
     (liabilityAccounts: NamedLedgerRow list)
     (investmentAccounts: (NetWorthInvestmentAccount * (string * string list)) list)
-    (properties: (NetWorthProperty * (string * string list) * NamedLedgerRow list) list)
+    (properties:
+        (NetWorthProperty * (string * string list) * NamedLedgerRow list * NamedMortgageBalanceAccount list) list)
+    (balanceAccounts: (NetWorthBalanceAccount * (string * string list)) list)
     : Result<NetWorthReturn, IAppError> =
     let asOfString = netWorth.asOf |> dateString
     let head = {
@@ -198,10 +233,11 @@ let private writeNamed
               investmentsBlock 2 investmentAccounts
               propertiesBlock 3 properties
               block 4 "Liabilities" [ ledgerTable 10 liabilityAccounts ]
-              totalsBlock 5 netWorth
-              subtotalsBlock 6 "Investments by tax treatment"
+              balanceAccountsBlock 5 balanceAccounts
+              totalsBlock 6 netWorth
+              subtotalsBlock 7 "Investments by tax treatment"
                   (netWorth.investmentsByTaxTreatment |> List.map (fun (t, m) -> t |> TaxTreatment.toString, m))
-              subtotalsBlock 7 "Investments by account group"
+              subtotalsBlock 8 "Investments by account group"
                   (netWorth.investmentsByAccountGroup |> List.map (fun (g, m) -> g |> AccountGroup.value, m)) ]
     let footer = createReportFooter generatedAt
     let section = { ordinal = 10; elementType = Section; identifierType = (Class "report"); contents = [ header; reportBody; footer ] }
@@ -227,8 +263,8 @@ let private namedLedgerRows (context: Context.Context) (rows: LedgerAccountBalan
         |> Result.map (fun named -> named.code, named.name, r.balance))
     |> convertListOfResultsToResultsList
 
-/// Names each ledger account, investment account and property, keeping the order net worth gives them, then writes the
-/// report.
+/// Names each ledger account, investment account, property and Balance Account, keeping the order net worth gives them,
+/// then writes the report.
 let write
     (context: Context.Context)
     (pathInfo: OutputPathInput)
@@ -248,8 +284,20 @@ let write
                 result {
                     let! names = netWorthPropertyNames context p
                     let! mortgages = p.mortgageAccounts |> namedLedgerRows context
-                    return p, names, mortgages
+                    let! mortgageBalanceAccounts =
+                        p.mortgageBalanceAccounts
+                        |> List.map (fun b ->
+                            b.balanceAccountId
+                            |> Business.FinancialServices.Positions.BalanceAccount.idToName context
+                            |> Result.map (fun name -> name |> BalanceAccountName.value, b.balanceDate, b.balance))
+                        |> convertListOfResultsToResultsList
+                    return p, names, mortgages, mortgageBalanceAccounts
                 })
             |> convertListOfResultsToResultsList
-        return! writeNamed pathInfo generatedAt netWorth assetAccounts liabilityAccounts investmentAccounts properties
+        let! balanceAccounts =
+            netWorth.balanceAccounts
+            |> List.map (fun b -> netWorthBalanceAccountNames context b |> Result.map (fun names -> b, names))
+            |> convertListOfResultsToResultsList
+        return!
+            writeNamed pathInfo generatedAt netWorth assetAccounts liabilityAccounts investmentAccounts properties balanceAccounts
     }

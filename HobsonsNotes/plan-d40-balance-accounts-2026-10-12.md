@@ -526,6 +526,39 @@ NetWorthPreLedger gap test now asserts the later period's net worth is
 computed as of its date instead of its date kind. Build 0 warnings;
 Integrated 1733 plus 75 placeholders, Isolated 529 plus 7.
 
+**C2. Balance Accounts in net worth.** `NetWorth` reads every Balance
+Account and, in one query, each one's latest Balance on or before the date
+(`BalanceAccountBalance.fetchLatestOnOrBefore`); an account with none is
+left out. New `NetWorthBalanceAccount` (id, kind, owners, balance, the
+Balance's date). Cash adds (`totalCash`); Debt subtracts (`totalDebts`),
+except a Debt that is a mortgage Balance Account of a Property owned on the
+date, which counts in that Property's mortgages and equity and in
+`totalOwnedPropertyMortgages`. `balanceAccounts` lists Cash and non-mortgage
+Debt accounts whose balance is not zero, by name; `NetWorthProperty` gains
+`mortgageBalanceAccounts`, also only those not at zero, while equity counts
+them all. `NetWorthComponent` gains `Cash` and `Debts` in REQ-RPT-8.8's
+order; a component is present when anything has a balance, zero included.
+Net worth is still computed from the totals, so the REQ-RPT-8.5 identity
+holds by construction; C4 asserts it. `BalanceAccountKind` is now
+`[<RequireQualifiedAccess>]`: its `Cash` would otherwise collide with
+`NetWorthComponent.Cash` in `PositionsComponent` (see §5.6). Bridge:
+`NetWorthBalanceAccountReturnRow` (name, kind, owners, balance, balance
+date), `NetWorthMortgageBalanceAccountReturnRow` (name, balance),
+`NetWorthReturnRow` gains `balanceAccounts`, `totalCash` and `totalDebts`;
+names resolve through `BalanceAccount.idToName` and the Person cache. The
+writer adds a "Cash and debts in Balance Accounts" block, mortgage Balance
+Account rows under each Property (with the Balance's date) and the two
+totals; the route description names them. **Fixture** (pulled forward from
+C4 so the suites stay green): five Balance Accounts with invented names
+(Fixture Savings, Checking, Card, Loan, Rental Mortgage; the last is
+34 Example Avenue's mortgage Balance Account) carrying the nine old
+pre-ledger figures as Balances, each closing at 0.00 on ledgerStart. The
+hand-derived pre-ledger net worth figures are unchanged (the old F-1280
+-15.00 asset is now a 15.00 card debt). Two NetWorthPreLedger REQ-RPT-8.8
+tests now expect Cash and Debts absent too and say "seven"/"six"
+components. The "reworked in item C2" placeholders are filled in C4. Build 0
+warnings; Integrated 1733 plus 75 placeholders, Isolated 529 plus 7.
+
 ### 5.3 Fail-then-pass evidence
 
 - **B3 peer guard.** Planted `let private planted = Property.fetchAll` at the
@@ -539,6 +572,12 @@ Integrated 1733 plus 75 placeholders, Isolated 529 plus 7.
   was rejected: Net worth cannot be computed as of Monday, 01 January 1990:
   the date falls in no fiscal period and is not before the first one."
   Restored: passes.
+- **C2, REQ-RPT-8.8 Cash and Debts absent (NetWorthPreLedger, two tests).**
+  With the `Cash` and `Debts` lines removed from the absent-component list:
+  "Expected: [CountedLedgerAssets, Investments, Cash, Liabilities, Debts, ···]
+  Actual: [CountedLedgerAssets, Investments, Liabilities,
+  OwnedPropertyMortgages]", and the same for the seven-component test.
+  Restored: both pass.
 
 ### 5.4 The migrations Dan must apply
 (file names, what each does, in order)
@@ -554,6 +593,10 @@ Integrated 1733 plus 75 placeholders, Isolated 529 plus 7.
 
 ### 5.6 Disagreements, deviations, things for Dan
 
+- `BalanceAccountKind` is `[<RequireQualifiedAccess>]` (written
+  `BalanceAccountKind.Cash`): REQ-RPT-8.8 names a net worth component "cash",
+  and two unqualified `Cash` cases in `PositionsComponent` would shadow each
+  other (the ledger's account subtype `Cash` is a third).
 - **`BalanceAccountOrchestration` is in no peer-guard list.** The plan's B3
   list is `BalanceAccount BalanceAccountBalance`, and the orchestration file
   has to name `Property` for REQ-POS-16.10 (refuse deleting a Property's
