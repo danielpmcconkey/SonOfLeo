@@ -95,6 +95,64 @@ let private restore (before: (Guid * LocalDate * Instant) list * Instance.Instan
         return ()
     }
 
+/// A CreateAgreement payload: Outgo, Daily, one leg, started 30 days ago, with the given grace period in days.
+let private graceAgreementInput (name: string) (grace: int option) : Contracts.CreateAgreementInput =
+    let today = Calendar.today ()
+    { agreementName = name
+      direction = "Outgo"
+      cadence = { cadenceType = Contracts.Daily; nextInstance = today.PlusDays(60) }
+      counterparty = "Route grace period test counterparty"
+      activeBegin = today.PlusDays(-30)
+      activeEnd = None
+      memo = None
+      gracePeriodInDays = grace
+      paymentAgreements =
+        [ { paymentAgreementName = $"{name} leg"
+            debitAccountCode = "F-2230"
+            creditAccountCode = "F-1280"
+            expectedAmount = Some 100.00M
+            daysDueAfterInvoiceDate = Some 0
+            memo = None } ] }
+
+let private noAgreementUpdate (name: string) : Contracts.UpdateAgreementInput =
+    { agreementName = name
+      agreementNameUpdate = FieldUpdate.NoChange
+      directionUpdate = FieldUpdate.NoChange
+      cadenceUpdate = FieldUpdate.NoChange
+      counterpartyUpdate = FieldUpdate.NoChange
+      activeBeginUpdate = FieldUpdate.NoChange
+      activeEndUpdate = FieldUpdate.NoChange
+      memoUpdate = FieldUpdate.NoChange
+      gracePeriodInDaysUpdate = FieldUpdate.NoChange
+      paymentAgreementUpdates = []
+      newPaymentAgreements = [] }
+
+let private agreementRoute (verb: string) (input: 'T) =
+    input |> Json.toJson |> Result.bind (routeUiCommandForTesting "CashFlow" verb []) |> Result.bind Json.fromJson<Contracts.AgreementReturn>
+
+let private fetchAgreementNamed (name: string) =
+    agreementRoute "FetchAgreementSummary" ({ agreementName = name } : Contracts.FetchAgreementSummaryInput)
+
+/// Runs the test, then deletes the stored agreement with the name, if there is one, from a fresh context.
+let private cleaningUpAgreement (name: string) (test: unit -> Result<unit, IAppError>) =
+    let cleanUpFailures = ResizeArray<string>()
+    try
+        test () |> railroadWrapper
+    finally
+        match
+            ({ agreementIds = None; activeAgreementsOnly = false } : AgreementFilter)
+            |> Business.CrossDomainOrchestration.AgreementOrchestration.fetchFiltered (fresh ()) AnyQuantityIsAcceptable
+        with
+        | Ok agreements ->
+            for a in agreements do
+                let master = a |> Business.CrossDomainOrchestration.AgreementOrchestration.masterAgreement
+                if master |> MasterAgreement.agreementName |> AgreementName.value = name then
+                    match Cleanup.cleanUpMasterAgreementTree (Some(master |> MasterAgreement.agreementID |> MasterAgreementId.value)) with
+                    | Ok () -> ()
+                    | Error e -> cleanUpFailures.Add(e.ToMessage())
+        | Error e -> cleanUpFailures.Add(e.ToMessage())
+    Assert.Empty(cleanUpFailures)
+
 [<Collection("SharedTestData")>]
 type CashFlowRouteTests(fixture: TestDataFixture) =
 
@@ -377,19 +435,54 @@ type CashFlowRouteTests(fixture: TestDataFixture) =
     [<Theory>]
     [<InlineData("12")>]
     [<InlineData("null")>]
-    [<InlineData("left out")>]
-    member _.``REQ-CF-14.1 for each of a grace period in days of 12, an explicit null and the field left out, a CreateAgreement payload returns the created agreement carrying 12, none and none respectively`` (grace: string) =
-        Assert.Fail "Not yet implemented"
+    member _.``REQ-CF-14.1 for each of a grace period in days of 12 and null, a CreateAgreement payload returns the created agreement carrying 12 and none respectively`` (grace: string) =
+        let given = if grace = "12" then Some 12 else None
+        let name = $"CF-14.1 route grace {grace} {Guid.NewGuid():N}"
+        cleaningUpAgreement name (fun () ->
+            result {
+                let! created = graceAgreementInput name given |> agreementRoute "CreateAgreement"
+                Assert.Equal((name, given), (created.masterAgreement.agreementName, created.masterAgreement.gracePeriodInDays))
+            })
 
     [<Fact>]
     member _.``REQ-CF-14.2 an UpdateAgreement payload setting the grace period in days to 12 returns, and the fetch by name reads back, 12; one then naming only the grace period in days, set to null, is accepted and returns, and reads back, none`` () =
-        Assert.Fail "Not yet implemented"
+        let name = $"CF-14.2 route grace {Guid.NewGuid():N}"
+        cleaningUpAgreement name (fun () ->
+            result {
+                let! _ = graceAgreementInput name None |> agreementRoute "CreateAgreement"
+                let! setReturned =
+                    { noAgreementUpdate name with gracePeriodInDaysUpdate = FieldUpdate.SetTo(Some 12) } |> agreementRoute "UpdateAgreement"
+                let! setFetched = fetchAgreementNamed name
+                Assert.Equal((Some 12, Some 12), (setReturned.masterAgreement.gracePeriodInDays, setFetched.masterAgreement.gracePeriodInDays))
+                let! clearedReturned =
+                    { noAgreementUpdate name with gracePeriodInDaysUpdate = FieldUpdate.SetTo None } |> agreementRoute "UpdateAgreement"
+                let! clearedFetched = fetchAgreementNamed name
+                Assert.Equal((None, None), (clearedReturned.masterAgreement.gracePeriodInDays, clearedFetched.masterAgreement.gracePeriodInDays))
+            })
 
     [<Theory>]
     [<InlineData(-1)>]
     [<InlineData(366)>]
     member _.``REQ-CF-14.2 REQ-CF-2.28 for each of -1 and 366, an UpdateAgreement payload setting the grace period in days to it and changing the memo is rejected with a typed error naming the value and the bound it breaks, and the agreement's grace period stays 12 and its memo is unchanged`` (days: int) =
-        Assert.Fail "Not yet implemented"
+        let name = $"CF-14.2 route grace refused {Guid.NewGuid():N}"
+        cleaningUpAgreement name (fun () ->
+            result {
+                let! _ = graceAgreementInput name (Some 12) |> agreementRoute "CreateAgreement"
+                let attempt =
+                    { noAgreementUpdate name with
+                        gracePeriodInDaysUpdate = FieldUpdate.SetTo(Some days)
+                        memoUpdate = FieldUpdate.SetTo(Some "Should not be stored") }
+                    |> agreementRoute "UpdateAgreement"
+                let refusal =
+                    match attempt with
+                    | Error (AsError (CashFlowError.CashflowGracePeriodInDaysBelowMin(refused, 0))) when days = -1 && refused = days -> "expected"
+                    | Error (AsError (CashFlowError.CashflowGracePeriodInDaysExceededMax(refused, 365))) when days = 366 && refused = days -> "expected"
+                    | Error e -> $"Wrong error. {e.DomainName}.{e.CaseName}: {e.ToMessage()}"
+                    | Ok _ -> "Expected failure; got success"
+                Assert.Equal("expected", refusal)
+                let! fetched = fetchAgreementNamed name
+                Assert.Equal((Some 12, None), (fetched.masterAgreement.gracePeriodInDays, fetched.masterAgreement.memo))
+            })
 
     // =========================================================================
     // REQ-CF-14.2, 14.3 — Instances carry the new name after a rename

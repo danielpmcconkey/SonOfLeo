@@ -370,6 +370,41 @@ qualified path compiled. Two findings beyond slice 3's note, both in the article
 record public, FS0728 still fires on its own (so privacy is not the cause), and an accessor
 named differently from the field compiles qualified.
 
+**Part C tests.** Two names renegotiated at step 9, out loud: REQ-CF-14.1's "left out" can't
+be met with the contract as §2 fixes it (`int option` is a required JSON field; §5.3), so
+"an agreement created with the grace period in days left out is stored with none" became
+"… with a null grace period in days …", and the route theory dropped its "left out" case
+(now "for each of a grace period in days of 12 and null …"). No test asserts the omission
+refusal: it fails loudly and writes nothing (LOUD-FAILURE). The rest are as committed.
+
+What each was seen failing against (each perturbation restored, `git status` clean after):
+
+- Isolated 2.28 accept/reject: `GracePeriodInDays` bounds moved to 1/364 (both accept cases
+  red; reject red on -1 naming bound 1), then max alone to 364 (366 assertion red).
+- Integrated create, 0/365 and -1/366: same bound move (accepts red with the bound message,
+  rejects red "Wrong error … maximum allowable value of 364" / "minimum … of 1"). Create with
+  null: `persist` writing 7 (red, `Actual: Some({ graceDays = 7 })`).
+- Matching theories and the widen test: `effectiveGracePeriodInDays` ignoring the agreement's own
+  grace. Red: both paid edges for Monthly 20 and Daily 5, both orphan edges for Monthly 0, and the
+  widen test (7 of 14). The other 7 are the ones that hold under the cadence's window, as they
+  should: that is what the three rows exist to split.
+- Cleared and widen tests: `update` writing `coalesce(grace_period_days, @value)` (a stored grace
+  can't be cleared or changed). Cleared red "Expected the run to fail on orphaned lines; it
+  succeeded"; widen red on the second run's orphan.
+- Integrated update set/clear and the cadence theory: cadence clause also writing
+  `grace_period_days = 7` (both theory cases red, `Actual: Some(7)`); `update` writing null for
+  the grace (set red); the coalesce one (clear red, `Actual: Some(12)`).
+- Listing: the converter returning `None` for the grace (12 red), then inventing `Some 0` (none
+  red).
+- Route create and set/clear: converter returning `None` (12 red on create, set, and the refused
+  test's stored 12), then `Some 0` (null red on create and on clear); the update converter turning
+  `SetTo null` into `NoChange` (clear red: an update naming only the grace becomes a no-op).
+- Route refused update: the converter swallowing the range error as `NoChange` (red, "Expected
+  failure; got success"); its after-state assertion by expected value (13 and a memo, red).
+
+REQ-SYS-3.3 got nothing new (the modified-at theories enumerate entities, not Master Agreement
+fields). No `Not yet implemented` placeholder remains.
+
 ### 5.3 Route payloads
 (every contract that changed, field by field; whether an operator payload
 that omits `gracePeriodInDays` or `gracePeriodInDaysUpdate` is accepted by
