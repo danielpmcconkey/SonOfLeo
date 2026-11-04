@@ -299,6 +299,12 @@ Names committed (placeholders): Isolated `MasterAgreementDataStates.fs` 2;
 `AgreementUpdate.fs` 2; `CashFlowListings.fs` 1; `InterfaceBridge/CashFlowRoutes.fs` 4
 (including B1).
 
+**A1 migration.** `DbMigration/Scripts/202611041000-AddMasterAgreementGracePeriodDays.sql`
+adds nullable `integer` `grace_period_days` to `cashflow.master_agreement`, no check
+constraint, no back-fill; the header says why (and cites no REQ IDs, per the no-annotations
+rule). Applied to the throwaway `sonofleo_test` only; `\d cashflow.master_agreement` shows
+the column.
+
 ### 5.3 Route payloads
 (every contract that changed, field by field; whether an operator payload
 that omits `gracePeriodInDays` or `gracePeriodInDaysUpdate` is accepted by
