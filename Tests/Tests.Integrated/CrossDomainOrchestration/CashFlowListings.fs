@@ -231,7 +231,23 @@ type CashFlowListingsTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CF-14.11 listing agreements carries 12 as the grace period in days of an agreement created with 12 and none for one created without one`` () =
-        Assert.Fail "Not yet implemented"
+        let tag = Guid.NewGuid().ToString("N")
+        let withGrace = $"CF-14.11 grace twelve {tag}"
+        let withoutGrace = $"CF-14.11 grace none {tag}"
+        cleaningUp [ withGrace; withoutGrace ] (fun () ->
+            result {
+                let! _ =
+                    createAgreement
+                        { monthlyOutgo withGrace [ outgoLeg $"{withGrace} leg" (Some 100.00M) (Some 0) ] with gracePeriodInDays = Some 12 }
+                let! _ = createAgreement (monthlyOutgo withoutGrace [ outgoLeg $"{withoutGrace} leg" (Some 100.00M) (Some 0) ])
+                let! listed = listAgreements ()
+                let graces =
+                    listed
+                    |> List.filter (fun l -> l.masterAgreement.agreementName = withGrace || l.masterAgreement.agreementName = withoutGrace)
+                    |> List.map (fun l -> l.masterAgreement.agreementName, l.masterAgreement.gracePeriodInDays)
+                    |> List.sort
+                Assert.Equal<(string * int option) list>(List.sort [ (withGrace, Some 12); (withoutGrace, None) ], graces)
+            })
 
     // =========================================================================
     // REQ-CF-14.12 — fetch open Instances
