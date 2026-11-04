@@ -936,7 +936,7 @@ type ClassificationRuleCrudTests(fixture: TestDataFixture) =
                 let! agreement =
                     AgreementOrchestration.constructNewAndPersist
                         context agreementName CashFlow.CashFlowComponent.Outgo (Cadence.Monthly(Cadence.DateInMonth first))
-                        { nextInstance = NodaTime.LocalDate(2049, 3, 1) } counterparty activityPeriod None
+                        { nextInstance = NodaTime.LocalDate(2049, 3, 1) } counterparty activityPeriod None None
                         [ (legName, CashFlow.CashFlowComponent.DebitAccount.create (accountIdOf "F-2230"),
                            CashFlow.CashFlowComponent.CreditAccount.create (accountIdOf "F-1280"), None, None, None) ]
                 let legId =

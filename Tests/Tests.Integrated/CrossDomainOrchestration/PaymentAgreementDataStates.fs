@@ -204,7 +204,7 @@ type PaymentAgreementDataStatesTests(fixture: TestDataFixture) =
                 let! period = ActivityPeriod.create (today.PlusDays(-30)) None ActivityPeriod.ConsideredAvailableBeforeBeginDate
                 let attempt =
                     AgreementOrchestration.constructNewAndPersist
-                        context agreementName Outgo Cadence.Daily { nextInstance = today } counterparty period None
+                        context agreementName Outgo Cadence.Daily { nextInstance = today } counterparty period None None
                         [ (legName, (DebitAccount.create debit), (CreditAccount.create credit), None, None, None) ]
                 let missingUuid = missing |> AccountId.value
                 let namesTheSide =

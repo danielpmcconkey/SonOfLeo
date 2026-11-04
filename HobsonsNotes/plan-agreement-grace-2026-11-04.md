@@ -305,6 +305,22 @@ constraint, no back-fill; the header says why (and cites no REQ IDs, per the no-
 rule). Applied to the throwaway `sonofleo_test` only; `\d cashflow.master_agreement` shows
 the column.
 
+**A2 domain type and entity.** `GracePeriodInDays` sits in `CashFlowComponent.fs` directly
+after `DaysDueAfterInvoiceDate`, same shape (private record, `min`/`max`, `value`, `create`
+checking 0–365). AppError cases added: `CashflowGracePeriodInDaysBelowMin of int * int` and
+`CashflowGracePeriodInDaysExceededMax of int * int` (value, bound), with messages in the
+days-due style. They are slotted alphabetically (after `CashflowExternalInvoiceIdTooLong`),
+per the AppError convention, rather than literally beside the days-due cases.
+`MasterAgreement.fs`: field, accessor, `create` parameter (after memo), `persist`,
+`reconstitute`, `mapRawForDbRead`, select fields, `gracePeriodInDaysUpdate` in
+`MasterAgreementFieldUpdates`, applied in `update`; `updateCadence` passes `NoChange`.
+`AgreementOrchestration.constructNewAndPersist` takes `GracePeriodInDays option` after memo
+(it is the create path), and `isThereAMasterAgreementUpdate` counts the new field, so an
+update naming only the grace is not a no-op. The bridge passes `None`/`NoChange` in this
+commit; A3 wires it. Existing test callers of `constructNewAndPersist`/`MasterAgreement.create`
+and builders of `MasterAgreementFieldUpdates` gained `None`/`NoChange` and nothing else
+(26 files, mechanical).
+
 ### 5.3 Route payloads
 (every contract that changed, field by field; whether an operator payload
 that omits `gracePeriodInDays` or `gracePeriodInDaysUpdate` is accepted by

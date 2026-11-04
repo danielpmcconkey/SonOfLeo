@@ -101,7 +101,7 @@ type private Committed(fixture: TestDataFixture) =
                 let! agreement =
                     AgreementOrchestration.constructNewAndPersist
                         context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first)) { nextInstance = LocalDate(2049, 3, 1) }
-                        counterparty activityPeriod None
+                        counterparty activityPeriod None None
                         [ (paName, DebitAccount.create(idOf "F-2230"), CreditAccount.create(idOf "F-1280"), None, None, None) ]
                 agreements.Add(agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID |> MasterAgreementId.value)
                 let legId = agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
@@ -218,7 +218,7 @@ type RevisedRequirementsClassificationTests(fixture: TestDataFixture) =
                 let! agreement =
                     AgreementOrchestration.constructNewAndPersist
                         context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first)) { nextInstance = LocalDate(2049, 3, 1) }
-                        counterparty activityPeriod None
+                        counterparty activityPeriod None None
                         [ (paName, DebitAccount.create(accountIdOf "F-2230"), CreditAccount.create(accountIdOf "F-1280"), None, None, None) ]
                 let legId = agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
                 let groupsFor (text: string) =

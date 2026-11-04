@@ -164,7 +164,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                 |> convertListOfResultsToResultsList
             return!
                 AgreementOrchestration.constructNewAndPersist
-                    context agreementName Outgo cadence { nextInstance = nextInstance } counterparty period None legComponents
+                    context agreementName Outgo cadence { nextInstance = nextInstance } counterparty period None None legComponents
         }
 
     member this.daily (name: string) (start: LocalDate) (endDate: LocalDate option) =
@@ -603,7 +603,8 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                           counterpartyUpdate = SetTo counterparty
                           activeBeginUpdate = NoChange
                           activeEndUpdate = NoChange
-                          memoUpdate = NoChange }
+                          memoUpdate = NoChange
+                          gracePeriodInDaysUpdate = NoChange }
                 let! stored = s.stored name
                 Assert.Equal<string>("Updated before its start", stored |> List.exactlyOne |> MasterAgreement.counterparty |> Counterparty.value)
             })
@@ -670,7 +671,8 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                                       counterpartyUpdate = NoChange
                                       activeBeginUpdate = SetTo(period |> ActivityPeriod.activeBegin)
                                       activeEndUpdate = SetTo(period |> ActivityPeriod.activeEnd)
-                                      memoUpdate = NoChange }
+                                      memoUpdate = NoChange
+                                      gracePeriodInDaysUpdate = NoChange }
                         })
                 let! before = storedNamed (fresh ()) name
                 let attempt = updateRoute { noUpdate name with counterpartyUpdate = SetTo "Changed after it ended" }

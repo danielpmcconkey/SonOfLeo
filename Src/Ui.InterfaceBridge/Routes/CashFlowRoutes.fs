@@ -63,7 +63,7 @@ let private createAgreement payload _ =
                 |> ``convert [CreatePaymentAgreementFieldsInput list] to [PaymentAgreementPrimitives list]`` context
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
-                    context agreementName direction cadenceType firstInstance counterparty activityPeriod memo
+                    context agreementName direction cadenceType firstInstance counterparty activityPeriod memo None
                     paymentAgreements
             let! converted = agreement |> ``convert [Agreement] to [AgreementReturn]`` context
             return! Json.toJson<AgreementReturn> converted

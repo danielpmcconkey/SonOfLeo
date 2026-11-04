@@ -209,6 +209,7 @@ let constructNewAndPersist
     (counterparty: CashFlowComponent.Counterparty)
     (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
     (memo: CashFlowComponent.AgreementMemo option)
+    (gracePeriodInDays: CashFlowComponent.GracePeriodInDays option)
     (paymentAgreementComponentsList: PaymentAgreementPrimitives list)
     : Result<Agreement, IAppError> =
     result {
@@ -217,7 +218,7 @@ let constructNewAndPersist
         let! cadence = Cadence.create cadenceType firstInstance
         let masterAgreement =
             MasterAgreement.create agreementId agreementName direction cadence counterparty
-                agreementActivityPeriod memo now now
+                agreementActivityPeriod memo gracePeriodInDays now now
         do! masterAgreement |> confirmMasterAgreement context
         let paymentAgreements = paymentAgreementComponentsList |> List.map (newPaymentAgreement now agreementId)
         do! paymentAgreements |> confirmPaymentAgreements context (masterAgreement |> MasterAgreement.agreementID)
@@ -367,6 +368,7 @@ let private isThereAMasterAgreementUpdate
     || masterAgreementUpdates.activeBeginUpdate <> FieldUpdate.NoChange
     || masterAgreementUpdates.activeEndUpdate <> FieldUpdate.NoChange
     || masterAgreementUpdates.memoUpdate <> FieldUpdate.NoChange
+    || masterAgreementUpdates.gracePeriodInDaysUpdate <> FieldUpdate.NoChange
 
 let private isThereAPaymentAgreementUpdate
     (paymentAgreementUpdates: PaymentAgreement.PaymentAgreementFieldUpdates list)

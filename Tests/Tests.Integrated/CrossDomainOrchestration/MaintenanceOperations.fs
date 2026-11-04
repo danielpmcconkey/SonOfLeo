@@ -86,7 +86,7 @@ let private build (fixture: TestDataFixture) (context: Context.Context) (daily: 
             |> convertListOfResultsToResultsList
         let! agreement =
             AgreementOrchestration.constructNewAndPersist
-                context agreementName Outgo cadence { nextInstance = instanceDate } counterparty activityPeriod None legs
+                context agreementName Outgo cadence { nextInstance = instanceDate } counterparty activityPeriod None None legs
         let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
         let legIds =
             legNames

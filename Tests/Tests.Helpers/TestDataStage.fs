@@ -1014,7 +1014,7 @@ type TestDataFixture() =
                         let! agreement =
                             AgreementOrchestration.constructNewAndPersist
                                 context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
-                                { nextInstance = firstOfLastMonth } counterparty activityPeriod None
+                                { nextInstance = firstOfLastMonth } counterparty activityPeriod None None
                                 [ (legName, (DebitAccount.create loanPayable2230Id), (CreditAccount.create operatingCash1280Id),
                                    Some expected, Some due, None) ]
                         let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
@@ -1150,7 +1150,7 @@ type TestDataFixture() =
                         let! agreement =
                             AgreementOrchestration.constructNewAndPersist
                                 context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
-                                { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None
+                                { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None None
                                 [ (legName, (DebitAccount.create loanPayable2230Id), (CreditAccount.create operatingCash1280Id),
                                    Some expected, Some due, None) ]
                         return agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID

@@ -82,7 +82,7 @@ let private build
         let! agreement =
             AgreementOrchestration.constructNewAndPersist
                 context agreementName direction (Cadence.Monthly(Cadence.DateInMonth first)) { nextInstance = march 1 }
-                counterparty activityPeriod None legs
+                counterparty activityPeriod None None legs
         let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
         let legIds =
             legNames

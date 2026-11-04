@@ -51,7 +51,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
                     context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
-                    { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None
+                    { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None None
                     [ (legName, (DebitAccount.create (accountIdOf "F-2230")), (CreditAccount.create (accountIdOf "F-1280")),
                        Some expected, Some due, None) ]
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID

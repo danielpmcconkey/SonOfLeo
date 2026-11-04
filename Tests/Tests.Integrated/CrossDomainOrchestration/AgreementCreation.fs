@@ -51,13 +51,13 @@ let private createAndReadBack
         let! created =
             AgreementOrchestration.constructNewAndPersist
                 context agreementName Outgo cadenceType { nextInstance = nextInstance } counterparty
-                activityPeriod agreementMemo [ leg ]
+                activityPeriod agreementMemo None [ leg ]
         let agreementId = created |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
         let! readBack = agreementId |> AgreementOrchestration.fetchByMasterAgreementId context
         let now = context |> App.Session.Context.getInitiationInstant
         let! cadence = Cadence.create cadenceType { nextInstance = nextInstance }
         let expectedMaster =
-            MasterAgreement.create agreementId agreementName Outgo cadence counterparty activityPeriod agreementMemo now now
+            MasterAgreement.create agreementId agreementName Outgo cadence counterparty activityPeriod agreementMemo None now now
         let legId = created |> AgreementOrchestration.paymentAgreements |> List.exactlyOne |> PaymentAgreement.paymentAgreementId
         let expectedLeg =
             PaymentAgreement.create
@@ -180,7 +180,7 @@ type AgreementCreationTests(fixture: TestDataFixture) =
                 let created =
                     AgreementOrchestration.constructNewAndPersist
                         context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
-                        { nextInstance = firstOfNextMonth () } counterparty activityPeriod None
+                        { nextInstance = firstOfNextMonth () } counterparty activityPeriod None None
                         [ (legName, (DebitAccount.create sameAccount), (CreditAccount.create sameAccount), None, None, None) ]
                 return
                     match created with

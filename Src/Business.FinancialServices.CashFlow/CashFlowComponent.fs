@@ -346,6 +346,18 @@ module DaysDueAfterInvoiceDate =
         | x when x < min -> Error(CashflowDaysDueAfterInvoiceDateBelowMin(raw, min))
         | _ -> Ok({daysAfter = raw})
 
+type GracePeriodInDays = private {graceDays: int}
+
+module GracePeriodInDays =
+    let min = 0
+    let max = 365
+    let value (g: GracePeriodInDays) : int = g.graceDays
+    let create (raw: int) : Result<GracePeriodInDays, IAppError> =
+        match raw with
+        | x when x > max -> Error(CashflowGracePeriodInDaysExceededMax(raw, max))
+        | x when x < min -> Error(CashflowGracePeriodInDaysBelowMin(raw, min))
+        | _ -> Ok({graceDays = raw})
+
 type InvoiceDate = private InvoiceDate of LocalDate
 module InvoiceDate =
     let create (date: LocalDate) : InvoiceDate = InvoiceDate date

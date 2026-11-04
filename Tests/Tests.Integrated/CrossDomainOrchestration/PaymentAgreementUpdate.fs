@@ -141,7 +141,8 @@ let private noMasterAgreementChange agreementId : MasterAgreement.MasterAgreemen
       counterpartyUpdate = NoChange
       activeBeginUpdate = NoChange
       activeEndUpdate = NoChange
-      memoUpdate = NoChange }
+      memoUpdate = NoChange
+      gracePeriodInDaysUpdate = NoChange }
 
 let private noLegChange legId : PaymentAgreement.PaymentAgreementFieldUpdates =
     { paymentAgreementIdToUpdate = legId

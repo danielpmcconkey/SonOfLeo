@@ -109,7 +109,7 @@ type InvoiceStateByDirectionTests(fixture: TestDataFixture) =
                     AgreementOrchestration.constructNewAndPersist
                         context agreementName Income
                         (Business.General.Cadence.Monthly(Business.General.Cadence.DateInMonth first))
-                        { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None
+                        { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None None
                         [ (legName, DebitAccount.create (accountIdOf "F-1280"), CreditAccount.create (accountIdOf "F-4290"),
                            Some expected, Some due, None) ]
                 let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID

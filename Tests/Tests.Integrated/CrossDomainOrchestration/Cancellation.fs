@@ -88,7 +88,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
                     context agreementName direction (Cadence.Monthly(Cadence.DateInMonth first))
-                    { nextInstance = this.firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None legs
+                    { nextInstance = this.firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None None legs
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
             directions[agreementId] <- direction
             let legIds =

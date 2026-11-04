@@ -112,7 +112,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
                     context agreementName direction cadence { nextInstance = nextInstance } counterparty activityPeriod
-                    None legComponents
+                    None None legComponents
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
             let paymentAgreements = agreement |> AgreementOrchestration.paymentAgreements
             let legIds =
@@ -138,7 +138,8 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                       counterpartyUpdate = NoChange
                       activeBeginUpdate = SetTo(period |> ActivityPeriod.activeBegin)
                       activeEndUpdate = SetTo(period |> ActivityPeriod.activeEnd)
-                      memoUpdate = NoChange }
+                      memoUpdate = NoChange
+                      gracePeriodInDaysUpdate = NoChange }
             return ()
         }
 

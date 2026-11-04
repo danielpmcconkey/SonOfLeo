@@ -16,7 +16,7 @@ open Business.FinancialServices.CashFlow.CashFlowComponent
 let masterAgreementSelectFields = """
     ma.unique_id, ma.agreement_name, ma.flow_direction, ma.cadence, ma.cadence_week_day,
     ma.cadence_date_in_month, ma.cadence_week_in_month, ma.cadence_month, ma.counterparty,
-    ma.start_date, ma.end_date, ma.next_instance, ma.memo, ma.created_at, ma.modified_at
+    ma.start_date, ma.end_date, ma.next_instance, ma.memo, ma.grace_period_days, ma.created_at, ma.modified_at
     """
 
 type MasterAgreement = private {
@@ -27,6 +27,7 @@ type MasterAgreement = private {
     counterparty: Counterparty
     activityPeriod: ActivityPeriod.ActivityPeriod
     memo: AgreementMemo option
+    gracePeriodInDays: GracePeriodInDays option
     createdAt: Instant
     modifiedAt: Instant
 }
@@ -40,6 +41,7 @@ type MasterAgreementFieldUpdates = {
     activeBeginUpdate: FieldUpdate<LocalDate>
     activeEndUpdate: FieldUpdate<LocalDate option>
     memoUpdate: FieldUpdate<AgreementMemo option>
+    gracePeriodInDaysUpdate: FieldUpdate<GracePeriodInDays option>
 }
         
 let agreementID m = m.agreementId
@@ -49,6 +51,7 @@ let cadence m = m.cadence
 let counterparty m = m.counterparty
 let activityPeriod m = m.activityPeriod
 let memo m = m.memo
+let gracePeriodInDays m = m.gracePeriodInDays
 let createdAt m = m.createdAt
 let modifiedAt m = m.modifiedAt
 
@@ -60,6 +63,7 @@ let create
     (counterparty: Counterparty)
     (agreementActivityPeriod: ActivityPeriod.ActivityPeriod)
     (memo: AgreementMemo option)
+    (gracePeriodInDays: GracePeriodInDays option)
     (createdAt: Instant)
     (modifiedAt: Instant)
     : MasterAgreement =
@@ -73,6 +77,7 @@ let create
        counterparty = counterparty
        activityPeriod = rebuiltActivityPeriod
        memo = memo
+       gracePeriodInDays = gracePeriodInDays
        createdAt = createdAt
        modifiedAt = modifiedAt }
         
@@ -88,11 +93,11 @@ let persist
             insert into cashflow.master_agreement(
 	            unique_id, agreement_name, flow_direction, cadence, cadence_week_day, cadence_date_in_month,
                 cadence_week_in_month, cadence_month, counterparty, start_date, next_instance, end_date, memo,
-                created_at, modified_at)
+                grace_period_days, created_at, modified_at)
             values (
 	            @unique_id, @agreement_name, @flow_direction, @cadence, @cadence_week_day, @cadence_date_in_month,
                 @cadence_week_in_month, @cadence_month, @counterparty, @start_date, @next_instance, @end_date, @memo,
-                @created_at, @modified_at);"""
+                @grace_period_days, @created_at, @modified_at);"""
         let uuid = masterAgreement.agreementId |> MasterAgreementId.value
         let agreementName = masterAgreement.agreementName |> AgreementName.value
         let direction = masterAgreement.direction |> FlowDirection.toString
@@ -102,6 +107,7 @@ let persist
         let activeBegin = masterAgreement.activityPeriod |> ActivityPeriod.activeBegin
         let activeEnd = masterAgreement.activityPeriod |> ActivityPeriod.activeEnd
         let memo = masterAgreement.memo |> Option.map AgreementMemo.value
+        let gracePeriodDays = masterAgreement.gracePeriodInDays |> Option.map GracePeriodInDays.value
         let parameters =
             [
               { name = "@unique_id"; value = UniqueId(uuid) }
@@ -117,6 +123,7 @@ let persist
               { name = "@next_instance"; value = DbLocalDate(nextInstance) }
               { name = "@end_date"; value = NullableDbLocalDate(activeEnd) }
               { name = "@memo"; value = NullableCharString(memo) }
+              { name = "@grace_period_days"; value = NullableInteger(gracePeriodDays) }
               { name = "@created_at"; value = DbInstant(masterAgreement.createdAt) }
               { name = "@modified_at"; value = DbInstant(masterAgreement.modifiedAt) }
             ]
@@ -138,6 +145,7 @@ let private reconstitute raw =
              endDate,
              nextInstance,
              memoStr,
+             gracePeriodDays,
              createdAt,
              modifiedAt) =
             raw
@@ -150,6 +158,8 @@ let private reconstitute raw =
         let! agreementActivityPeriod =
             ActivityPeriod.create startDate endDate ActivityPeriod.ConsideredAvailableBeforeBeginDate
         let! memo = memoStr |> convertOptionToDesiredTypeWithFallibleConverter AgreementMemo.create
+        let! gracePeriodInDays =
+            gracePeriodDays |> convertOptionToDesiredTypeWithFallibleConverter GracePeriodInDays.create
         return  
             create
                 agreementID
@@ -159,6 +169,7 @@ let private reconstitute raw =
                 counterparty
                 agreementActivityPeriod
                 memo
+                gracePeriodInDays
                 createdAt
                 modifiedAt
     }
@@ -177,6 +188,7 @@ let private mapRawForDbRead (row: RowReader) =
     (row |> RowReader.getDateOption "end_date"),
     (row |> RowReader.getDate "next_instance"),
     (row |> RowReader.getStringOption "memo"),
+    (row |> RowReader.getIntOption "grace_period_days"),
     (row |> RowReader.getInstant "created_at"),
     (row |> RowReader.getInstant "modified_at")
 
@@ -289,6 +301,11 @@ let update
               fieldUpdates.memoUpdate
               |> mapNoChangeToOptionWithConversion(fun n ->
                   [ ("memo = @memo", { name = "@memo"; value = NullableCharString(n |> Option.map AgreementMemo.value) }) ])
+
+              fieldUpdates.gracePeriodInDaysUpdate
+              |> mapNoChangeToOptionWithConversion(fun n ->
+                  [ ("grace_period_days = @grace_period_days",
+                     { name = "@grace_period_days"; value = NullableInteger(n |> Option.map GracePeriodInDays.value) }) ])
         ]
         |> List.choose id
         |> List.collect id
@@ -321,6 +338,7 @@ let updateCadence context newCadence masterAgreement =
         activeBeginUpdate = NoChange
         activeEndUpdate = NoChange
         memoUpdate = NoChange
+        gracePeriodInDaysUpdate = NoChange
     }
     fieldUpdates |> update context
 

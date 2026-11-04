@@ -672,4 +672,5 @@ let ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]``
             counterpartyUpdate = counterpartyUpdate
             activeBeginUpdate = input.activeBeginUpdate
             activeEndUpdate = input.activeEndUpdate
-            memoUpdate = memoUpdate } }
+            memoUpdate = memoUpdate
+            gracePeriodInDaysUpdate = FieldUpdate.NoChange } }

@@ -84,7 +84,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
                     context agreementName direction Cadence.Daily { nextInstance = this.today.PlusDays(-90) }
-                    counterparty activityPeriod None legs
+                    counterparty activityPeriod None None legs
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
             let legIds =
                 legNames

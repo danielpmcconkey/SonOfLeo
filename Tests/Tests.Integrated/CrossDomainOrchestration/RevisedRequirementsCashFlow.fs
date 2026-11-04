@@ -76,7 +76,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
                     context agreementName direction Cadence.Daily { nextInstance = this.today.PlusDays(-90) }
-                    counterparty activityPeriod None legs
+                    counterparty activityPeriod None None legs
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
             let legIds = agreement |> AgreementOrchestration.paymentAgreements |> List.map PaymentAgreement.paymentAgreementId
             return agreementId, legIds
@@ -158,7 +158,8 @@ let private noChange agreementId : MasterAgreement.MasterAgreementFieldUpdates =
       counterpartyUpdate = NoChange
       activeBeginUpdate = NoChange
       activeEndUpdate = NoChange
-      memoUpdate = NoChange }
+      memoUpdate = NoChange
+      gracePeriodInDaysUpdate = NoChange }
 
 /// The master agreement's updatable fields, in a form that compares by value.
 let private fieldsOf (agreement: AgreementOrchestration.Agreement) =

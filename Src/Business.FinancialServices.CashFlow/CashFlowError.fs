@@ -19,6 +19,8 @@ type CashFlowError =
     | CashflowDaysDueAfterInvoiceDateExceededMax of int * int
     | CashflowExternalInvoiceIdIsEmpty of string
     | CashflowExternalInvoiceIdTooLong of string * int
+    | CashflowGracePeriodInDaysBelowMin of int * int
+    | CashflowGracePeriodInDaysExceededMax of int * int
     | CashflowInstanceDateNotAfterLatestInstance of Guid * LocalDate * LocalDate
     | CashflowInstanceCompositeUpdateNoOp
     | CashflowInstanceFulfilledWithNoInvoices of Guid
@@ -111,6 +113,8 @@ type CashFlowError =
             | CashflowDaysDueAfterInvoiceDateExceededMax(raw, max) -> $"Failed to convert {raw} to a DaysDueAfterInvoiceDate as value exceeds the maximum allowable value of {max}."
             | CashflowExternalInvoiceIdIsEmpty eid -> $"ExternalInvoiceId cannot be empty. Provided ExternalInvoiceId is {eid}."
             | CashflowExternalInvoiceIdTooLong(eid, max) -> $"ExternalInvoiceId cannot exceed {max} characters. Provided ExternalInvoiceId is {eid}."
+            | CashflowGracePeriodInDaysBelowMin(raw, min) -> $"Failed to convert {raw} to a GracePeriodInDays as value falls below the minimum allowable value of {min}."
+            | CashflowGracePeriodInDaysExceededMax(raw, max) -> $"Failed to convert {raw} to a GracePeriodInDays as value exceeds the maximum allowable value of {max}."
             | CashflowInstanceDateNotAfterLatestInstance(agreementId, attemptedDate, latestDate) -> $"An Instance for MasterAgreement {agreementId} cannot be created at {attemptedDate} because its latest existing Instance is dated {latestDate}. Instances are only ever created forward; correct the cadence instead."
             | CashflowInstanceCompositeUpdateNoOp -> "Updating the Instance composite failed because at least one updatable parameter must be set."
             | CashflowInstanceFulfilledWithNoInvoices instanceId -> $"Instance {instanceId} is marked fulfilled but has no Invoices."

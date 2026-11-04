@@ -85,7 +85,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
                 | Income -> this.cashId, this.revenueId
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
-                    context agreementName direction cadence { nextInstance = nextInstance } counterparty activityPeriod None
+                    context agreementName direction cadence { nextInstance = nextInstance } counterparty activityPeriod None None
                     [ (legName, (DebitAccount.create debit), (CreditAccount.create credit), Some expected, Some due, None) ]
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
             let legId =
@@ -129,7 +129,7 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
                     context agreementName direction (Cadence.Monthly(Cadence.DateInMonth first))
-                    { nextInstance = this.firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None legs
+                    { nextInstance = this.firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None None legs
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
             let legIds =
                 legNames

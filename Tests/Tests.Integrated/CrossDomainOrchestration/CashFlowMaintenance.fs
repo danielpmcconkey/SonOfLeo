@@ -47,7 +47,7 @@ let private createAgreement (fixture: TestDataFixture) (context: Context.Context
         let! agreement =
             AgreementOrchestration.constructNewAndPersist
                 context agreementName Outgo (Cadence.Monthly(Cadence.DateInMonth first))
-                { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None
+                { nextInstance = firstOfThisMonth.PlusMonths(1) } counterparty activityPeriod None None
                 [ (legName, DebitAccount.create(accountIdOf "F-2230"), CreditAccount.create(accountIdOf "F-1280"), Some expected, Some due, None) ]
         let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
         let legId = agreement |> AgreementOrchestration.paymentAgreements |> List.head |> PaymentAgreement.paymentAgreementId
@@ -141,7 +141,8 @@ let private noMasterAgreementChange agreementId : MasterAgreement.MasterAgreemen
       counterpartyUpdate = FieldUpdate.NoChange
       activeBeginUpdate = FieldUpdate.NoChange
       activeEndUpdate = FieldUpdate.NoChange
-      memoUpdate = FieldUpdate.NoChange }
+      memoUpdate = FieldUpdate.NoChange
+      gracePeriodInDaysUpdate = FieldUpdate.NoChange }
 
 let private noLegChange legId : PaymentAgreement.PaymentAgreementFieldUpdates =
     { paymentAgreementIdToUpdate = legId
