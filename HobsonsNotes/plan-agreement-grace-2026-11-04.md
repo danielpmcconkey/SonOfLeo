@@ -360,6 +360,16 @@ IDs under the new name. The #094 test is untouched. Seen failing three ways, eac
   new name, same shape (old name from the warmed cache).
 - The warm-up assertion, expected changed to the new name: red, old name actual.
 
+**B2 article.** `CompoundedLearnings/articles/coding/record-and-accessor-module-qualified-access.md`,
+with its row in `catalogs/coding.md`, in the CreateLearning format. Reproduced first in a
+scratch class library outside the repo (.NET SDK 10.0.114, FSharp.Core 10.0.114): a private
+record `Update` and `module Update` with a same-named accessor, side by side in `module
+Outer.Orchestration`. The fully qualified accessor call gave `FS0728 Field 'invoiceUpdates' is
+not static` and `FS1093 … not accessible`; `open` plus the short form compiled; `create` by its
+qualified path compiled. Two findings beyond slice 3's note, both in the article: with the
+record public, FS0728 still fires on its own (so privacy is not the cause), and an accessor
+named differently from the field compiles qualified.
+
 ### 5.3 Route payloads
 (every contract that changed, field by field; whether an operator payload
 that omits `gracePeriodInDays` or `gracePeriodInDaysUpdate` is accepted by
