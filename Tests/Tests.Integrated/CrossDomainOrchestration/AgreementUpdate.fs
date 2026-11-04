@@ -176,10 +176,51 @@ type AgreementUpdateTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CF-14.2 an agreement update setting the grace period in days from none to 12 reads back 12, and a second update setting it to none reads back none`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback CashFlowUpdateAgreement (fun context ->
+            result {
+                let graceOf () =
+                    cashFlow.agreementAId
+                    |> MasterAgreement.fetchById context
+                    |> Result.map (MasterAgreement.gracePeriodInDays >> Option.map GracePeriodInDays.value)
+                let! initially = graceOf ()
+                Assert.Equal(None, initially)
+                let! twelve = GracePeriodInDays.create 12
+                let! _ =
+                    AgreementOrchestration.updateAgreement
+                        context [] [] { noMasterAgreementChange cashFlow.agreementAId with gracePeriodInDaysUpdate = FieldUpdate.SetTo(Some twelve) }
+                let! afterSetting = graceOf ()
+                Assert.Equal(Some 12, afterSetting)
+                let! _ =
+                    AgreementOrchestration.updateAgreement
+                        context [] [] { noMasterAgreementChange cashFlow.agreementAId with gracePeriodInDaysUpdate = FieldUpdate.SetTo None }
+                let! afterClearing = graceOf ()
+                Assert.Equal(None, afterClearing)
+            })
+        |> railroadWrapper
 
     [<Theory>]
     [<InlineData("12")>]
     [<InlineData("none")>]
     member _.``REQ-CF-14.2 for each of a grace period in days of 12 and none, a cadence change from Monthly to Daily leaves the grace period in days as it was`` (grace: string) =
-        Assert.Fail "Not yet implemented"
+        (* Agreement A starts with no grace period of its own; the 12 case gives it one before the cadence change. *)
+        let expected = if grace = "12" then Some 12 else None
+        runCommandRouteAndAutoRollback CashFlowUpdateAgreement (fun context ->
+            result {
+                let! own = expected |> convertOptionToDesiredTypeWithFallibleConverter GracePeriodInDays.create
+                let! _ =
+                    match own with
+                    | Some _ ->
+                        AgreementOrchestration.updateAgreement
+                            context [] [] { noMasterAgreementChange cashFlow.agreementAId with gracePeriodInDaysUpdate = FieldUpdate.SetTo own }
+                        |> Result.map ignore
+                    | None -> Ok ()
+                let! latest = cashFlow.openInstanceAId |> Instance.fetchById context
+                let! daily = Cadence.create Cadence.Daily { nextInstance = (latest |> Instance.instanceDate).PlusDays(40) }
+                let! _ =
+                    AgreementOrchestration.updateAgreement
+                        context [] [] { noMasterAgreementChange cashFlow.agreementAId with cadenceUpdate = FieldUpdate.SetTo daily }
+                let! stored = cashFlow.agreementAId |> MasterAgreement.fetchById context
+                Assert.Equal(Cadence.Daily, stored |> MasterAgreement.cadence |> Cadence.cadenceType)
+                Assert.Equal(expected, stored |> MasterAgreement.gracePeriodInDays |> Option.map GracePeriodInDays.value)
+            })
+        |> railroadWrapper
