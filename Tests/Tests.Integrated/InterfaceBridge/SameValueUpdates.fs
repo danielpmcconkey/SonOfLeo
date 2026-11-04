@@ -64,6 +64,7 @@ type SameValueUpdateTests(fixture: TestDataFixture) =
                        activeBegin = Calendar.today().PlusDays(-30)
                        activeEnd = None
                        memo = None
+                       gracePeriodInDays = None
                        paymentAgreements =
                          [ { paymentAgreementName = $"{name} leg"
                              debitAccountCode = "F-2230"
@@ -84,6 +85,7 @@ type SameValueUpdateTests(fixture: TestDataFixture) =
                        activeBeginUpdate = NoChange
                        activeEndUpdate = NoChange
                        memoUpdate = NoChange
+                       gracePeriodInDaysUpdate = NoChange
                        paymentAgreementUpdates = []
                        newPaymentAgreements = [] } : CashFlowContracts.UpdateAgreementInput)
                     |> Json.toJson

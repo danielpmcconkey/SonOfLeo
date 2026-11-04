@@ -70,6 +70,7 @@ let private createInput (name: string) (legs: Contracts.CreatePaymentAgreementFi
       activeBegin = Calendar.today().PlusDays(-30)
       activeEnd = None
       memo = None
+      gracePeriodInDays = None
       paymentAgreements = legs }
 
 let private createRoute (payload: string) = routeUiCommandForTesting "CashFlow" "CreateAgreement" [] payload

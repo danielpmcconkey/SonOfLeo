@@ -76,6 +76,7 @@ let private createInput (name: string) (cadenceType: Contracts.CadenceTypeContra
       activeBegin = Calendar.today().PlusDays(-30)
       activeEnd = None
       memo = None
+      gracePeriodInDays = None
       paymentAgreements = [ leg name ] }
 
 let private toNode (input: 'a) = input |> Json.toJson |> Result.map (fun json -> JsonNode.Parse(json))
@@ -94,6 +95,7 @@ let private noUpdate (name: string) : Contracts.UpdateAgreementInput =
       activeBeginUpdate = NoChange
       activeEndUpdate = NoChange
       memoUpdate = NoChange
+      gracePeriodInDaysUpdate = NoChange
       paymentAgreementUpdates = []
       newPaymentAgreements = [] }
 

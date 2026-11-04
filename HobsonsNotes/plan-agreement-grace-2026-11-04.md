@@ -321,11 +321,49 @@ commit; A3 wires it. Existing test callers of `constructNewAndPersist`/`MasterAg
 and builders of `MasterAgreementFieldUpdates` gained `None`/`NoChange` and nothing else
 (26 files, mechanical).
 
+**A3 bridge.** The three contract changes in §2, nothing else. `convert [MasterAgreement] to
+[MasterAgreementReturn]` unwraps the grace; `convert [UpdateAgreementInput] to
+[MasterAgreementFieldUpdates]` wraps `FieldUpdate<int option>` with
+`convertFieldUpdateOptionToNewTypeOptionFallible GracePeriodInDays.create`, so an out-of-range
+value returns the typed error before anything is written. On create, the route wraps
+`int option` with `convertOptionToDesiredTypeWithFallibleConverter GracePeriodInDays.create`
+on the line after memo, exactly as it already wraps memo, and passes it to
+`constructNewAndPersist`; that one extra binding is the only other route change. Existing tests
+that build these records gained `gracePeriodInDays = None` / `gracePeriodInDaysUpdate =
+NoChange` (8 files, 17 lines). Full integrated run after A3: 1794 passed, only the 30
+placeholders failing.
+
 ### 5.3 Route payloads
 (every contract that changed, field by field; whether an operator payload
 that omits `gracePeriodInDays` or `gracePeriodInDaysUpdate` is accepted by
 the operator CLI, tried, not assumed. Dan's ops scripts send these
 payloads, so either answer is fine, but it must be known)
+
+Contracts changed, and only these:
+
+- `CreateAgreementInput`: `gracePeriodInDays: int option`, after `memo`.
+- `UpdateAgreementInput`: `gracePeriodInDaysUpdate: FieldUpdate<int option>`, after
+  `memoUpdate`.
+- `MasterAgreementReturn`: `gracePeriodInDays: int option`, after `memo`. So it appears in
+  CreateAgreement, UpdateAgreement and FetchAgreement returns (via `AgreementReturn`) and in
+  ListAgreements (via `AgreementListingReturn`).
+
+**Omitting the field: rejected, both verbs.** Tried with the built operator CLI
+(`Ui.OperatorCli CashFlow CreateAgreement --file …`) against the throwaway `sonofleo_test`:
+
+- CreateAgreement without `gracePeriodInDays`: exit 1, `Failed to deserialize JSON string into
+  type …CreateAgreementInput. Missing field for record type …CreateAgreementInput:
+  gracePeriodInDays`. Nothing written.
+- UpdateAgreement without `gracePeriodInDaysUpdate`: exit 1, same message naming
+  `gracePeriodInDaysUpdate`.
+- With `"gracePeriodInDays": null`, create succeeded and returned `"gracePeriodInDays":null`; an
+  update sending only `"gracePeriodInDaysUpdate":{"Case":"SetTo","Fields":[null]}` succeeded and
+  returned null. The probe agreement was deleted afterwards.
+
+So every existing ops script that sends CreateAgreement or UpdateAgreement must add the field
+(`null` / `{"Case":"NoChange"}`); it fails loudly, naming the field, until it does. This is the
+library's rule for every option field in every contract, not something new here. See §5.6 for
+REQ-CF-14.1's "left out".
 
 ### 5.4 Stale-cache cases
 (any test that needed its data changed under the stale-cache rule)

@@ -58,13 +58,15 @@ let private createAgreement payload _ =
                 ActivityPeriod.create input.activeBegin input.activeEnd
                     ActivityPeriod.ConsideredAvailableBeforeBeginDate
             let! memo = input.memo |> convertOptionToDesiredTypeWithFallibleConverter AgreementMemo.create
+            let! gracePeriodInDays =
+                input.gracePeriodInDays |> convertOptionToDesiredTypeWithFallibleConverter GracePeriodInDays.create
             let! paymentAgreements =
                 input.paymentAgreements
                 |> ``convert [CreatePaymentAgreementFieldsInput list] to [PaymentAgreementPrimitives list]`` context
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
-                    context agreementName direction cadenceType firstInstance counterparty activityPeriod memo None
-                    paymentAgreements
+                    context agreementName direction cadenceType firstInstance counterparty activityPeriod memo
+                    gracePeriodInDays paymentAgreements
             let! converted = agreement |> ``convert [Agreement] to [AgreementReturn]`` context
             return! Json.toJson<AgreementReturn> converted
         })

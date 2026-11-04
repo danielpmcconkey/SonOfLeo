@@ -69,6 +69,7 @@ type private World(fixture: TestDataFixture) =
                    activeBegin = this.today.PlusDays(-30)
                    activeEnd = None
                    memo = None
+                   gracePeriodInDays = None
                    paymentAgreements =
                      legNames
                      |> List.map (fun legName ->

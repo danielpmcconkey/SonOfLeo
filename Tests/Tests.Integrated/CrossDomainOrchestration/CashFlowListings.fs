@@ -75,6 +75,7 @@ let private monthlyOutgo (name: string) (legs: Contracts.CreatePaymentAgreementF
       activeBegin = firstOfThisMonth().PlusMonths(-4)
       activeEnd = None
       memo = None
+      gracePeriodInDays = None
       paymentAgreements = legs }
 
 let private createAgreement (input: Contracts.CreateAgreementInput) =
@@ -175,6 +176,7 @@ type CashFlowListingsTests(fixture: TestDataFixture) =
               activeBegin = today.PlusDays(-10)
               activeEnd = Some(today.PlusDays(365))
               memo = None
+              gracePeriodInDays = None
               paymentAgreements = [ rentLeg; utilityLeg ] }
         cleaningUp [ name ] (fun () ->
             result {

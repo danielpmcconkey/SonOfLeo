@@ -215,6 +215,7 @@ let ``convert [MasterAgreement] to [MasterAgreementReturn]``
         activeBegin = masterAgreement |> MasterAgreement.activityPeriod |> ActivityPeriod.activeBegin
         activeEnd = masterAgreement |> MasterAgreement.activityPeriod |> ActivityPeriod.activeEnd
         memo = masterAgreement |> MasterAgreement.memo |> Option.map AgreementMemo.value
+        gracePeriodInDays = masterAgreement |> MasterAgreement.gracePeriodInDays |> Option.map GracePeriodInDays.value
         createdAt = masterAgreement |> MasterAgreement.createdAt
         modifiedAt = masterAgreement |> MasterAgreement.modifiedAt }
 
@@ -664,6 +665,9 @@ let ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]``
                                   |> FieldUpdate.convertFieldUpdateToNewTypeFallible Counterparty.create
         let! memoUpdate = input.memoUpdate
                           |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible AgreementMemo.create
+        let! gracePeriodInDaysUpdate =
+            input.gracePeriodInDaysUpdate
+            |> FieldUpdate.convertFieldUpdateOptionToNewTypeOptionFallible GracePeriodInDays.create
         return {
             agreementIdToUpdate = agreementId
             agreementNameUpdate = agreementNameUpdate
@@ -673,4 +677,4 @@ let ``convert [UpdateAgreementInput] to [MasterAgreementFieldUpdates]``
             activeBeginUpdate = input.activeBeginUpdate
             activeEndUpdate = input.activeEndUpdate
             memoUpdate = memoUpdate
-            gracePeriodInDaysUpdate = FieldUpdate.NoChange } }
+            gracePeriodInDaysUpdate = gracePeriodInDaysUpdate } }

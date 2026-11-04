@@ -82,6 +82,7 @@ let private createInput (name: string) : Contracts.CreateAgreementInput =
       activeBegin = Calendar.today().PlusDays(-30)
       activeEnd = None
       memo = None
+      gracePeriodInDays = None
       paymentAgreements = [ leg name ] }
 
 let private createRoute (name: string) =
@@ -99,6 +100,7 @@ let private noUpdate (name: string) : Contracts.UpdateAgreementInput =
       activeBeginUpdate = NoChange
       activeEndUpdate = NoChange
       memoUpdate = NoChange
+      gracePeriodInDaysUpdate = NoChange
       paymentAgreementUpdates = []
       newPaymentAgreements = [] }
 

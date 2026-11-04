@@ -240,6 +240,7 @@ let private noAgreementChange (name: string) : Contracts.UpdateAgreementInput =
       activeBeginUpdate = NoChange
       activeEndUpdate = NoChange
       memoUpdate = NoChange
+      gracePeriodInDaysUpdate = NoChange
       paymentAgreementUpdates = []
       newPaymentAgreements = [] }
 
@@ -270,6 +271,7 @@ let private agreementInput (name: string) (legs: Contracts.CreatePaymentAgreemen
       activeBegin = (Calendar.today ()).PlusYears(-1)
       activeEnd = None
       memo = None
+      gracePeriodInDays = None
       paymentAgreements = legs }
 
 let private stagedLineId (pointer: TransactionPointer) =

@@ -102,6 +102,7 @@ type MasterAgreementReturn = {
     activeBegin: LocalDate
     activeEnd: LocalDate option
     memo: string option
+    gracePeriodInDays: int option
     createdAt: Instant
     modifiedAt: Instant
 }
@@ -256,6 +257,7 @@ type CreateAgreementInput = {
     activeBegin: LocalDate
     activeEnd: LocalDate option
     memo: string option
+    gracePeriodInDays: int option
     paymentAgreements: CreatePaymentAgreementFieldsInput list
 }
 
@@ -280,6 +282,7 @@ type UpdateAgreementInput = {
     activeBeginUpdate: FieldUpdate<LocalDate>
     activeEndUpdate: FieldUpdate<LocalDate option>
     memoUpdate: FieldUpdate<string option>
+    gracePeriodInDaysUpdate: FieldUpdate<int option>
     paymentAgreementUpdates: UpdatePaymentAgreementInput list
     newPaymentAgreements: CreatePaymentAgreementFieldsInput list
 }
