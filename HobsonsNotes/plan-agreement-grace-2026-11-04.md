@@ -259,6 +259,19 @@ installed from the Ubuntu archive because the container had none):
 - `traceability-audit.sh .`: Invariant 1 clean; Invariant 2 lists REQ-CF-2.28 only (the new
   requirement, no tests yet).
 
+**Final** (`sonofleo_test` dropped and rebuilt from scratch with the new migration, at the
+last commit):
+
+- Build: 0 warnings, 0 errors.
+- `Tests.Isolated`: 539 passed, 0 failed (536 + 3). `Tests.Integrated`: 1823 passed, 0 failed
+  (1794 + 29).
+- `bash Checks/run-all.sh`: 12 passed, 0 failed, 1 skipped (check-traceability, not main).
+  AppError coverage report: 323/407 (both new cases referenced).
+- `traceability-audit.sh .`: Invariant 1 clean, Invariant 2 clean (REQ-CF-2.28 now tested;
+  13.3, 14.1, 14.2 and 14.11 have tests of the new clauses).
+- `validate.py`: VALID, 0 findings. `model_drift.py`: NO DRIFT.
+- No `Not yet implemented` placeholder left.
+
 ### 5.2 Per item
 (A1–A4, B1, B2, and the test names; where the effective-grace function
 lives and why; what you perturbed for each new assertion)
@@ -440,7 +453,59 @@ REQ-CF-14.1's "left out".
 ### 5.4 Stale-cache cases
 (any test that needed its data changed under the stale-cache rule)
 
+None. B1 warms the master agreement name cache on purpose and uses names unique to its run;
+no other test reads a renamed record through a cache.
+
 ### 5.5 ArchReviewer
 (verdict, findings, what you did about each)
 
+Run by this session over `git diff main...HEAD -- Src Checks DbMigration` (9 files, +78/−19;
+nothing under `Checks/`), Gate 0 green first. **APPROVED, no findings.** Notes per check:
+
+- 1 Domain ownership: the column, type, errors and effective-grace rule are all CashFlow's,
+  on CashFlow's table.
+- 2/5 Layer and placement: `GracePeriodInDays` is a domain primitive in `CashFlowComponent.fs`
+  beside its twin; `effectiveGracePeriodInDays` reads one entity so it sits in that entity's
+  module; the orchestration file lost a function rather than gaining one; contracts stay in the
+  bridge.
+- 6 Naming: `GracePeriodInDays` mirrors `DaysDueAfterInvoiceDate`; the AppError cases follow
+  `<Prefix><Concept><Failure>`; converters reused, none added.
+- 7 Comments: none added; the stale "past an invoice's due date" comment removed. The
+  unchanged `None -> 0` arm in `windowCovers` is unreachable in practice (every open Invoice's
+  agreement is fetched) and was left as it was.
+- 9 Scope: only the plan's contract fields; the one route line beyond passing the value is the
+  create wrapping (A3).
+- 11/12: `create` stays as before; validation through the existing `convert…Fallible` helpers.
+- 13 Once-only: candidate selection untouched; only the window's width changed.
+
 ### 5.6 Disagreements, deviations, skipped items, things for Dan
+
+No item was skipped.
+
+- **REQ-CF-14.1 "left out" vs the §2 contract (the one for Dan).** The spec says the grace
+  "may be given or left out; left out, it is null". With `gracePeriodInDays: int option`, as §2
+  fixes it, a CreateAgreement payload that omits the key is refused by the deserializer, naming
+  the field (§5.3, tried with the CLI). Sending `null` works. I kept the §2 contract, read "left
+  out" as "not given, i.e. null", and renegotiated two committed names to say null (§5.2). If
+  Dan wants a payload without the key to be accepted (so existing ops scripts keep working
+  unchanged), the narrow way I found is the library's `Skippable<int option>` on that one field
+  (tried in a scratch script: missing → `Skip`, null → `Include None`); it changes the contract
+  type, so I didn't take it. A type-level `JsonFSharpConverter` override was tried and rejected:
+  with `WithAllowOverride` it broke null handling for every option field of the type. Until then,
+  every ops script that sends CreateAgreement or UpdateAgreement needs the new key added.
+- **AppError placement.** The two cases are slotted alphabetically (after
+  `CashflowExternalInvoiceIdTooLong`), per the SrcDeveloper AppError rule, not literally beside
+  the days-due cases as A2 says.
+- **Create-route wrapping.** A3 says the converters wrap `int option`; on create the route
+  already wraps memo inline, so the grace is wrapped the same way on the next line rather than
+  through a new converter. The update path goes through the converter as A3 says.
+- **Pushing.** The SrcDeveloper skill says never push; this plan says push after every item.
+  I followed the plan.
+- **Name-grader suggestions not taken**, with reasons, are in §5.2 (notably a REQ-CF-13.1
+  overlap test: the oldest-Invoice rule is unchanged and already tested).
+- **A perturbation artefact worth knowing.** Making a cadence update also write the grace
+  (to see the cadence-change theory fail) also changes the fixture, whose Instance creation
+  calls `updateCadence`; the set/clear test then failed on its "starts with none" assertion.
+  Its own assertions were seen failing by the separate perturbations listed in §5.2.
+- **Environment.** The container had no .NET SDK; I installed `dotnet-sdk-10.0` (10.0.114)
+  from the Ubuntu archive. The direct dotnet-install script was refused by the sandbox.
