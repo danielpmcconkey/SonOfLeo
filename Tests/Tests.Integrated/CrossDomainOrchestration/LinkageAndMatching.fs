@@ -70,6 +70,11 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
 
     /// An agreement with one 100.00 leg, active since three months ago. Returns the agreement's id and its leg's id.
     member this.agreementWithCadence (name: string) (direction: FlowDirection) (cadence: Cadence.CadenceType) (nextInstance: LocalDate) =
+        this.agreementWithCadenceAndGrace name direction cadence nextInstance None
+
+    /// As agreementWithCadence, with its own grace period in days.
+    member this.agreementWithCadenceAndGrace (name: string) (direction: FlowDirection) (cadence: Cadence.CadenceType)
+            (nextInstance: LocalDate) (graceDays: int option) =
         result {
             let! agreementName = name |> AgreementName.create
             let! counterparty = "Linkage and matching test counterparty" |> Counterparty.create
@@ -79,13 +84,14 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
             let! legName = $"{name} leg" |> PaymentAgreementName.create
             let! expected = Money.fromDecimal 100.00M
             let! due = 0 |> DaysDueAfterInvoiceDate.create
+            let! grace = graceDays |> convertOptionToDesiredTypeWithFallibleConverter GracePeriodInDays.create
             let debit, credit =
                 match direction with
                 | Outgo -> this.loanId, this.cashId
                 | Income -> this.cashId, this.revenueId
             let! agreement =
                 AgreementOrchestration.constructNewAndPersist
-                    context agreementName direction cadence { nextInstance = nextInstance } counterparty activityPeriod None None
+                    context agreementName direction cadence { nextInstance = nextInstance } counterparty activityPeriod None grace
                     [ (legName, (DebitAccount.create debit), (CreditAccount.create credit), Some expected, Some due, None) ]
             let agreementId = agreement |> AgreementOrchestration.masterAgreement |> MasterAgreement.agreementID
             let legId =
@@ -287,6 +293,24 @@ type private Scenario(fixture: TestDataFixture, context: Context.Context) =
 
     member _.linksOf (lineId: StageEntryLineId) =
         lineId |> PaymentAgreementLink.fetchByStageEntryLineId context
+
+    /// Sets the agreement's grace period in days, or clears it with None.
+    member _.setGrace agreementId (graceDays: int option) =
+        result {
+            let! grace = graceDays |> convertOptionToDesiredTypeWithFallibleConverter GracePeriodInDays.create
+            let updates : MasterAgreement.MasterAgreementFieldUpdates =
+                { agreementIdToUpdate = agreementId
+                  agreementNameUpdate = FieldUpdate.NoChange
+                  directionUpdate = FieldUpdate.NoChange
+                  cadenceUpdate = FieldUpdate.NoChange
+                  counterpartyUpdate = FieldUpdate.NoChange
+                  activeBeginUpdate = FieldUpdate.NoChange
+                  activeEndUpdate = FieldUpdate.NoChange
+                  memoUpdate = FieldUpdate.NoChange
+                  gracePeriodInDaysUpdate = FieldUpdate.SetTo grace }
+            let! _ = updates |> MasterAgreement.update context
+            return ()
+        }
 
     member _.paymentsOn (lineId: StageEntryLineId) =
         [ lineId ] |> Payment.fetchByStageEntryLineIdList context
@@ -1263,41 +1287,152 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
     // REQ-CF-13.3 — an agreement's own grace period in days
     // =========================================================================
 
+    (* As the cadence cases above: an Invoice dated the 1st of this month and due 10 days later. Each agreement's own
+       grace differs from its cadence's (Monthly 7, Daily 0), so a window built from the cadence would pay or orphan
+       the wrong lines: 0 on Monthly narrows it, 20 on Monthly and 5 on Daily widen it. *)
+
     [<Theory>]
     [<InlineData("Monthly", 0)>]
     [<InlineData("Monthly", 20)>]
     [<InlineData("Daily", 5)>]
     member _.``REQ-CF-13.3 for each of a Monthly agreement with a grace period in days of 0, a Monthly agreement with 20 and a Daily agreement with 5, a linked line dated exactly that grace period before the Invoice date is paid to that Invoice`` (cadence: string, graceDays: int) =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback ClassifyPaymentAgreements (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let invoiceDate = scenario.firstOfThisMonth
+                let cadenceType, nextInstance = cadenceFor cadence invoiceDate
+                let! agreementId, legId =
+                    scenario.agreementWithCadenceAndGrace $"CF-13.3 own grace {cadence} {graceDays} early edge" Outgo cadenceType nextInstance (Some graceDays)
+                let! _, invoiceId = scenario.outgoInvoice agreementId legId invoiceDate 10
+                let! lineId = scenario.linkedLine legId $"CF-13.3 own grace {cadence} {graceDays} early edge payment" (invoiceDate.PlusDays(-graceDays))
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
+                let! payments = scenario.paymentsOn lineId
+                let payment = Assert.Single(payments)
+                Assert.Equal(invoiceId, payment |> Payment.invoiceId)
+            })
+        |> railroadWrapper
 
     [<Theory>]
     [<InlineData("Monthly", 0)>]
     [<InlineData("Monthly", 20)>]
     [<InlineData("Daily", 5)>]
     member _.``REQ-CF-13.3 for each of a Monthly agreement with a grace period in days of 0, a Monthly agreement with 20 and a Daily agreement with 5, a linked line dated exactly that grace period after the due date is paid to that Invoice`` (cadence: string, graceDays: int) =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback ClassifyPaymentAgreements (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let invoiceDate = scenario.firstOfThisMonth
+                let cadenceType, nextInstance = cadenceFor cadence invoiceDate
+                let! agreementId, legId =
+                    scenario.agreementWithCadenceAndGrace $"CF-13.3 own grace {cadence} {graceDays} late edge" Outgo cadenceType nextInstance (Some graceDays)
+                let! _, invoiceId = scenario.outgoInvoice agreementId legId invoiceDate 10
+                let! lineId = scenario.linkedLine legId $"CF-13.3 own grace {cadence} {graceDays} late edge payment" (invoiceDate.PlusDays(10 + graceDays))
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
+                let! payments = scenario.paymentsOn lineId
+                let payment = Assert.Single(payments)
+                Assert.Equal(invoiceId, payment |> Payment.invoiceId)
+            })
+        |> railroadWrapper
 
     [<Theory>]
     [<InlineData("Monthly", 0)>]
     [<InlineData("Monthly", 20)>]
     [<InlineData("Daily", 5)>]
     member _.``REQ-CF-13.3 for each of a Monthly agreement with a grace period in days of 0, a Monthly agreement with 20 and a Daily agreement with 5, a linked line dated one day more than that grace period before the Invoice date fails the run as an orphan of that agreement with the no-covering-Invoice reason`` (cadence: string, graceDays: int) =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback ClassifyPaymentAgreements (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let invoiceDate = scenario.firstOfThisMonth
+                let cadenceType, nextInstance = cadenceFor cadence invoiceDate
+                let! agreementId, legId =
+                    scenario.agreementWithCadenceAndGrace $"CF-13.3 own grace {cadence} {graceDays} too early" Outgo cadenceType nextInstance (Some graceDays)
+                let! _ = scenario.outgoInvoice agreementId legId invoiceDate 10
+                let! lineId = scenario.linkedLine legId $"CF-13.3 own grace {cadence} {graceDays} too early payment" (invoiceDate.PlusDays(-graceDays - 1))
+                let! orphans = ClassificationOrchestration.classifyPaymentAgreements context |> orphansIn
+                let orphanLine, orphanLeg, reason = Assert.Single(orphans)
+                Assert.Equal(lineId |> StageEntryLineId.value, orphanLine)
+                Assert.Equal(legId |> PaymentAgreementId.value, orphanLeg)
+                Assert.Equal(OrphanedLineReason.toString NoOpenInvoiceCoversDate, reason)
+            })
+        |> railroadWrapper
 
     [<Theory>]
     [<InlineData("Monthly", 0)>]
     [<InlineData("Monthly", 20)>]
     [<InlineData("Daily", 5)>]
     member _.``REQ-CF-13.3 for each of a Monthly agreement with a grace period in days of 0, a Monthly agreement with 20 and a Daily agreement with 5, a linked line dated one day more than that grace period after the due date fails the run as an orphan of that agreement with the no-covering-Invoice reason`` (cadence: string, graceDays: int) =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback ClassifyPaymentAgreements (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let invoiceDate = scenario.firstOfThisMonth
+                let cadenceType, nextInstance = cadenceFor cadence invoiceDate
+                let! agreementId, legId =
+                    scenario.agreementWithCadenceAndGrace $"CF-13.3 own grace {cadence} {graceDays} too late" Outgo cadenceType nextInstance (Some graceDays)
+                let! _ = scenario.outgoInvoice agreementId legId invoiceDate 10
+                let! lineId = scenario.linkedLine legId $"CF-13.3 own grace {cadence} {graceDays} too late payment" (invoiceDate.PlusDays(10 + graceDays + 1))
+                let! orphans = ClassificationOrchestration.classifyPaymentAgreements context |> orphansIn
+                let orphanLine, orphanLeg, reason = Assert.Single(orphans)
+                Assert.Equal(lineId |> StageEntryLineId.value, orphanLine)
+                Assert.Equal(legId |> PaymentAgreementId.value, orphanLeg)
+                Assert.Equal(OrphanedLineReason.toString NoOpenInvoiceCoversDate, reason)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-CF-13.3 REQ-CF-14.2 once a Monthly agreement's 20-day grace period in days is cleared, in separate runs against an Invoice that existed before the clear, a linked line dated 7 days before the Invoice date is paid to it and one dated 8 days before it fails the run as an orphan with the no-covering-Invoice reason`` () =
-        Assert.Fail "Not yet implemented"
+        (* The orphan run goes first, so the Invoice is still unpaid when it runs; its line's link is then deleted so the
+           second run sees only the line at 7 days. *)
+        runCommandRouteAndAutoRollback ClassifyPaymentAgreements (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let invoiceDate = scenario.firstOfThisMonth
+                let cadenceType, nextInstance = cadenceFor "Monthly" invoiceDate
+                let! agreementId, legId =
+                    scenario.agreementWithCadenceAndGrace "CF-13.3 cleared grace" Outgo cadenceType nextInstance (Some 20)
+                let! _, invoiceId = scenario.outgoInvoice agreementId legId invoiceDate 10
+                do! scenario.setGrace agreementId None
+                let! eightDaysLine = scenario.linkedLine legId "CF-13.3 cleared grace 8 days early" (invoiceDate.PlusDays(-8))
+                let! orphans = ClassificationOrchestration.classifyPaymentAgreements context |> orphansIn
+                let orphanLine, orphanLeg, reason = Assert.Single(orphans)
+                Assert.Equal(eightDaysLine |> StageEntryLineId.value, orphanLine)
+                Assert.Equal(legId |> PaymentAgreementId.value, orphanLeg)
+                Assert.Equal(OrphanedLineReason.toString NoOpenInvoiceCoversDate, reason)
+                let! links = scenario.linksOf eightDaysLine
+                do!
+                    links
+                    |> List.map (PaymentAgreementLink.paymentAgreementLinkId >> PaymentAgreementLink.delete context)
+                    |> convertListOfResultsToResultsList
+                    |> Result.map ignore
+                let! sevenDaysLine = scenario.linkedLine legId "CF-13.3 cleared grace 7 days early" (invoiceDate.PlusDays(-7))
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
+                let! payments = scenario.paymentsOn sevenDaysLine
+                let payment = Assert.Single(payments)
+                Assert.Equal(invoiceId, payment |> Payment.invoiceId)
+            })
+        |> railroadWrapper
 
     [<Fact>]
     member _.``REQ-CF-13.3 REQ-CF-14.2 when an agreement's grace period in days is widened from 0 to 20 between two matching runs, a linked line dated 20 days before an Invoice that existed at the first run fails the first run as an orphan with the no-covering-Invoice reason and is paid to that Invoice by the second`` () =
-        Assert.Fail "Not yet implemented"
+        runCommandRouteAndAutoRollback ClassifyPaymentAgreements (fun context ->
+            result {
+                let scenario = Scenario(fixture, context)
+                let invoiceDate = scenario.firstOfThisMonth
+                let cadenceType, nextInstance = cadenceFor "Monthly" invoiceDate
+                let! agreementId, legId =
+                    scenario.agreementWithCadenceAndGrace "CF-13.3 widened grace" Outgo cadenceType nextInstance (Some 0)
+                let! _, invoiceId = scenario.outgoInvoice agreementId legId invoiceDate 10
+                let! lineId = scenario.linkedLine legId "CF-13.3 widened grace payment" (invoiceDate.PlusDays(-20))
+                let! orphans = ClassificationOrchestration.classifyPaymentAgreements context |> orphansIn
+                let orphanLine, orphanLeg, reason = Assert.Single(orphans)
+                Assert.Equal(lineId |> StageEntryLineId.value, orphanLine)
+                Assert.Equal(legId |> PaymentAgreementId.value, orphanLeg)
+                Assert.Equal(OrphanedLineReason.toString NoOpenInvoiceCoversDate, reason)
+                do! scenario.setGrace agreementId (Some 20)
+                let! _ = ClassificationOrchestration.classifyPaymentAgreements context
+                let! payments = scenario.paymentsOn lineId
+                let payment = Assert.Single(payments)
+                Assert.Equal(invoiceId, payment |> Payment.invoiceId)
+            })
+        |> railroadWrapper
 
     // =========================================================================
     // REQ-CF-13.4 through 13.6 — what matching does with its candidates
