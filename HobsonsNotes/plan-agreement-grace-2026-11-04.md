@@ -333,6 +333,17 @@ that build these records gained `gracePeriodInDays = None` / `gracePeriodInDaysU
 NoChange` (8 files, 17 lines). Full integrated run after A3: 1794 passed, only the 30
 placeholders failing.
 
+**A4 matching.** `MasterAgreement.effectiveGracePeriodInDays : MasterAgreement -> int` in
+`MasterAgreement.fs`: the agreement's grace period in days when it has one, else the cadence's
+(the cadence table moved there as a private helper). It reads only a Master Agreement, so by
+the SrcDeveloper placement rule (lowest tier that sees everything it references) it belongs in
+the entity module, not `CashFlowOps.fs`; `CashFlowComponent.fs` can't see `MasterAgreement`, and
+nothing above the entity needs to decide it. `CashFlowOps.fs` now maps each agreement ID to
+that effective grace instead of its cadence type; the window arithmetic and the `None -> 0`
+arm are unchanged. The old comment ("how many days past an invoice's due date…") is gone, not
+carried over. The four existing cadence theories and the rest of `LinkageAndMatching` /
+`InvoiceMatching` pass unchanged (85 passed; the 14 failures are this slice's placeholders).
+
 ### 5.3 Route payloads
 (every contract that changed, field by field; whether an operator payload
 that omits `gracePeriodInDays` or `gracePeriodInDaysUpdate` is accepted by

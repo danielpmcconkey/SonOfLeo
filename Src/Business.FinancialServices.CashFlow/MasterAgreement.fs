@@ -342,6 +342,19 @@ let updateCadence context newCadence masterAgreement =
     }
     fieldUpdates |> update context
 
+let private gracePeriodInDaysFromCadenceType (cadenceType: Cadence.CadenceType) : int =
+    match cadenceType with
+    | Cadence.Daily -> 0
+    | Cadence.Weekly _ -> 2
+    | Cadence.EveryOtherWeek _ -> 4
+    | Cadence.Monthly _ -> 7
+    | Cadence.Annually _ -> 7
+
+let effectiveGracePeriodInDays (masterAgreement: MasterAgreement) : int =
+    match masterAgreement.gracePeriodInDays with
+    | Some gracePeriodInDays -> gracePeriodInDays |> GracePeriodInDays.value
+    | None -> masterAgreement.cadence |> Cadence.cadenceType |> gracePeriodInDaysFromCadenceType
+
 let private nameToIdCache = App.DataAccessLayer.LookupCache.stringToIdCache "cashflow.master_agreement" "agreement_name"
 let private idToNameCache = App.DataAccessLayer.LookupCache.idToStringCache "cashflow.master_agreement" "agreement_name"
 

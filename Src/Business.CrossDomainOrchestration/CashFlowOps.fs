@@ -297,15 +297,6 @@ let private writeLinkagesForClaimClusters
             linksAndDecisionsByCluster |> List.collect snd
     }
 
-// how many days past an invoice's due date a payment may land and still be considered a match for it
-let private gracePeriodInDaysFromCadenceType (cadenceType: Cadence.CadenceType) : int =
-    match cadenceType with
-    | Cadence.Daily -> 0
-    | Cadence.Weekly _ -> 2
-    | Cadence.EveryOtherWeek _ -> 4
-    | Cadence.Monthly _ -> 7
-    | Cadence.Annually _ -> 7
-
 let private noChangeInvoiceUpdates (invoiceId: CashFlowComponent.InvoiceId) : Invoice.InvoiceFieldUpdates =
     { invoiceIdToUpdate = invoiceId
       externalInvoiceIdUpdate = FieldUpdate.NoChange
@@ -436,11 +427,11 @@ let private matchInvoicesAndCreatePayments
         let ineligibleLineIds = paidLineIds @ setAsideLineIds |> Set.ofList
         let masterAgreementIds = openInvoices |> List.map (fun (_, maId, _, _, _) -> maId) |> List.distinct
         let! masterAgreements = masterAgreementIds |> MasterAgreement.fetchByMasterAgreementIdList context
-        let cadenceTypeByAgreementId =
+        let gracePeriodInDaysByAgreementId =
             masterAgreements
             |> List.map (fun masterAgreement ->
                 (masterAgreement |> MasterAgreement.agreementID),
-                (masterAgreement |> MasterAgreement.cadence |> Cadence.cadenceType))
+                (masterAgreement |> MasterAgreement.effectiveGracePeriodInDays))
             |> Map.ofList
         let linesByAgreementId =
             links
@@ -454,8 +445,8 @@ let private matchInvoicesAndCreatePayments
             |> Option.bind (fun line -> entryDateByHeaderId |> Map.tryFind (line |> StageEntryLine.stageEntryHeaderId))
         let windowCovers (masterAgreementId: CashFlowComponent.MasterAgreementId) (invoice: Invoice.Invoice) lineId =
             let graceInDays =
-                match cadenceTypeByAgreementId |> Map.tryFind masterAgreementId with
-                | Some cadenceType -> cadenceType |> gracePeriodInDaysFromCadenceType
+                match gracePeriodInDaysByAgreementId |> Map.tryFind masterAgreementId with
+                | Some gracePeriodInDays -> gracePeriodInDays
                 | None -> 0
             let windowStart = ((invoice |> Invoice.invoiceDate) |> CashFlowComponent.InvoiceDate.value).PlusDays(-graceInDays)
             let windowEnd = ((invoice |> Invoice.dueDate) |> CashFlowComponent.DueDate.value).PlusDays(graceInDays)
