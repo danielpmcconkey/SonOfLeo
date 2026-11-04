@@ -718,14 +718,39 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
     [<InlineData(0)>]
     [<InlineData(365)>]
     member _.``REQ-CF-2.28 REQ-CF-14.1 for each of 0 and 365, an agreement created with that grace period in days is stored with that grace period`` (days: int) =
-        Assert.Fail "Not yet implemented"
+        let name = unique "CF-2.28 in range"
+        cleaningUp [ name ] (fun () ->
+            result {
+                let! json = { createInput name Contracts.Daily (today ()) with gracePeriodInDays = Some days } |> Json.toJson
+                let! _ = createRoute json
+                let! stored = storedNamed (fresh ()) name
+                Assert.Equal(Some days, stored |> List.exactlyOne |> MasterAgreement.gracePeriodInDays |> Option.map GracePeriodInDays.value)
+            })
 
     [<Theory>]
     [<InlineData(-1)>]
     [<InlineData(366)>]
     member _.``REQ-CF-2.28 for each of -1 and 366, creating an agreement with that grace period in days is rejected with a typed error naming the value and the bound it breaks, and no agreement is stored`` (days: int) =
-        Assert.Fail "Not yet implemented"
+        let name = unique "CF-2.28 out of range"
+        cleaningUp [ name ] (fun () ->
+            result {
+                let! json = { createInput name Contracts.Daily (today ()) with gracePeriodInDays = Some days } |> Json.toJson
+                createRoute json
+                |> expectRefusal (function
+                    | AsError (CashFlowError.CashflowGracePeriodInDaysBelowMin(refused, 0)) -> days = -1 && refused = days
+                    | AsError (CashFlowError.CashflowGracePeriodInDaysExceededMax(refused, 365)) -> days = 366 && refused = days
+                    | _ -> false)
+                let! stored = storedNamed (fresh ()) name
+                Assert.Empty(stored)
+            })
 
     [<Fact>]
-    member _.``REQ-CF-2.28 REQ-CF-14.1 an agreement created with the grace period in days left out is stored with none`` () =
-        Assert.Fail "Not yet implemented"
+    member _.``REQ-CF-2.28 REQ-CF-14.1 an agreement created with a null grace period in days is stored with none`` () =
+        let name = unique "CF-2.28 none"
+        cleaningUp [ name ] (fun () ->
+            result {
+                let! json = { createInput name Contracts.Daily (today ()) with gracePeriodInDays = None } |> Json.toJson
+                let! _ = createRoute json
+                let! stored = storedNamed (fresh ()) name
+                Assert.Equal(None, stored |> List.exactlyOne |> MasterAgreement.gracePeriodInDays)
+            })
