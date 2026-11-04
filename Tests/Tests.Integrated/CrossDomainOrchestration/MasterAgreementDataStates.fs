@@ -705,3 +705,23 @@ type MasterAgreementDataStatesTests(fixture: TestDataFixture) =
                 Assert.Empty(afterNone)
                 Assert.Single(afterOne) |> ignore
             })
+
+    // =========================================================================
+    // REQ-CF-2.28 — grace period in days
+    // =========================================================================
+
+    [<Theory>]
+    [<InlineData(0)>]
+    [<InlineData(365)>]
+    member _.``REQ-CF-2.28 REQ-CF-14.1 for each of 0 and 365, an agreement created with that grace period in days is stored with that grace period`` (days: int) =
+        Assert.Fail "Not yet implemented"
+
+    [<Theory>]
+    [<InlineData(-1)>]
+    [<InlineData(366)>]
+    member _.``REQ-CF-2.28 for each of -1 and 366, creating an agreement with that grace period in days is rejected with a typed error naming the value and the bound it breaks, and no agreement is stored`` (days: int) =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-2.28 REQ-CF-14.1 an agreement created with the grace period in days left out is stored with none`` () =
+        Assert.Fail "Not yet implemented"

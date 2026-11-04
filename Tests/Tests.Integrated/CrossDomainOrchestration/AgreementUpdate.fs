@@ -168,3 +168,17 @@ type AgreementUpdateTests(fixture: TestDataFixture) =
                 Assert.Equal(dayAfter, (storedCadence |> Cadence.nextInstance).nextInstance)
             })
         |> railroadWrapper
+
+    // =========================================================================
+    // REQ-CF-14.2 — grace period in days
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CF-14.2 an agreement update setting the grace period in days from none to 12 reads back 12, and a second update setting it to none reads back none`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Theory>]
+    [<InlineData("12")>]
+    [<InlineData("none")>]
+    member _.``REQ-CF-14.2 for each of a grace period in days of 12 and none, a cadence change from Monthly to Daily leaves the grace period in days as it was`` (grace: string) =
+        Assert.Fail "Not yet implemented"

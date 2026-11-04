@@ -364,3 +364,32 @@ type CashFlowRouteTests(fixture: TestDataFixture) =
                         | Error e -> cleanUpFailures.Add(e.ToMessage())
             | Error e -> cleanUpFailures.Add(e.ToMessage())
         Assert.Empty(cleanUpFailures)
+
+    // =========================================================================
+    // REQ-CF-14.1, 14.2 — grace period in days at the route
+    // =========================================================================
+
+    [<Theory>]
+    [<InlineData("12")>]
+    [<InlineData("null")>]
+    [<InlineData("left out")>]
+    member _.``REQ-CF-14.1 for each of a grace period in days of 12, an explicit null and the field left out, a CreateAgreement payload returns the created agreement carrying 12, none and none respectively`` (grace: string) =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-14.2 an UpdateAgreement payload setting the grace period in days to 12 returns, and the fetch by name reads back, 12; one then naming only the grace period in days, set to null, is accepted and returns, and reads back, none`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Theory>]
+    [<InlineData(-1)>]
+    [<InlineData(366)>]
+    member _.``REQ-CF-14.2 REQ-CF-2.28 for each of -1 and 366, an UpdateAgreement payload setting the grace period in days to it and changing the memo is rejected with a typed error naming the value and the bound it breaks, and the agreement's grace period stays 12 and its memo is unchanged`` (days: int) =
+        Assert.Fail "Not yet implemented"
+
+    // =========================================================================
+    // REQ-CF-14.2, 14.3 — Instances carry the new name after a rename
+    // =========================================================================
+
+    [<Fact>]
+    member _.``REQ-CF-14.2 REQ-CF-14.3 renaming an agreement whose Instances the open Instances fetch has already shown under the old name returns every Instance in the UpdateAgreement return under the new name, and the fetch by the new name reads every one back under the new name`` () =
+        Assert.Fail "Not yet implemented"

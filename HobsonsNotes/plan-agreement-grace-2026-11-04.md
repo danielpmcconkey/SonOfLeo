@@ -250,9 +250,54 @@ Written by the session that did this plan. Fill it in as you go (§0 step 4).
 ### 5.1 Outcome
 (baseline first; final counts and check outputs at the end)
 
+**Baseline** (branch at 78c6b15, `sonofleo_test` rebuilt from scratch, .NET SDK 10.0.114
+installed from the Ubuntu archive because the container had none):
+
+- Build: 0 warnings, 0 errors.
+- `Tests.Isolated`: 536 passed, 0 failed. `Tests.Integrated`: 1794 passed, 0 failed.
+- `bash Checks/run-all.sh`: 12 passed, 0 failed, 1 skipped (check-traceability, not main).
+- `traceability-audit.sh .`: Invariant 1 clean; Invariant 2 lists REQ-CF-2.28 only (the new
+  requirement, no tests yet).
+
 ### 5.2 Per item
 (A1–A4, B1, B2, and the test names; where the effective-grace function
 lives and why; what you perturbed for each new assertion)
+
+**Test names (§0 step 3).** Drafted from the spec and this plan before opening Src; graded
+by an independent agent (TestNameReview) given only the verbatim requirements, the waived
+table and the names. What it raised and what I did:
+
+- Isolated 2.28 name joined accept and reject: split in two, and the reject name now names
+  each value with its own bound (-1 with 0, 366 with 365).
+- "No grace period" at create could be met by an explicit null: the integrated create name
+  says "left out", and the route create theory runs 12, explicit null and left out.
+- Listing name said "as stored" (circular): now "carries 12 … and none for one created
+  without one".
+- Cleared-grace name: now says separate runs against an Invoice that existed before the
+  clear (an orphan rolls the whole run back, REQ-CF-13.7).
+- Out-of-range update: starts from 12, and the payload also changes the memo, so
+  "unchanged" can't be met by dropping the field.
+- Clearing by update: the route clearing payload names only the grace period, set to null,
+  so an explicit null is shown to count as a named field (REQ-SYS-6.1).
+- Cadence change: now a theory over 12 and none, so a cadence change that froze the old
+  cadence's grace into the field goes red.
+- B1 name rewritten to say what returns the Instances. Not taken: asserting the open
+  Instances fetch under the new name afterwards. That fetch resolves through the process-wide
+  cache, which the plan's own design leaves stale in a test process (rule 1, no
+  invalidation); in production each CLI run is a fresh process.
+- Not taken: a per-cadence fallback test (the existing four cadence theories create agreements
+  with no grace, so they are that test); a REQ-CF-13.1 overlap test (the oldest-Invoice rule
+  is unchanged and already tested; the grace only makes overlap easier to reach); a separate
+  route-level create rejection (the integrated create tests already go through the
+  CreateAgreement route, as the REQ-CF-3.10 ones do); "neither agreement nor Payment
+  Agreements stored" (a Payment Agreement cannot exist without its agreement row).
+- REQ-SYS-3.3: the modified-at theories enumerate by entity, not by Master Agreement field,
+  so nothing is added there.
+
+Names committed (placeholders): Isolated `MasterAgreementDataStates.fs` 2;
+`CrossDomainOrchestration/MasterAgreementDataStates.fs` 3; `LinkageAndMatching.fs` 6;
+`AgreementUpdate.fs` 2; `CashFlowListings.fs` 1; `InterfaceBridge/CashFlowRoutes.fs` 4
+(including B1).
 
 ### 5.3 Route payloads
 (every contract that changed, field by field; whether an operator payload

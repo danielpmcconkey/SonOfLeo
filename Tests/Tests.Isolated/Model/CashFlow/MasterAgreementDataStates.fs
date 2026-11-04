@@ -278,3 +278,17 @@ let ``REQ-CF-2.22 for each of the empty string, a single space and a string of s
     |> expectRefusal (function
         | AsError (CashflowAgreementMemoIsEmpty raw) -> raw = text
         | _ -> false)
+
+// =========================================================================
+// REQ-CF-2.28 — grace period in days
+// =========================================================================
+
+[<Theory>]
+[<InlineData(0)>]
+[<InlineData(365)>]
+let ``REQ-CF-2.28 for each of 0 and 365 a grace period in days is accepted and holds that value`` (days: int) =
+    Assert.Fail "Not yet implemented"
+
+[<Fact>]
+let ``REQ-CF-2.28 a grace period in days of -1 is rejected with a typed error naming -1 and the lower bound 0, and 366 with one naming 366 and the upper bound 365`` () =
+    Assert.Fail "Not yet implemented"

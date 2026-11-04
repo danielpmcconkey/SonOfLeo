@@ -1260,6 +1260,46 @@ type LinkageAndMatchingTests(fixture: TestDataFixture) =
         |> railroadWrapper
 
     // =========================================================================
+    // REQ-CF-13.3 — an agreement's own grace period in days
+    // =========================================================================
+
+    [<Theory>]
+    [<InlineData("Monthly", 0)>]
+    [<InlineData("Monthly", 20)>]
+    [<InlineData("Daily", 5)>]
+    member _.``REQ-CF-13.3 for each of a Monthly agreement with a grace period in days of 0, a Monthly agreement with 20 and a Daily agreement with 5, a linked line dated exactly that grace period before the Invoice date is paid to that Invoice`` (cadence: string, graceDays: int) =
+        Assert.Fail "Not yet implemented"
+
+    [<Theory>]
+    [<InlineData("Monthly", 0)>]
+    [<InlineData("Monthly", 20)>]
+    [<InlineData("Daily", 5)>]
+    member _.``REQ-CF-13.3 for each of a Monthly agreement with a grace period in days of 0, a Monthly agreement with 20 and a Daily agreement with 5, a linked line dated exactly that grace period after the due date is paid to that Invoice`` (cadence: string, graceDays: int) =
+        Assert.Fail "Not yet implemented"
+
+    [<Theory>]
+    [<InlineData("Monthly", 0)>]
+    [<InlineData("Monthly", 20)>]
+    [<InlineData("Daily", 5)>]
+    member _.``REQ-CF-13.3 for each of a Monthly agreement with a grace period in days of 0, a Monthly agreement with 20 and a Daily agreement with 5, a linked line dated one day more than that grace period before the Invoice date fails the run as an orphan of that agreement with the no-covering-Invoice reason`` (cadence: string, graceDays: int) =
+        Assert.Fail "Not yet implemented"
+
+    [<Theory>]
+    [<InlineData("Monthly", 0)>]
+    [<InlineData("Monthly", 20)>]
+    [<InlineData("Daily", 5)>]
+    member _.``REQ-CF-13.3 for each of a Monthly agreement with a grace period in days of 0, a Monthly agreement with 20 and a Daily agreement with 5, a linked line dated one day more than that grace period after the due date fails the run as an orphan of that agreement with the no-covering-Invoice reason`` (cadence: string, graceDays: int) =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.3 REQ-CF-14.2 once a Monthly agreement's 20-day grace period in days is cleared, in separate runs against an Invoice that existed before the clear, a linked line dated 7 days before the Invoice date is paid to it and one dated 8 days before it fails the run as an orphan with the no-covering-Invoice reason`` () =
+        Assert.Fail "Not yet implemented"
+
+    [<Fact>]
+    member _.``REQ-CF-13.3 REQ-CF-14.2 when an agreement's grace period in days is widened from 0 to 20 between two matching runs, a linked line dated 20 days before an Invoice that existed at the first run fails the first run as an orphan with the no-covering-Invoice reason and is paid to that Invoice by the second`` () =
+        Assert.Fail "Not yet implemented"
+
+    // =========================================================================
     // REQ-CF-13.4 through 13.6 — what matching does with its candidates
     // =========================================================================
 

@@ -227,6 +227,10 @@ type CashFlowListingsTests(fixture: TestDataFixture) =
                     mine |> List.map (fun l -> l.masterAgreement.agreementName, (l.paymentAgreements |> List.map _.paymentAgreementName)))
             })
 
+    [<Fact>]
+    member _.``REQ-CF-14.11 listing agreements carries 12 as the grace period in days of an agreement created with 12 and none for one created without one`` () =
+        Assert.Fail "Not yet implemented"
+
     // =========================================================================
     // REQ-CF-14.12 — fetch open Instances
     // =========================================================================
