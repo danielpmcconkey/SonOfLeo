@@ -397,4 +397,101 @@ type CashFlowRouteTests(fixture: TestDataFixture) =
 
     [<Fact>]
     member _.``REQ-CF-14.2 REQ-CF-14.3 renaming an agreement whose Instances the open Instances fetch has already shown under the old name returns every Instance in the UpdateAgreement return under the new name, and the fetch by the new name reads every one back under the new name`` () =
-        Assert.Fail "Not yet implemented"
+        (* An agreement of the test's own, Daily, with two open Instances. The open Instances fetch names each Instance's
+           agreement through the process-wide name cache, so reading it first leaves the old name in that cache; the
+           rename must not hand that name back on either the update's return or the fetch by the new name. *)
+        let name = $"CF-14.2 instance rename {Guid.NewGuid():N}"
+        let newName = $"CF-14.2 instance renamed {Guid.NewGuid():N}"
+        let legName = $"{name} leg"
+        let today = Calendar.today ()
+        let create : Contracts.CreateAgreementInput =
+            { agreementName = name
+              direction = "Outgo"
+              cadence = { cadenceType = Contracts.Daily; nextInstance = today.PlusDays(60) }
+              counterparty = "Route instance rename test counterparty"
+              activeBegin = today.PlusDays(-30)
+              activeEnd = None
+              memo = None
+              gracePeriodInDays = None
+              paymentAgreements =
+                [ { paymentAgreementName = legName
+                    debitAccountCode = "F-2230"
+                    creditAccountCode = "F-1280"
+                    expectedAmount = Some 100.00M
+                    daysDueAfterInvoiceDate = Some 0
+                    memo = None } ] }
+        let instanceOn (date: LocalDate) : Contracts.CreateInstanceInput =
+            { masterAgreementName = name
+              instanceDate = date
+              invoices =
+                [ { paymentAgreementName = legName
+                    externalInvoiceId = None
+                    invoiceDate = date
+                    dueDate = date
+                    amount = 100.00M
+                    invoiceState = "InvoiceReceived"
+                    blocker = None
+                    memo = None
+                    payments = [] } ] }
+        let rename : Contracts.UpdateAgreementInput =
+            { agreementName = name
+              agreementNameUpdate = FieldUpdate.SetTo newName
+              directionUpdate = FieldUpdate.NoChange
+              cadenceUpdate = FieldUpdate.NoChange
+              counterpartyUpdate = FieldUpdate.NoChange
+              activeBeginUpdate = FieldUpdate.NoChange
+              activeEndUpdate = FieldUpdate.NoChange
+              memoUpdate = FieldUpdate.NoChange
+              gracePeriodInDaysUpdate = FieldUpdate.NoChange
+              paymentAgreementUpdates = []
+              newPaymentAgreements = [] }
+        let instancesWithNames (instances: Contracts.InstanceReturn list) =
+            instances |> List.map (fun i -> i.instanceId, i.masterAgreementName) |> List.sort
+        let cleanUpFailures = ResizeArray<string>()
+        try
+            result {
+                let! _ = create |> Json.toJson |> Result.bind (routeUiCommandForTesting "CashFlow" "CreateAgreement" [])
+                let! createdInstances =
+                    [ today; today.PlusDays(1) ]
+                    |> List.map (fun date ->
+                        instanceOn date
+                        |> Json.toJson
+                        |> Result.bind (routeUiCommandForTesting "CashFlow" "CreateInstance" [])
+                        |> Result.bind Json.fromJson<Contracts.InstanceCompositeReturn>
+                        |> Result.map (fun composite -> composite.instance.instanceId))
+                    |> convertListOfResultsToResultsList
+                let! openJson = routeUiCommandForTesting "CashFlow" "FetchOpenInstances" [] ""
+                let! openInstances = Json.fromJson<Contracts.InstanceCompositeReturn list> openJson
+                let mineBeforeRename =
+                    openInstances
+                    |> List.map _.instance
+                    |> List.filter (fun i -> createdInstances |> List.contains i.instanceId)
+                Assert.Equal<(Guid * string) list>(
+                    createdInstances |> List.map (fun id -> id, name) |> List.sort, instancesWithNames mineBeforeRename)
+                let! updatedJson = rename |> Json.toJson |> Result.bind (routeUiCommandForTesting "CashFlow" "UpdateAgreement" [])
+                let! updated = Json.fromJson<Contracts.AgreementReturn> updatedJson
+                let! fetchedJson =
+                    ({ agreementName = newName } : Contracts.FetchAgreementSummaryInput)
+                    |> Json.toJson
+                    |> Result.bind (routeUiCommandForTesting "CashFlow" "FetchAgreementSummary" [])
+                let! fetched = Json.fromJson<Contracts.AgreementReturn> fetchedJson
+                let expected = createdInstances |> List.map (fun id -> id, newName) |> List.sort
+                Assert.Equal<(Guid * string) list>(expected, instancesWithNames updated.instances)
+                Assert.Equal<(Guid * string) list>(expected, instancesWithNames fetched.instances)
+            }
+            |> railroadWrapper
+        finally
+            match
+                ({ agreementIds = None; activeAgreementsOnly = false } : Business.FinancialServices.CashFlow.CashFlowComponent.AgreementFilter)
+                |> Business.CrossDomainOrchestration.AgreementOrchestration.fetchFiltered (fresh ()) AnyQuantityIsAcceptable
+            with
+            | Ok agreements ->
+                for a in agreements do
+                    let master = a |> Business.CrossDomainOrchestration.AgreementOrchestration.masterAgreement
+                    let stored = master |> MasterAgreement.agreementName |> AgreementName.value
+                    if stored = name || stored = newName then
+                        match Cleanup.cleanUpMasterAgreementTree (Some(master |> MasterAgreement.agreementID |> MasterAgreementId.value)) with
+                        | Ok () -> ()
+                        | Error e -> cleanUpFailures.Add(e.ToMessage())
+            | Error e -> cleanUpFailures.Add(e.ToMessage())
+        Assert.Empty(cleanUpFailures)

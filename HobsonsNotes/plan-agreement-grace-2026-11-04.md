@@ -344,6 +344,22 @@ arm are unchanged. The old comment ("how many days past an invoice's due date…
 carried over. The four existing cadence theories and the rest of `LinkageAndMatching` /
 `InvoiceMatching` pass unchanged (85 passed; the 14 failures are this slice's placeholders).
 
+**B1 stale-name route test** (`InterfaceBridge/CashFlowRoutes.fs`, "REQ-CF-14.2 REQ-CF-14.3
+renaming an agreement whose Instances the open Instances fetch has already shown under the old
+name returns every Instance in the UpdateAgreement return under the new name, and the fetch by
+the new name reads every one back under the new name"). Its own Daily agreement, two Instances
+(today, tomorrow) created through CreateInstance; FetchOpenInstances is read first and asserted
+to show both under the old name, which loads the cache; then UpdateAgreement renames; both the
+update's return and FetchAgreementSummary by the new name must carry exactly those two Instance
+IDs under the new name. The #094 test is untouched. Seen failing three ways, each restored:
+
+- Src perturbed as the plan says (`convert [Agreement] to [AgreementReturn]` built its Instances
+  with `convert [Instance] to [InstanceReturn]`): red on the update's return, `Expected: [(…,
+  "CF-14.2 instance renamed …"), …] Actual: [(…, "CF-14.2 instance rename …"), …]`.
+- Same perturbation with the update-return assertion commented out: red on the fetch by the
+  new name, same shape (old name from the warmed cache).
+- The warm-up assertion, expected changed to the new name: red, old name actual.
+
 ### 5.3 Route payloads
 (every contract that changed, field by field; whether an operator payload
 that omits `gracePeriodInDays` or `gracePeriodInDaysUpdate` is accepted by
